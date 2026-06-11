@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Role } from "@/lib/types";
+import { AuthProvider } from "./auth";
 
 interface AppState {
   role: Role;
@@ -43,5 +44,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
-  return <Ctx.Provider value={{ role, setRole, theme, toggleTheme }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ role, setRole, theme, toggleTheme }}>
+      <AuthProvider>{children}</AuthProvider>
+    </Ctx.Provider>
+  );
 }

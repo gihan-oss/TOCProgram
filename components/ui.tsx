@@ -1,5 +1,97 @@
+"use client";
+
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import * as Icons from "lucide-react";
+import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+
+// ---- Modern button: generous padding, soft radius, subtle motion ----
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Size = "sm" | "md" | "lg";
+
+const VARIANTS: Record<Variant, string> = {
+  primary: "bg-primary text-primary-foreground shadow-sm hover:opacity-90",
+  secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/70",
+  outline: "border bg-card hover:bg-secondary",
+  ghost: "hover:bg-secondary",
+  danger: "bg-[hsl(var(--danger))] text-white shadow-sm hover:opacity-90",
+};
+const SIZES: Record<Size, string> = {
+  sm: "h-9 px-4 text-sm rounded-lg gap-1.5",
+  md: "h-11 px-6 text-sm rounded-xl gap-2",
+  lg: "h-13 px-8 text-base rounded-xl gap-2.5 py-3.5",
+};
+
+export function Button({
+  variant = "primary",
+  size = "md",
+  className,
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size }) {
+  return (
+    <button
+      className={cn(
+        "inline-flex items-center justify-center font-semibold tracking-tight transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+        VARIANTS[variant],
+        SIZES[size],
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ---- Photo with graceful gradient fallback (never renders broken) ----
+export function Photo({
+  src,
+  alt,
+  className,
+  gradient = "from-primary/30 to-accent/30",
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  gradient?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className={cn("flex items-center justify-center bg-gradient-to-br", gradient, className)}>
+        <Icons.Image className="h-8 w-8 text-white/70" aria-hidden />
+        <span className="sr-only">{alt}</span>
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} className={cn("object-cover", className)} />;
+}
+
+// ---- Floating decorative icons layer ----
+export function FloatingIcons({ icons }: { icons?: { name: string; className: string; delay?: string }[] }) {
+  const set =
+    icons ?? [
+      { name: "HeartHandshake", className: "left-[6%] top-[18%] text-accent/40 h-10 w-10", delay: "0s" },
+      { name: "Sprout", className: "left-[14%] bottom-[16%] text-[hsl(var(--success))]/40 h-9 w-9", delay: "1.2s" },
+      { name: "Target", className: "right-[10%] top-[24%] text-primary/30 h-12 w-12", delay: "0.6s" },
+      { name: "Globe2", className: "right-[16%] bottom-[20%] text-accent/35 h-10 w-10", delay: "1.8s" },
+      { name: "TrendingUp", className: "left-[44%] top-[8%] text-[hsl(var(--warning))]/40 h-8 w-8", delay: "2.4s" },
+      { name: "BookOpen", className: "right-[40%] bottom-[10%] text-primary/30 h-9 w-9", delay: "0.9s" },
+    ];
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {set.map((it, i) => {
+        const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[it.name] ?? Icons.Circle;
+        return (
+          <div key={i} className={cn("absolute animate-float", it.className)} style={{ animationDelay: it.delay }}>
+            <Cmp className="h-full w-full" strokeWidth={1.5} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return (

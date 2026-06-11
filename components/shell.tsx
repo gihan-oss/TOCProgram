@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { navFor } from "@/lib/nav";
 import { ROLES, CURRENT_USER } from "@/lib/data";
 import { useApp } from "./providers";
+import { useAuth } from "./auth";
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle;
@@ -16,7 +17,10 @@ function Icon({ name, className }: { name: string; className?: string }) {
 
 export function Shell({ children }: { children: ReactNode }) {
   const { role, setRole, theme, toggleTheme } = useApp();
+  const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const displayName = user?.name || CURRENT_USER.name;
+  const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const [mobileOpen, setMobileOpen] = useState(false);
   const items = navFor(role);
   const groups = Array.from(new Set(items.map((i) => i.group)));
@@ -107,13 +111,17 @@ export function Shell({ children }: { children: ReactNode }) {
 
             <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1">
               <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: `hsl(${CURRENT_USER.avatarColor})` }}>
-                {CURRENT_USER.name.split(" ").map((n) => n[0]).join("")}
+                {initials}
               </div>
               <div className="hidden leading-tight sm:block">
-                <p className="text-xs font-medium">{CURRENT_USER.name}</p>
+                <p className="text-xs font-medium">{displayName}</p>
                 <p className="text-[10px] text-muted-foreground">{roleLabel}</p>
               </div>
             </div>
+
+            <button onClick={() => signOut()} className="rounded-lg border bg-background p-2 hover:bg-secondary" aria-label="Sign out" title="Sign out">
+              <Icons.LogOut className="h-4 w-4" />
+            </button>
           </div>
         </header>
 

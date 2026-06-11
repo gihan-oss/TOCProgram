@@ -37,6 +37,35 @@ A Next.js (App Router) + TypeScript + Tailwind CSS app that combines:
 - **Dark mode**, responsive/mobile-friendly layout, accessible, executive-grade design
   inspired by Notion, Airtable, Asana, Miro and Monday.com.
 
+## Authentication (Supabase, with demo fallback)
+
+Sign-in / sign-up lives at `/login`; the whole portal is gated behind it.
+
+- **Demo mode (default):** with no env vars set, any email + a 6+ char password
+  logs you in (stored locally). The app deploys and works immediately.
+- **Real auth:** create a free **Supabase** project → Settings → API → copy the
+  URL and anon key into env vars (locally `.env.local`, and in Vercel → Settings →
+  Environment Variables). See `.env.example`. The app auto-detects them and
+  switches `/login` to real Supabase email/password accounts — no code changes.
+
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+Auth lives in `components/auth.tsx` (`useAuth()`), the client in `lib/supabase.ts`,
+and the route gate in `components/auth-guard.tsx`.
+
+## Design
+
+- **Font:** Montserrat (via `next/font`, self-hosted — no layout shift).
+- **Imagery:** nonprofit/community photos in `lib/images.ts`, each rendered through
+  `<Photo>` which falls back to a gradient if a host is unreachable (never broken).
+- **Motion:** floating decorative icons (`<FloatingIcons>`) and a soft gradient
+  `mesh` background on the landing + login pages.
+- **Buttons:** a single modern `<Button>` component (`components/ui.tsx`) with
+  generous padding, soft radius and subtle press animation.
+
 ## Run locally
 
 ```bash
