@@ -8,32 +8,47 @@ export interface NavItem {
   roles: Role[];
 }
 
-// Deliberately small menus. Participants get a focused path; admins get a
-// console + the course builder + people. Admins can reach everything else, it's
-// just not cluttering the menu (see canAccess + the Admin console cards).
+// Richer than the bare version, but grouped and tidy. The icon rail keeps it
+// compact; hovering reveals the labels and group headings.
 export const NAV: NavItem[] = [
-  // ---- Participant ----
+  // ---- Participant: a guided path ----
+  { href: "/journey", label: "My Journey", icon: "Footprints", group: "Overview", roles: ["participant"] },
   { href: "/learning", label: "My Learning", icon: "GraduationCap", group: "Learn", roles: ["participant"] },
-  { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Learn", roles: ["participant"] },
+  { href: "/toc", label: "Theory of Change", icon: "Workflow", group: "Build", roles: ["participant"] },
+  { href: "/logframe", label: "Logframe", icon: "Table2", group: "Build", roles: ["participant"] },
+  { href: "/measurement", label: "Measurement", icon: "Ruler", group: "Build", roles: ["participant"] },
+  { href: "/package", label: "My Package", icon: "PackageCheck", group: "Build", roles: ["participant"] },
 
-  // ---- Admin ----
+  // ---- Admin / staff: administration ----
   { href: "/admin", label: "Admin Home", icon: "LayoutDashboard", group: "Administration", roles: ["admin"] },
   { href: "/learning", label: "Course Builder", icon: "BookMarked", group: "Administration", roles: ["admin", "facilitator"] },
   { href: "/admin/access", label: "People & Access", icon: "UserPlus", group: "Administration", roles: ["admin"] },
-  { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Administration", roles: ["admin", "facilitator"] },
 
-  // ---- Facilitator / coordinator / executive (kept light) ----
-  { href: "/cohorts", label: "People", icon: "Users", group: "Manage", roles: ["facilitator", "coordinator"] },
-  { href: "/reports", label: "Reports", icon: "FileBarChart", group: "Manage", roles: ["coordinator", "executive"] },
-  { href: "/impact", label: "Impact", icon: "TrendingUp", group: "Manage", roles: ["executive"] },
+  // ---- Insights / dashboards ----
+  { href: "/dashboard", label: "Dashboard", icon: "Gauge", group: "Insights", roles: ["admin", "facilitator", "coordinator", "executive"] },
+  { href: "/impact", label: "Impact", icon: "TrendingUp", group: "Insights", roles: ["admin", "facilitator", "coordinator", "executive"] },
+  { href: "/implementation", label: "Implementation", icon: "Rocket", group: "Insights", roles: ["admin", "facilitator", "executive"] },
+
+  // ---- Strategy & Programs ----
+  { href: "/strategy", label: "Strategy House", icon: "Building2", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "executive"] },
+  { href: "/programs", label: "Programs (TOC)", icon: "FolderKanban", group: "Strategy", roles: ["admin", "facilitator", "coordinator"] },
+
+  // ---- Help (everyone) ----
+  { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Help", roles: ["participant", "admin", "facilitator"] },
 ];
 
 export function navFor(role: Role) {
-  return NAV.filter((n) => n.roles.includes(role));
+  // de-dupe by href (a couple of routes appear with role-specific labels)
+  const seen = new Set<string>();
+  return NAV.filter((n) => n.roles.includes(role)).filter((n) => {
+    const k = `${n.group}:${n.href}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
-// Admins can reach any route (their menu is just trimmed for clarity).
-// Other roles are confined to what's in their menu.
+// Admins can reach any route; their menu is just curated.
 export function canAccess(role: Role, pathname: string) {
   if (role === "admin") return true;
   const allowed = navFor(role).map((n) => n.href);
@@ -42,8 +57,8 @@ export function canAccess(role: Role, pathname: string) {
 
 export function homeFor(role: Role) {
   if (role === "admin") return "/admin";
-  if (role === "participant") return "/learning";
-  if (role === "executive") return "/impact";
-  if (role === "coordinator") return "/reports";
+  if (role === "participant") return "/journey";
+  if (role === "executive") return "/dashboard";
+  if (role === "coordinator") return "/dashboard";
   return "/learning"; // facilitator → course builder
 }
