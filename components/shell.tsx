@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils";
-import { navFor } from "@/lib/nav";
+import { navFor, canAccess, homeFor } from "@/lib/nav";
 import { ROLES, CURRENT_USER } from "@/lib/data";
 import { useApp } from "./providers";
 import { useAuth } from "./auth";
@@ -20,6 +20,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { role, setRole, theme, toggleTheme } = useApp();
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const isAdmin = user?.role === "admin";
   const displayName = user?.name || CURRENT_USER.name;
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);
@@ -27,9 +28,20 @@ export function Shell({ children }: { children: ReactNode }) {
 
   // Restricted access: learners are locked to their assigned role; only
   // admins may switch the active view for previewing.
+  // On sign-in, set the active view to the user's true role (forces learners
+  // to their journey-scoped menu even if an old role was saved).
   useEffect(() => {
-    if (user && user.role !== "admin") setRole(user.role);
-  }, [user?.email, user?.role, setRole]);
+    if (user) setRole(user.role);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.email]);
+
+  // Enforce restricted access. Admins (true role) can reach anything — their
+  // dropdown only changes the *preview*; learners are confined to their set.
+  useEffect(() => {
+    if (user && !canAccess(user.role, pathname) && !canAccess(role, pathname)) {
+      router.replace(homeFor(role));
+    }
+  }, [role, pathname, user, router]);
   const items = navFor(role);
   const groups = Array.from(new Set(items.map((i) => i.group)));
   const roleLabel = ROLES.find((r) => r.id === role)?.label ?? role;

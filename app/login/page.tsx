@@ -8,7 +8,8 @@ import { Button, Photo, FloatingIcons } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/components/auth";
 import { IMAGES } from "@/lib/images";
-import { DEMO_ACCOUNTS } from "@/lib/access";
+import { DEMO_ACCOUNTS, resolveAccess } from "@/lib/access";
+import { homeFor } from "@/lib/nav";
 
 export default function LoginPage() {
   const { user, loading, signIn, signUp, isDemo } = useAuth();
@@ -21,7 +22,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard");
+    if (!loading && user) router.replace(homeFor(user.role));
   }, [loading, user, router]);
 
   async function submit(e: React.FormEvent) {
@@ -31,7 +32,7 @@ export default function LoginPage() {
     const res = mode === "signin" ? await signIn(email, password) : await signUp(name, email, password);
     setBusy(false);
     if (res.error) setError(res.error);
-    else router.replace("/dashboard");
+    else router.replace(homeFor(resolveAccess(email).role));
   }
 
   return (
