@@ -49,60 +49,9 @@ export interface Workstream {
   tasks: WorkstreamTask[];
 }
 
-// The 4 internal transformation workstreams ("Connecting the Dots" status).
-export const WORKSTREAMS: Workstream[] = [
-  {
-    id: "north-star",
-    title: "Setting Our North Star",
-    objective: "Unify members on the Areas of Focus; affirm Tarbiya as the core pillar and shift from activity-driven to impact-driven planning.",
-    tasks: [
-      { name: "Introduce Areas / Sub-Areas of Focus", progress: 100 },
-      { name: "Assess Orgs Alignment on Areas of Focus", progress: 83 },
-      { name: "MAS GLA Organizational Norms", progress: 0 },
-      { name: "Communicate Newly Defined Areas of Focus", progress: 50 },
-      { name: "Localizing the Focus Areas", progress: null },
-      { name: "Define the BHAG", progress: null },
-      { name: "Naqeeb Training", progress: 0 },
-      { name: "PACE Convention Alignment", progress: 0 },
-      { name: "Convention Leadership Alignment", progress: null },
-      { name: "Executive Council Training & Alignment", progress: 0 },
-      { name: "Survey 2.0", progress: 0 },
-    ],
-  },
-  {
-    id: "do-it-right",
-    title: "Do It Right & Do It Together",
-    objective: "Build operational infrastructure and team cohesion — org structure, SOPs and a role documentation system.",
-    tasks: [
-      { name: "Organization Structure", progress: 21 },
-      { name: "Develop Specialized Programs Strategy", progress: 0 },
-      { name: "Translate Programs into TOC Operational Plan Template", progress: 75 },
-      { name: "Develop General Operations Dynamic Dashboard", progress: 0 },
-      { name: "Proper Operational Infrastructure", progress: 0 },
-    ],
-  },
-  {
-    id: "resources",
-    title: "Better Resource Allocation",
-    objective: "Prevent burnout and ensure sustainability — CRM 2.0, knowing our members and an Office of Member Engagement.",
-    tasks: [
-      { name: "Develop CRM 2.0", progress: 70 },
-      { name: "Know Our Members Campaign", progress: 0 },
-      { name: "Office of Member Engagement Development", progress: 0 },
-    ],
-  },
-  {
-    id: "measure",
-    title: "Measure What Matters",
-    objective: "Establish operational excellence — align programs to the Areas of Focus, build a Theory of Change and M&E for each program.",
-    tasks: [
-      { name: "Program Alignment to Areas of Focus", progress: 69 },
-      { name: "Theory of Change Development of Each Program", progress: 0 },
-      { name: "Monitoring & Evaluation", progress: 0 },
-      { name: "Program Management Dashboard", progress: 0 },
-    ],
-  },
-];
+// Transformation workstreams ("Connecting the Dots"). Empty by default — add
+// your own workstreams and tasks; no fabricated progress.
+export const WORKSTREAMS: Workstream[] = [];
 
 export function workstreamProgress(w: Workstream) {
   const vals = w.tasks.map((t) => t.progress).filter((p): p is number => p !== null);
@@ -199,31 +148,11 @@ export interface Person {
   roleType: string;
   department: string;
 }
-export const PEOPLE: Person[] = [
-  { id: "u-omar", name: "Omar Farouk", roleType: "Department Head", department: "Leadership Development" },
-  { id: "u-aisha", name: "Aisha Rahman", roleType: "Team Lead", department: "Islam to Muslims" },
-  { id: "u-yusuf", name: "Yusuf Ali", roleType: "Volunteer", department: "Community Mobilization" },
-  { id: "u-layla", name: "Layla Hassan", roleType: "Staff", department: "Operate with Excellence" },
-  { id: "u-bilal", name: "Bilal Ahmed", roleType: "Volunteer", department: "Social Justice" },
-  { id: "u-khadija", name: "Khadija Noor", roleType: "Team Lead", department: "Islam to Non-Muslims" },
-  { id: "u-hamza", name: "Hamza Sayed", roleType: "Volunteer", department: "Leadership Development" },
-  { id: "u-sara", name: "Sara Malik", roleType: "Staff", department: "Communications" },
-];
+// People directory — empty by default; populated from "Know Our Members".
+export const PEOPLE: Person[] = [];
 
-// Representative sample from the MAS GLA TOC Dashboard (Airtable).
-export const PROGRAMS: Program[] = [
-  { id: "p1", name: "Revive and Reflect Qiyam", area: "Islam to Muslims", input: "High School Juniors & Seniors, College", baseline: "150 attendees · 2 Masajid", outcome: "Behavioral", decision: "Keep", status: "On Track", budget: 8000, team: ["u-aisha", "u-yusuf"] },
-  { id: "p2", name: "Youth Conference", area: "Islam to Muslims", input: "High School & College Youth", baseline: "150 attendees", outcome: "Knowledge", decision: "Keep", status: "On Track", budget: 12000, team: ["u-aisha"] },
-  { id: "p3", name: "From the Crescent to the Crown", area: "Islam to Muslims", input: "New Muslims & Youth", baseline: "60 attendees", outcome: "Behavioral", decision: "Modify", status: "Not Started", budget: 5000, team: [] },
-  { id: "p4", name: "The Effective Muslim Activist", area: "Leadership Development", input: "College Students in MSA / Social Justice", baseline: "1 campus event · 50 attendees", outcome: "Capacity", decision: "Keep", status: "On Track", budget: 4000, team: ["u-omar", "u-hamza"] },
-  { id: "p5", name: "Agents of Change – Revivers", area: "Leadership Development", input: "College MSA Members & Leaders", baseline: "1 campus event · 50 attendees", outcome: "Influence", decision: "Modify", status: "At Risk", budget: 3500, team: ["u-omar"] },
-  { id: "p6", name: "Tarbiya and Ilm Camp", area: "Leadership Development", input: "Youth & Emerging Leaders", baseline: "80 participants", outcome: "Knowledge", decision: "Keep", status: "On Track", budget: 9000, team: ["u-hamza"] },
-  { id: "p7", name: "Inland Empire Islamic Knowledge", area: "Community Mobilization", input: "Middle & High School Students", baseline: "50 students", outcome: "Network", decision: "Keep", status: "Not Started", budget: 3000, team: ["u-yusuf"] },
-  { id: "p8", name: "Salatul Istisqa", area: "Community Mobilization", input: "All Ages in the Muslim Community", baseline: "10 Masajid involved", outcome: "Move", decision: "Keep", status: "Completed", budget: 1500, team: ["u-yusuf"] },
-  { id: "p9", name: "Lighthouse Young Professionals", area: "Community Mobilization", input: "Young Professionals", baseline: "40 attendees", outcome: "Connect", decision: "Modify", status: "Not Started", budget: 2500, team: [] },
-  { id: "p10", name: "Voices Unveiled Spiritual", area: "Social Justice", input: "College Students in MSA", baseline: "70 attendees", outcome: "Knowledge", decision: "Modify", status: "At Risk", budget: 4500, team: ["u-bilal"] },
-];
+// Programs — empty by default. Admins/facilitators add them on the dashboard.
+export const PROGRAMS: Program[] = [];
 
-// Portfolio totals (as shown on the live dashboard).
-export const PROGRAM_SUMMARY = { total: 42, onTrack: 2, completed: 1, budget: 60000 };
-export const DECISION_TOTALS = { Keep: 25, Modify: 12, Cancel: 5 };
+export const PROGRAM_SUMMARY = { total: 0, onTrack: 0, completed: 0, budget: 0 };
+export const DECISION_TOTALS = { Keep: 0, Modify: 0, Cancel: 0 };

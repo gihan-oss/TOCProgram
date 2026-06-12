@@ -23,9 +23,9 @@ const STAGES: Stage[] = [
     icon: "Crosshair",
     why: "Most nonprofit programs fail because they start with activities, not clarity. Q-Zero forces you to name the single change you exist to create — the question funders and boards really fund.",
     build: "Approved Q-Zero Statement",
-    href: "/learning/m0",
-    cta: "Review Q-Zero",
-    progress: 100,
+    href: "/learning",
+    cta: "Start learning",
+    progress: 0,
   },
   {
     n: 2,
@@ -35,7 +35,7 @@ const STAGES: Stage[] = [
     build: "Complete Causal Chain & TOC",
     href: "/toc",
     cta: "Continue building",
-    progress: 78,
+    progress: 0,
   },
   {
     n: 3,
