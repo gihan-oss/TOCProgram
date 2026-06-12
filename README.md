@@ -64,9 +64,10 @@ and the route gate in `components/auth-guard.tsx`.
   (run once in the Supabase SQL Editor).
 - **Notifications:** in-app notification center (bell in the header), persisted
   the same way. Invites and onboarding generate notifications automatically.
-- **Email:** `/api/email` sends via **Resend** when `RESEND_API_KEY` is set
-  (see `.env.example`); otherwise emails are simulated so flows keep working.
-  Admin invites and the onboarding welcome email use this.
+- **Email:** `/api/email` sends via **Brevo** (`BREVO_API_KEY`) — Resend
+  (`RESEND_API_KEY`) is also supported as a fallback. Without a key, emails are
+  simulated so flows keep working. Admin invites and the onboarding welcome
+  email use this.
 
 ## Design
 
