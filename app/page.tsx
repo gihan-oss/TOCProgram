@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button, Photo, FloatingIcons } from "@/components/ui";
+import { Logo } from "@/components/logo";
 import { IMAGES, GALLERY } from "@/lib/images";
 
 const PILLARS = [
@@ -34,15 +35,7 @@ export default function Landing() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b glass">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Compass className="h-5 w-5" />
-            </div>
-            <div className="leading-tight">
-              <p className="font-bold">Impact OS</p>
-              <p className="text-xs text-muted-foreground">Theory of Change Portal</p>
-            </div>
-          </div>
+          <Logo subtitle="Impact Portal" size="md" />
           <div className="flex items-center gap-2">
             <Link href="/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
             <Link href="/login"><Button size="sm">Get started <ArrowRight className="h-4 w-4" /></Button></Link>

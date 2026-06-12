@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Button, Photo, FloatingIcons } from "@/components/ui";
+import { Logo } from "@/components/logo";
 import { useAuth } from "@/components/auth";
 import { IMAGES } from "@/lib/images";
+import { DEMO_ACCOUNTS } from "@/lib/access";
 
 export default function LoginPage() {
   const { user, loading, signIn, signUp, isDemo } = useAuth();
@@ -40,12 +42,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/80 via-primary/60 to-accent/50" />
         <FloatingIcons />
         <div className="relative flex h-full flex-col justify-between p-12 text-primary-foreground">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-              <Icons.Compass className="h-5 w-5" />
-            </div>
-            <span className="text-lg font-bold">Impact OS</span>
-          </Link>
+          <Link href="/"><Logo invert subtitle="Impact Portal" size="md" /></Link>
           <div className="max-w-md animate-fade-up">
             <h1 className="text-4xl font-extrabold leading-tight">Turn learning into measurable impact.</h1>
             <p className="mt-4 text-primary-foreground/85">
@@ -68,11 +65,8 @@ export default function LoginPage() {
       <div className="relative flex items-center justify-center p-6 sm:p-10">
         <div className="mesh absolute inset-0 opacity-60 lg:hidden" />
         <div className="relative w-full max-w-sm animate-fade-up">
-          <div className="mb-8 flex items-center gap-2 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Icons.Compass className="h-5 w-5" />
-            </div>
-            <span className="font-bold">Impact OS</span>
+          <div className="mb-8 lg:hidden">
+            <Logo subtitle="Impact Portal" size="md" />
           </div>
 
           <h2 className="text-2xl font-bold tracking-tight">{mode === "signin" ? "Welcome back" : "Create your account"}</h2>
@@ -81,9 +75,23 @@ export default function LoginPage() {
           </p>
 
           {isDemo && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl border border-accent/30 bg-accent/10 p-3 text-xs text-foreground">
-              <Icons.Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-              <span>Demo mode: enter any email and a 6+ character password to explore. Add Supabase keys to enable real accounts.</span>
+            <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 p-3 text-xs">
+              <p className="flex items-start gap-2 text-foreground">
+                <Icons.ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                <span>Access is restricted to approved accounts. Try one of these (any 6+ char password):</span>
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {DEMO_ACCOUNTS.map((a) => (
+                  <button
+                    key={a.email}
+                    type="button"
+                    onClick={() => { setEmail(a.email); setPassword("demo1234"); setMode("signin"); }}
+                    className="rounded-lg border bg-card px-2.5 py-1 font-medium hover:bg-secondary"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

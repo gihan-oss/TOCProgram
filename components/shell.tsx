@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navFor } from "@/lib/nav";
 import { ROLES, CURRENT_USER } from "@/lib/data";
 import { useApp } from "./providers";
 import { useAuth } from "./auth";
+import { Logo } from "./logo";
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle;
@@ -19,9 +20,16 @@ export function Shell({ children }: { children: ReactNode }) {
   const { role, setRole, theme, toggleTheme } = useApp();
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const isAdmin = user?.role === "admin";
   const displayName = user?.name || CURRENT_USER.name;
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Restricted access: learners are locked to their assigned role; only
+  // admins may switch the active view for previewing.
+  useEffect(() => {
+    if (user && user.role !== "admin") setRole(user.role);
+  }, [user?.email, user?.role, setRole]);
   const items = navFor(role);
   const groups = Array.from(new Set(items.map((i) => i.group)));
   const roleLabel = ROLES.find((r) => r.id === role)?.label ?? role;
@@ -35,14 +43,10 @@ export function Shell({ children }: { children: ReactNode }) {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 items-center gap-2 border-b px-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Icons.Compass className="h-5 w-5" />
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold">Impact OS</p>
-            <p className="text-[11px] text-muted-foreground">Theory of Change Portal</p>
-          </div>
+        <div className="flex h-16 items-center border-b px-5">
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+            <Logo subtitle="Impact Portal" size="sm" />
+          </Link>
         </div>
 
         <nav className="h-[calc(100vh-4rem)] overflow-y-auto px-3 py-4">
@@ -88,22 +92,28 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            {/* Role switcher (demo) */}
-            <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1">
-              <Icons.UserCog className="h-4 w-4 text-muted-foreground" />
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as typeof role)}
-                className="bg-transparent text-sm font-medium outline-none"
-                aria-label="Switch role"
-              >
-                {ROLES.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {isAdmin ? (
+              // Admins can preview any role
+              <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1" title="Admin: preview as role">
+                <Icons.UserCog className="h-4 w-4 text-muted-foreground" />
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as typeof role)}
+                  className="bg-transparent text-sm font-medium outline-none"
+                  aria-label="Preview as role"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <span className="hidden items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium sm:flex">
+                <Icons.GraduationCap className="h-4 w-4 text-accent" /> {roleLabel}
+              </span>
+            )}
 
             <button onClick={toggleTheme} className="rounded-lg border bg-background p-2 hover:bg-secondary" aria-label="Toggle theme">
               {theme === "dark" ? <Icons.Sun className="h-4 w-4" /> : <Icons.Moon className="h-4 w-4" />}

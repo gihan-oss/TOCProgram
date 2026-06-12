@@ -11,7 +11,7 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Impact OS — Theory of Change Portal",
+  title: "Amal & Company — Impact Portal",
   description:
     "A strategic operating system for nonprofit impact: learning, theory of change, logframes, measurement, evidence and implementation.",
 };

@@ -2,10 +2,13 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
+import { resolveAccess } from "@/lib/access";
+import type { Role } from "@/lib/types";
 
 export interface AuthUser {
   email: string;
   name: string;
+  role: Role;
 }
 
 interface AuthState {
@@ -34,16 +37,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const supabase = getSupabaseBrowserClient();
 
+  const toUser = (email: string, name?: string): AuthUser => ({
+    email,
+    name: name || nameFromEmail(email),
+    role: resolveAccess(email).role,
+  });
+
   useEffect(() => {
     if (supabase) {
       supabase.auth.getSession().then(({ data }) => {
         const u = data.session?.user;
-        if (u) setUser({ email: u.email ?? "", name: (u.user_metadata?.name as string) ?? nameFromEmail(u.email ?? "") });
+        if (u) setUser(toUser(u.email ?? "", u.user_metadata?.name as string));
         setLoading(false);
       });
       const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
         const u = session?.user;
-        setUser(u ? { email: u.email ?? "", name: (u.user_metadata?.name as string) ?? nameFromEmail(u.email ?? "") } : null);
+        setUser(u ? toUser(u.email ?? "", u.user_metadata?.name as string) : null);
       });
       return () => sub.subscription.unsubscribe();
     }
@@ -56,24 +65,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const signIn: AuthState["signIn"] = async (email, password) => {
+    const access = resolveAccess(email);
+    if (!access.allowed) return { error: access.reason };
     if (supabase) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return error ? { error: error.message } : {};
     }
     if (!email || password.length < 6) return { error: "Enter an email and a password of at least 6 characters." };
-    const u = { email, name: nameFromEmail(email) };
+    const u = toUser(email);
     localStorage.setItem(DEMO_KEY, JSON.stringify(u));
     setUser(u);
     return {};
   };
 
   const signUp: AuthState["signUp"] = async (name, email, password) => {
+    const access = resolveAccess(email);
+    if (!access.allowed) return { error: access.reason };
     if (supabase) {
       const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
       return error ? { error: error.message } : {};
     }
     if (!email || password.length < 6) return { error: "Enter an email and a password of at least 6 characters." };
-    const u = { email, name: name || nameFromEmail(email) };
+    const u = toUser(email, name);
     localStorage.setItem(DEMO_KEY, JSON.stringify(u));
     setUser(u);
     return {};
