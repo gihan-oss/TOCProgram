@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* Left — imagery panel */}
       <div className="relative hidden overflow-hidden bg-primary lg:block">
-        <Photo src={IMAGES.auth} alt="Nonprofit team working together" className="absolute inset-0 h-full w-full opacity-35" gradient="from-primary to-accent" />
+        <Photo src="/photo-gathering.jpg" alt="MAS GLA community gathering" className="absolute inset-0 h-full w-full opacity-35" gradient="from-primary to-accent" />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/80 via-primary/60 to-accent/50" />
         <FloatingIcons />
         <div className="relative flex h-full flex-col justify-between p-12 text-primary-foreground">

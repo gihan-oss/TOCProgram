@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { Button, Photo, FloatingIcons } from "@/components/ui";
 import { Logo } from "@/components/logo";
-import { IMAGES, GALLERY } from "@/lib/images";
 
 const PILLARS = [
   { icon: GraduationCap, title: "Learning Management", desc: "Cohort-based modules with sequential unlocking — measured by implementation, not attendance." },
@@ -69,24 +68,21 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Photo collage */}
+          {/* Photo collage — real MAS GLA community photos */}
           <div className="relative animate-fade-up">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <Photo src={IMAGES.volunteers} alt="Volunteers collaborating" className="h-44 w-full rounded-2xl shadow-lg" gradient="from-accent/40 to-primary/40" />
-                <Photo src={IMAGES.children} alt="Children in an education program" className="h-56 w-full rounded-2xl shadow-lg" gradient="from-[hsl(var(--success))]/40 to-accent/40" />
-              </div>
+              <Photo src="/photo-gathering.jpg" alt="Community gathering at the masjid" className="h-full min-h-[18rem] w-full rounded-2xl shadow-lg" gradient="from-primary/40 to-accent/40" />
               <div className="space-y-4 pt-8">
-                <Photo src={IMAGES.teaching} alt="A facilitator leading a workshop" className="h-56 w-full rounded-2xl shadow-lg" gradient="from-primary/40 to-[hsl(var(--warning))]/40" />
-                <Photo src={IMAGES.planting} alt="Community environmental work" className="h-44 w-full rounded-2xl shadow-lg" gradient="from-[hsl(var(--success))]/40 to-primary/40" />
+                <Photo src="/photo-youth.jpg" alt="Youth education program" className="h-40 w-full rounded-2xl shadow-lg" gradient="from-[hsl(var(--success))]/40 to-accent/40" />
+                <Photo src="/photo-community.jpg" alt="Community advocacy" className="h-40 w-full rounded-2xl shadow-lg" gradient="from-[hsl(var(--warning))]/40 to-primary/40" />
               </div>
             </div>
             <div className="absolute -bottom-4 -left-4 hidden rounded-2xl border bg-card p-4 shadow-xl sm:block">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[hsl(var(--success)/0.15)] text-[hsl(var(--success))]"><TrendingUp className="h-5 w-5" /></div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent"><Compass className="h-5 w-5" /></div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Implementation maturity</p>
-                  <p className="text-lg font-bold">72 / 100</p>
+                  <p className="text-xs text-muted-foreground">Areas of Focus</p>
+                  <p className="text-lg font-bold">6 pillars</p>
                 </div>
               </div>
             </div>
@@ -115,13 +111,17 @@ export default function Landing() {
         <div className="mb-6 flex items-end justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Built for the work on the ground</h2>
-            <p className="mt-1 text-muted-foreground">From classrooms to clinics to community outreach.</p>
+            <p className="mt-1 text-muted-foreground">From the masjid to youth programs to community advocacy.</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          {GALLERY.map((g) => (
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            { src: "/photo-gathering.jpg", alt: "Community gathering at the masjid", tag: "Community" },
+            { src: "/photo-youth.jpg", alt: "Youth education program", tag: "Youth & Education" },
+            { src: "/photo-community.jpg", alt: "Community advocacy", tag: "Social Justice" },
+          ].map((g) => (
             <div key={g.tag} className="group relative overflow-hidden rounded-2xl shadow-sm">
-              <Photo src={g.src} alt={g.alt} className="h-44 w-full transition-transform duration-500 group-hover:scale-105" />
+              <Photo src={g.src} alt={g.alt} className="h-52 w-full transition-transform duration-500 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <span className="absolute bottom-3 left-3 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur">{g.tag}</span>
             </div>
