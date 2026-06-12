@@ -114,6 +114,20 @@ body {
 }
 
 @layer components {
+  .modal-input {
+    width: 100%;
+    border-radius: 0.625rem;
+    border: 1px solid hsl(var(--input));
+    background-color: hsl(var(--background));
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .modal-input:focus {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.2);
+  }
   .auth-input {
     width: 100%;
     border-radius: 0.75rem;

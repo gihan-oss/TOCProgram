@@ -183,20 +183,39 @@ export interface Program {
   decision: Decision;
   status: ProgramStatus;
   budget: number;
+  team: string[]; // Person ids assigned to the program
 }
+
+// People directory (seed for "Know Our Members"). Programs link to these.
+export interface Person {
+  id: string;
+  name: string;
+  roleType: string;
+  department: string;
+}
+export const PEOPLE: Person[] = [
+  { id: "u-omar", name: "Omar Farouk", roleType: "Department Head", department: "Leadership Development" },
+  { id: "u-aisha", name: "Aisha Rahman", roleType: "Team Lead", department: "Islam to Muslims" },
+  { id: "u-yusuf", name: "Yusuf Ali", roleType: "Volunteer", department: "Community Mobilization" },
+  { id: "u-layla", name: "Layla Hassan", roleType: "Staff", department: "Operate with Excellence" },
+  { id: "u-bilal", name: "Bilal Ahmed", roleType: "Volunteer", department: "Social Justice" },
+  { id: "u-khadija", name: "Khadija Noor", roleType: "Team Lead", department: "Islam to Non-Muslims" },
+  { id: "u-hamza", name: "Hamza Sayed", roleType: "Volunteer", department: "Leadership Development" },
+  { id: "u-sara", name: "Sara Malik", roleType: "Staff", department: "Communications" },
+];
 
 // Representative sample from the MAS GLA TOC Dashboard (Airtable).
 export const PROGRAMS: Program[] = [
-  { id: "p1", name: "Revive and Reflect Qiyam", area: "Islam to Muslims", input: "High School Juniors & Seniors, College", baseline: "150 attendees · 2 Masajid", outcome: "Behavioral", decision: "Keep", status: "On Track", budget: 8000 },
-  { id: "p2", name: "Youth Conference", area: "Islam to Muslims", input: "High School & College Youth", baseline: "150 attendees", outcome: "Knowledge", decision: "Keep", status: "On Track", budget: 12000 },
-  { id: "p3", name: "From the Crescent to the Crown", area: "Islam to Muslims", input: "New Muslims & Youth", baseline: "60 attendees", outcome: "Behavioral", decision: "Modify", status: "Not Started", budget: 5000 },
-  { id: "p4", name: "The Effective Muslim Activist", area: "Leadership Development", input: "College Students in MSA / Social Justice", baseline: "1 campus event · 50 attendees", outcome: "Capacity", decision: "Keep", status: "On Track", budget: 4000 },
-  { id: "p5", name: "Agents of Change – Revivers", area: "Leadership Development", input: "College MSA Members & Leaders", baseline: "1 campus event · 50 attendees", outcome: "Influence", decision: "Modify", status: "At Risk", budget: 3500 },
-  { id: "p6", name: "Tarbiya and Ilm Camp", area: "Leadership Development", input: "Youth & Emerging Leaders", baseline: "80 participants", outcome: "Knowledge", decision: "Keep", status: "On Track", budget: 9000 },
-  { id: "p7", name: "Inland Empire Islamic Knowledge", area: "Community Mobilization", input: "Middle & High School Students", baseline: "50 students", outcome: "Network", decision: "Keep", status: "Not Started", budget: 3000 },
-  { id: "p8", name: "Salatul Istisqa", area: "Community Mobilization", input: "All Ages in the Muslim Community", baseline: "10 Masajid involved", outcome: "Move", decision: "Keep", status: "Completed", budget: 1500 },
-  { id: "p9", name: "Lighthouse Young Professionals", area: "Community Mobilization", input: "Young Professionals", baseline: "40 attendees", outcome: "Connect", decision: "Modify", status: "Not Started", budget: 2500 },
-  { id: "p10", name: "Voices Unveiled Spiritual", area: "Social Justice", input: "College Students in MSA", baseline: "70 attendees", outcome: "Knowledge", decision: "Modify", status: "At Risk", budget: 4500 },
+  { id: "p1", name: "Revive and Reflect Qiyam", area: "Islam to Muslims", input: "High School Juniors & Seniors, College", baseline: "150 attendees · 2 Masajid", outcome: "Behavioral", decision: "Keep", status: "On Track", budget: 8000, team: ["u-aisha", "u-yusuf"] },
+  { id: "p2", name: "Youth Conference", area: "Islam to Muslims", input: "High School & College Youth", baseline: "150 attendees", outcome: "Knowledge", decision: "Keep", status: "On Track", budget: 12000, team: ["u-aisha"] },
+  { id: "p3", name: "From the Crescent to the Crown", area: "Islam to Muslims", input: "New Muslims & Youth", baseline: "60 attendees", outcome: "Behavioral", decision: "Modify", status: "Not Started", budget: 5000, team: [] },
+  { id: "p4", name: "The Effective Muslim Activist", area: "Leadership Development", input: "College Students in MSA / Social Justice", baseline: "1 campus event · 50 attendees", outcome: "Capacity", decision: "Keep", status: "On Track", budget: 4000, team: ["u-omar", "u-hamza"] },
+  { id: "p5", name: "Agents of Change – Revivers", area: "Leadership Development", input: "College MSA Members & Leaders", baseline: "1 campus event · 50 attendees", outcome: "Influence", decision: "Modify", status: "At Risk", budget: 3500, team: ["u-omar"] },
+  { id: "p6", name: "Tarbiya and Ilm Camp", area: "Leadership Development", input: "Youth & Emerging Leaders", baseline: "80 participants", outcome: "Knowledge", decision: "Keep", status: "On Track", budget: 9000, team: ["u-hamza"] },
+  { id: "p7", name: "Inland Empire Islamic Knowledge", area: "Community Mobilization", input: "Middle & High School Students", baseline: "50 students", outcome: "Network", decision: "Keep", status: "Not Started", budget: 3000, team: ["u-yusuf"] },
+  { id: "p8", name: "Salatul Istisqa", area: "Community Mobilization", input: "All Ages in the Muslim Community", baseline: "10 Masajid involved", outcome: "Move", decision: "Keep", status: "Completed", budget: 1500, team: ["u-yusuf"] },
+  { id: "p9", name: "Lighthouse Young Professionals", area: "Community Mobilization", input: "Young Professionals", baseline: "40 attendees", outcome: "Connect", decision: "Modify", status: "Not Started", budget: 2500, team: [] },
+  { id: "p10", name: "Voices Unveiled Spiritual", area: "Social Justice", input: "College Students in MSA", baseline: "70 attendees", outcome: "Knowledge", decision: "Modify", status: "At Risk", budget: 4500, team: ["u-bilal"] },
 ];
 
 // Portfolio totals (as shown on the live dashboard).
