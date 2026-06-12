@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import * as Icons from "lucide-react";
-import { Card, Badge, Progress, SectionTitle } from "@/components/ui";
+import { Card, Badge, Progress, SectionTitle, Photo } from "@/components/ui";
 import { MODULES } from "@/lib/data";
+import { IMAGES } from "@/lib/images";
+
+const MODULE_IMG = [IMAGES.meeting, IMAGES.teaching, IMAGES.community, IMAGES.outreach];
 
 function moduleComplete(i: number) {
   const m = MODULES[i];
@@ -27,7 +30,12 @@ export default function LearningPage() {
           );
 
           const inner = (
-            <Card className={`h-full p-5 transition-shadow ${locked ? "opacity-60" : "hover:shadow-md"}`}>
+            <Card className={`h-full overflow-hidden transition-shadow ${locked ? "opacity-60" : "hover:shadow-md"}`}>
+              <div className="relative h-28 w-full">
+                <Photo src={MODULE_IMG[m.index] ?? IMAGES.community} alt={m.title} className="h-full w-full" gradient="from-primary/40 to-accent/40" />
+                <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+              </div>
+              <div className="p-5 pt-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <Badge tone="muted">{m.code}</Badge>
@@ -65,6 +73,7 @@ export default function LearningPage() {
                 <span className={`flex items-center gap-1 ${m.assignmentSubmitted ? "text-[hsl(var(--success))]" : "text-muted-foreground"}`}>
                   {m.assignmentSubmitted ? <Icons.CheckCircle2 className="h-3.5 w-3.5" /> : <Icons.Circle className="h-3.5 w-3.5" />} Assignment
                 </span>
+              </div>
               </div>
             </Card>
           );

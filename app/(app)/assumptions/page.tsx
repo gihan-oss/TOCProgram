@@ -3,6 +3,7 @@
 import { useState } from "react";
 import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { ASSUMPTIONS } from "@/lib/data";
 import type { Assumption, AssumptionStatus, RiskLevel } from "@/lib/types";
 
@@ -18,12 +19,23 @@ const riskTone: Record<RiskLevel, "success" | "warning" | "danger"> = { Low: "su
 export default function AssumptionsPage() {
   const [items, setItems] = useState<Assumption[]>(ASSUMPTIONS);
   const [filter, setFilter] = useState<AssumptionStatus | "All">("All");
+  const toast = useToast();
 
   const failed = items.filter((a) => a.status === "Failed");
   const shown = filter === "All" ? items : items.filter((a) => a.status === filter);
 
   function setStatus(id: string, status: AssumptionStatus) {
     setItems((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+  }
+
+  function addAssumption() {
+    const id = `a-${Date.now()}`;
+    setItems((prev) => [
+      { id, statement: "New assumption — describe what must hold true…", owner: "Unassigned", status: "Unverified", risk: "Medium", linkedOutcome: "—", linkedEvidence: [] },
+      ...prev,
+    ]);
+    setFilter("All");
+    toast("Assumption added");
   }
 
   return (
@@ -59,7 +71,7 @@ export default function AssumptionsPage() {
             {s} {s !== "All" && <span className="opacity-70">({items.filter((a) => a.status === s).length})</span>}
           </button>
         ))}
-        <button className="ml-auto inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+        <button onClick={addAssumption} className="ml-auto inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
           <Icons.Plus className="h-4 w-4" /> New assumption
         </button>
       </div>

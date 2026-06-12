@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import * as Icons from "lucide-react";
 import Link from "next/link";
 import { Card, Badge } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { TOC_NODES, TOC_EDGES, ASSUMPTIONS } from "@/lib/data";
 import type { NodeType, TocEdge, TocNode } from "@/lib/types";
 
@@ -24,6 +25,25 @@ export default function TocBuilder() {
   const [selected, setSelected] = useState<string | null>("n-out1");
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
+
+  function addNode() {
+    const id = `n-${Date.now()}`;
+    const node: TocNode = {
+      id,
+      type: "activity",
+      title: "New activity",
+      narrative: "Describe this activity…",
+      indicators: [],
+      evidence: [],
+      assumptions: [],
+      x: 60 + Math.round(Math.random() * 120),
+      y: 460 + Math.round(Math.random() * 60),
+    };
+    setNodes((prev) => [...prev, node]);
+    setSelected(id);
+    toast("Activity node added — edit it on the right");
+  }
 
   // --- validation ---
   const warnings = useMemo(() => {
@@ -82,7 +102,7 @@ export default function TocBuilder() {
           <Link href="/logframe" className="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary">
             <Icons.Table2 className="h-4 w-4" /> Generate Logframe
           </Link>
-          <button className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+          <button onClick={addNode} className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
             <Icons.Plus className="h-4 w-4" /> Add node
           </button>
         </div>

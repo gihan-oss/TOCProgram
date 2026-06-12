@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import * as Icons from "lucide-react";
 import { Card, Badge } from "@/components/ui";
+import { useToast } from "@/components/toast";
+import { downloadFile } from "@/lib/utils";
 import { TOC_NODES, INDICATORS, ASSUMPTIONS } from "@/lib/data";
 import type { NodeType } from "@/lib/types";
 
@@ -36,9 +38,23 @@ function buildRows(): Row[] {
 export default function LogframePage() {
   const [rows, setRows] = useState<Row[]>(buildRows);
   const synced = useMemo(() => JSON.stringify(rows) === JSON.stringify(buildRows()), [rows]);
+  const toast = useToast();
 
   function edit(level: NodeType, field: keyof Row, value: string) {
     setRows((prev) => prev.map((r) => (r.level === level ? { ...r, [field]: value } : r)));
+  }
+
+  function exportAs(fmt: string) {
+    const header = ["Level", "Narrative Summary", "Indicators", "Means of Verification", "Assumptions"];
+    const cell = (s: string) => `"${s.replace(/\n/g, " · ").replace(/"/g, '""')}"`;
+    const csv = [
+      header.join(","),
+      ...rows.map((r) => [ROW_LABEL[r.level], r.narrative, r.indicators, r.mov, r.assumptions].map(cell).join(",")),
+    ].join("\n");
+    if (fmt === "Excel") downloadFile("logframe.csv", csv, "text/csv");
+    else if (fmt === "Word") downloadFile("logframe.doc", `Logframe\n\n${rows.map((r) => `${ROW_LABEL[r.level]}\nNarrative: ${r.narrative}\nIndicators: ${r.indicators}\nMoV: ${r.mov}\nAssumptions: ${r.assumptions}\n`).join("\n")}`, "application/msword");
+    else downloadFile("logframe.txt", csv, "text/plain");
+    toast(`Logframe exported as ${fmt}`);
   }
 
   return (
@@ -57,7 +73,7 @@ export default function LogframePage() {
             <Icons.RefreshCw className="h-4 w-4" /> Re-sync
           </button>
           {["PDF", "Word", "Excel"].map((fmt) => (
-            <button key={fmt} className="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary">
+            <button key={fmt} onClick={() => exportAs(fmt)} className="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-2 text-sm font-medium hover:bg-secondary">
               <Icons.Download className="h-4 w-4" /> {fmt}
             </button>
           ))}

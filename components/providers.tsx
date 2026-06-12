@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Role } from "@/lib/types";
 import { AuthProvider } from "./auth";
+import { ToastProvider } from "./toast";
 
 interface AppState {
   role: Role;
@@ -46,7 +47,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{ role, setRole, theme, toggleTheme }}>
-      <AuthProvider>{children}</AuthProvider>
+      <ToastProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </ToastProvider>
     </Ctx.Provider>
   );
 }

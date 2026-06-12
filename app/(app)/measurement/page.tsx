@@ -3,6 +3,7 @@
 import { useState } from "react";
 import * as Icons from "lucide-react";
 import { Card, Badge, Progress, SectionTitle } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { INDICATORS } from "@/lib/data";
 import type { Indicator } from "@/lib/types";
 
@@ -14,9 +15,20 @@ function progressOf(i: Indicator) {
 export default function MeasurementPage() {
   const [indicators, setIndicators] = useState<Indicator[]>(INDICATORS);
   const [editing, setEditing] = useState<string | null>(null);
+  const toast = useToast();
 
   function update(id: string, current: number) {
     setIndicators((prev) => prev.map((i) => (i.id === id ? { ...i, current } : i)));
+  }
+
+  function addIndicator() {
+    const id = `i-${Date.now()}`;
+    setIndicators((prev) => [
+      ...prev,
+      { id, name: "New indicator", type: "Quantitative", level: "outcome", baseline: 0, target: 100, current: 0, targetDate: "2026-12-31", frequency: "Quarterly", meansOfVerification: "Define a source…", unit: "" },
+    ]);
+    setEditing(id);
+    toast("Indicator added — set its current value");
   }
 
   return (
@@ -26,7 +38,7 @@ export default function MeasurementPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Measurement Plan Builder</h1>
           <p className="text-sm text-muted-foreground">SMART indicators with baselines, targets, frequency and means of verification — quantitative & qualitative</p>
         </div>
-        <button className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+        <button onClick={addIndicator} className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
           <Icons.Plus className="h-4 w-4" /> Add indicator
         </button>
       </div>

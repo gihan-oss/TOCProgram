@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Icons from "lucide-react";
 import { Badge } from "@/components/ui";
 import { KB_ARTICLES } from "@/lib/data";
@@ -25,6 +25,11 @@ const FAQS = [
 export default function KnowledgePage() {
   const [q, setQ] = useState("");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get("q");
+    if (param) setQ(param);
+  }, []);
 
   const results = useMemo(() => {
     if (!q) return [];

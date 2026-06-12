@@ -3,18 +3,20 @@
 import { useState } from "react";
 import * as Icons from "lucide-react";
 import { Card, CardHeader, Badge, Progress, SectionTitle } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { COHORTS, PARTICIPANTS } from "@/lib/data";
 
 export default function CohortsPage() {
   const [active, setActive] = useState(COHORTS[0].id);
   const members = PARTICIPANTS.filter((p) => p.cohort === active);
   const cohort = COHORTS.find((c) => c.id === active)!;
+  const toast = useToast();
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionTitle sub="Manage cohorts, monitor participation and review implementation readiness">Cohorts &amp; People</SectionTitle>
-        <button className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+        <button onClick={() => toast("New cohort form — connect Supabase to save", "info")} className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
           <Icons.Plus className="h-4 w-4" /> New cohort
         </button>
       </div>

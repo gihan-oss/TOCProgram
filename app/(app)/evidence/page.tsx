@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { EVIDENCE } from "@/lib/data";
-import type { EvidenceKind } from "@/lib/types";
+import type { Evidence, EvidenceKind } from "@/lib/types";
 
 const KIND_ICON: Record<EvidenceKind, keyof typeof Icons> = {
   PDF: "FileText",
@@ -14,20 +15,47 @@ const KIND_ICON: Record<EvidenceKind, keyof typeof Icons> = {
   URL: "Link",
 };
 
+function kindOf(name: string): EvidenceKind {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf") return "PDF";
+  if (ext === "doc" || ext === "docx") return "DOCX";
+  if (ext === "xls" || ext === "xlsx" || ext === "csv") return "XLSX";
+  if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) return "Image";
+  return "URL";
+}
+
 export default function EvidencePage() {
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<EvidenceKind | "All">("All");
-  const allTags = Array.from(new Set(EVIDENCE.flatMap((e) => e.tags)));
+  const [items, setItems] = useState<Evidence[]>(EVIDENCE);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
+  const allTags = Array.from(new Set(items.flatMap((e) => e.tags)));
+
+  function onFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const added: Evidence[] = Array.from(files).map((f, i) => ({
+      id: `ev-${Date.now()}-${i}`,
+      name: f.name,
+      kind: kindOf(f.name),
+      tags: ["new"],
+      linkedTo: "Unlinked — assign to an outcome",
+      uploadedBy: "You",
+      date: new Date().toISOString().slice(0, 10),
+    }));
+    setItems((prev) => [...added, ...prev]);
+    toast(`${added.length} file${added.length > 1 ? "s" : ""} uploaded`);
+  }
 
   const shown = useMemo(() => {
-    return EVIDENCE.filter((e) => {
+    return items.filter((e) => {
       if (kind !== "All" && e.kind !== kind) return false;
       if (activeTag && !e.tags.includes(activeTag)) return false;
       if (q && !`${e.name} ${e.linkedTo} ${e.tags.join(" ")}`.toLowerCase().includes(q.toLowerCase())) return false;
       return true;
     });
-  }, [q, kind, activeTag]);
+  }, [items, q, kind, activeTag]);
 
   return (
     <div>
@@ -36,7 +64,8 @@ export default function EvidencePage() {
           <h1 className="text-2xl font-semibold tracking-tight">Evidence Repository</h1>
           <p className="text-sm text-muted-foreground">Upload PDF, DOCX, XLSX, images and URLs · link to outcomes, outputs, indicators and assumptions</p>
         </div>
-        <button className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+        <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
+        <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
           <Icons.Upload className="h-4 w-4" /> Upload evidence
         </button>
       </div>

@@ -98,10 +98,17 @@ export function Shell({ children }: { children: ReactNode }) {
             <Icons.Menu className="h-5 w-5" />
           </button>
 
-          <div className="hidden items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm text-muted-foreground md:flex">
-            <Icons.Search className="h-4 w-4" />
-            <span>Search programs, indicators, evidence…</span>
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = (new FormData(e.currentTarget).get("q") as string)?.trim();
+              router.push(q ? `/knowledge?q=${encodeURIComponent(q)}` : "/knowledge");
+            }}
+            className="hidden items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm md:flex"
+          >
+            <Icons.Search className="h-4 w-4 text-muted-foreground" />
+            <input name="q" placeholder="Search the knowledge base…" className="w-56 bg-transparent outline-none placeholder:text-muted-foreground" />
+          </form>
 
           <div className="ml-auto flex items-center gap-2">
             {isAdmin ? (

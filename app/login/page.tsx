@@ -10,6 +10,11 @@ import { useAuth } from "@/components/auth";
 import { IMAGES } from "@/lib/images";
 import { DEMO_ACCOUNTS, resolveAccess } from "@/lib/access";
 import { homeFor } from "@/lib/nav";
+import { hasOnboarded } from "@/lib/onboarding";
+
+function destFor(email: string, role: ReturnType<typeof resolveAccess>["role"]) {
+  return hasOnboarded(email) ? homeFor(role) : "/welcome";
+}
 
 export default function LoginPage() {
   const { user, loading, signIn, signUp, isDemo } = useAuth();
@@ -22,7 +27,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace(homeFor(user.role));
+    if (!loading && user) router.replace(destFor(user.email, user.role));
   }, [loading, user, router]);
 
   async function submit(e: React.FormEvent) {
@@ -32,7 +37,7 @@ export default function LoginPage() {
     const res = mode === "signin" ? await signIn(email, password) : await signUp(name, email, password);
     setBusy(false);
     if (res.error) setError(res.error);
-    else router.replace(homeFor(resolveAccess(email).role));
+    else router.replace(destFor(email, resolveAccess(email).role));
   }
 
   return (
