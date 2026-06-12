@@ -19,31 +19,34 @@ export default function LearningPage() {
   const [summary, setSummary] = useState("");
 
   useEffect(() => {
-    setModules(loadModules());
-    if (user) setDone(loadDone(user.email));
+    (async () => {
+      setModules(await loadModules());
+      if (user) setDone(await loadDone(user.email));
+    })();
   }, [user?.email]);
 
-  function persist(next: CourseModule[]) {
+  async function persist(next: CourseModule[]) {
     setModules(next);
-    saveModules(next);
+    const ok = await saveModules(next);
+    if (!ok) { toast("Couldn't save — please try again.", "error"); setModules(await loadModules()); }
   }
-  function addModule(e: React.FormEvent) {
+  async function addModule(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    persist([...modules, { id: `m-${Date.now()}`, title: title.trim(), summary: summary.trim(), resources: [] }]);
+    await persist([...modules, { id: `m-${Date.now()}`, title: title.trim(), summary: summary.trim(), resources: [] }]);
     setTitle(""); setSummary(""); setAdding(false);
     toast("Module created — open it to add content");
   }
-  function removeModule(id: string) {
-    persist(modules.filter((m) => m.id !== id));
+  async function removeModule(id: string) {
+    await persist(modules.filter((m) => m.id !== id));
     toast("Module removed");
   }
-  function move(i: number, dir: -1 | 1) {
+  async function move(i: number, dir: -1 | 1) {
     const j = i + dir;
     if (j < 0 || j >= modules.length) return;
     const next = [...modules];
     [next[i], next[j]] = [next[j], next[i]];
-    persist(next);
+    await persist(next);
   }
 
   return (

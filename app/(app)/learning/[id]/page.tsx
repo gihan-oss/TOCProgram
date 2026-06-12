@@ -8,7 +8,7 @@ import { Card, Badge, Button, EmptyHint } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import {
-  loadModules, saveModules, loadDone, saveDone,
+  loadModules, saveModules, loadDone, saveDone, uploadFile,
   RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_HELP,
   type CourseModule, type Resource, type ResourceType, type QuizQuestion,
 } from "@/lib/content";
@@ -29,36 +29,39 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setModules(loadModules());
-    if (user) setDone(loadDone(user.email));
-    setLoaded(true);
+    (async () => {
+      setModules(await loadModules());
+      if (user) setDone(await loadDone(user.email));
+      setLoaded(true);
+    })();
   }, [user?.email]);
 
   const module = modules.find((m) => m.id === id);
   if (loaded && !module) return notFound();
   if (!module) return null;
 
-  function persist(next: CourseModule) {
+  async function persist(next: CourseModule) {
     const all = modules.map((m) => (m.id === next.id ? next : m));
     setModules(all);
-    if (!saveModules(all)) {
-      toast("Couldn't save — the file is likely too large for local storage. Paste a link instead, or connect Supabase Storage.", "error");
-      setModules(loadModules());
+    const ok = await saveModules(all);
+    if (!ok) {
+      toast("Couldn't save — please try again.", "error");
+      setModules(await loadModules());
     }
   }
 
-  function addResource(r: Resource) {
-    persist({ ...module!, resources: [...module!.resources, r] });
+  async function addResource(r: Resource) {
+    await persist({ ...module!, resources: [...module!.resources, r] });
   }
-  function removeResource(rid: string) {
-    persist({ ...module!, resources: module!.resources.filter((r) => r.id !== rid) });
+  async function removeResource(rid: string) {
+    await persist({ ...module!, resources: module!.resources.filter((r) => r.id !== rid) });
     toast("Removed");
   }
   function setComplete(rid: string, value: boolean) {
     const next = new Set(done);
     value ? next.add(rid) : next.delete(rid);
     setDone(next);
-    if (user) saveDone(user.email, next);
+    if (user) void saveDone(user.email, next);
   }
 
   return (
@@ -184,6 +187,7 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
   const [body, setBody] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileData, setFileData] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([{ prompt: "", options: ["", ""], answer: 0 }]);
 
   function reset() {
@@ -191,12 +195,17 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
     setQuestions([{ prompt: "", options: ["", ""], answer: 0 }]);
   }
 
-  function onFile(f: File | undefined) {
+  async function onFile(f: File | undefined) {
     if (!f) return;
-    if (f.size > 2_000_000) { toast("That file is over 2 MB — paste a link instead (or we can connect Supabase Storage).", "error"); return; }
-    const reader = new FileReader();
-    reader.onload = () => { setFileData(reader.result as string); setFileName(f.name); if (!title) setTitle(f.name); };
-    reader.readAsDataURL(f);
+    setUploading(true);
+    const res = await uploadFile(f);
+    setUploading(false);
+    if (res.error) { toast(res.error, "error"); return; }
+    setUrl(res.url || "");
+    setFileData(res.dataUrl || "");
+    setFileName(res.fileName);
+    if (!title) setTitle(res.fileName);
+    toast("File uploaded");
   }
 
   function submit(e: React.FormEvent) {
@@ -241,8 +250,8 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>or</span>
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 font-medium hover:bg-secondary">
-                <Icons.Upload className="h-3.5 w-3.5" /> Upload file
-                <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+                {uploading ? <Icons.Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icons.Upload className="h-3.5 w-3.5" />} {uploading ? "Uploading…" : "Upload file"}
+                <input type="file" className="hidden" disabled={uploading} onChange={(e) => onFile(e.target.files?.[0])} />
               </label>
               {fileName && <span className="text-foreground">{fileName}</span>}
             </div>

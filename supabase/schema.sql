@@ -63,3 +63,35 @@ create policy "write assignments" on public.program_assignments
   for insert with check (true);
 create policy "delete assignments" on public.program_assignments
   for delete using (true);
+
+-- ===========================================================================
+-- Course content (shared, permanent) — run this block too.
+-- ===========================================================================
+
+-- The whole course is one shared JSON document everyone reads and admins edit.
+create table if not exists public.course (
+  id          text primary key default 'default',
+  modules     jsonb not null default '[]',
+  updated_at  timestamptz not null default now()
+);
+alter table public.course enable row level security;
+create policy "course read"   on public.course for select using (true);
+create policy "course insert" on public.course for insert to authenticated with check (true);
+create policy "course update" on public.course for update to authenticated using (true);
+
+-- Per-learner progress (which resources they've completed).
+create table if not exists public.course_progress (
+  email       text primary key,
+  done        text[] not null default '{}',
+  updated_at  timestamptz not null default now()
+);
+alter table public.course_progress enable row level security;
+create policy "progress read own"   on public.course_progress for select using (auth.jwt() ->> 'email' = email);
+create policy "progress insert own" on public.course_progress for insert with check (auth.jwt() ->> 'email' = email);
+create policy "progress update own" on public.course_progress for update using (auth.jwt() ->> 'email' = email);
+
+-- Storage bucket for uploaded files (PDFs, slides, images…).
+insert into storage.buckets (id, name, public) values ('course-files', 'course-files', true)
+  on conflict (id) do nothing;
+create policy "course-files read"   on storage.objects for select using (bucket_id = 'course-files');
+create policy "course-files upload" on storage.objects for insert to authenticated with check (bucket_id = 'course-files');

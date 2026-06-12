@@ -11,7 +11,7 @@ export default function AdminConsole() {
   const { setRole } = useApp();
   const [modules, setModules] = useState<CourseModule[]>([]);
 
-  useEffect(() => { setModules(loadModules()); }, []);
+  useEffect(() => { loadModules().then(setModules); }, []);
 
   const hasModule = modules.length > 0;
   const hasContent = modules.some((m) => m.resources.length > 0);
