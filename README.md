@@ -56,6 +56,18 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 Auth lives in `components/auth.tsx` (`useAuth()`), the client in `lib/supabase.ts`,
 and the route gate in `components/auth-guard.tsx`.
 
+## Lifetime data, email & notifications
+
+- **Profiles ("Know Our Members"):** onboarding captures role type, department,
+  commitment, tenure and skills, saved via `lib/store.ts` — to **Supabase**
+  (permanent) when configured, localStorage otherwise. Schema: `supabase/schema.sql`
+  (run once in the Supabase SQL Editor).
+- **Notifications:** in-app notification center (bell in the header), persisted
+  the same way. Invites and onboarding generate notifications automatically.
+- **Email:** `/api/email` sends via **Resend** when `RESEND_API_KEY` is set
+  (see `.env.example`); otherwise emails are simulated so flows keep working.
+  Admin invites and the onboarding welcome email use this.
+
 ## Design
 
 - **Font:** Montserrat (via `next/font`, self-hosted — no layout shift).

@@ -4,7 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle, Button } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { ADMIN_EMAILS, LEARNER_EMAILS } from "@/lib/access";
+import { addNotification, sendEmail } from "@/lib/store";
+import { MAS } from "@/lib/mas";
 
 type Row = { email: string; role: "admin" | "participant"; status: "Active" | "Invited" };
 
@@ -17,12 +20,23 @@ export default function AccessPage() {
   const [rows, setRows] = useState<Row[]>(initial);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "participant">("participant");
+  const toast = useToast();
 
-  function invite(e: React.FormEvent) {
+  async function invite(e: React.FormEvent) {
     e.preventDefault();
     if (!email.includes("@")) return;
-    setRows((r) => [{ email: email.toLowerCase(), role, status: "Invited" }, ...r]);
+    const target = email.toLowerCase();
+    const label = role === "admin" ? "Administrator" : "Learner";
+    setRows((r) => [{ email: target, role, status: "Invited" }, ...r]);
     setEmail("");
+    // queue an in-app notification they'll see on first sign-in
+    await addNotification(target, `You've been invited as ${label}`, `Welcome to the ${MAS.partner} Impact Portal.`);
+    const res = await sendEmail(
+      target,
+      `You're invited to the ${MAS.partner} Impact Portal`,
+      `<p>Salaam,</p><p>You've been invited as <b>${label}</b>. Sign in with this email to get started:</p><p><a href="https://toc-program.vercel.app/login">Open the portal</a></p>`,
+    );
+    toast(res.ok ? (res.demo ? "Invite recorded — email simulated (add RESEND_API_KEY to send real email)" : "Invitation email sent") : "Invite recorded — email failed to send", res.ok ? "success" : "error");
   }
   function remove(target: string) {
     setRows((r) => r.filter((x) => x.email !== target));

@@ -10,6 +10,7 @@ import { ROLES, CURRENT_USER } from "@/lib/data";
 import { useApp } from "./providers";
 import { useAuth } from "./auth";
 import { Logo } from "./logo";
+import { NotificationsBell } from "./notifications";
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle;
@@ -133,6 +134,8 @@ export function Shell({ children }: { children: ReactNode }) {
                 <Icons.GraduationCap className="h-4 w-4 text-accent" /> {roleLabel}
               </span>
             )}
+
+            <NotificationsBell />
 
             <button onClick={toggleTheme} className="rounded-lg border bg-background p-2 hover:bg-secondary" aria-label="Toggle theme">
               {theme === "dark" ? <Icons.Sun className="h-4 w-4" /> : <Icons.Moon className="h-4 w-4" />}
