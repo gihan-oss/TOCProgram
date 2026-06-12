@@ -99,40 +99,17 @@ export function Shell({ children }: { children: ReactNode }) {
             <Icons.Menu className="h-5 w-5" />
           </button>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const q = (new FormData(e.currentTarget).get("q") as string)?.trim();
-              router.push(q ? `/knowledge?q=${encodeURIComponent(q)}` : "/knowledge");
-            }}
-            className="hidden items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm md:flex"
-          >
-            <Icons.Search className="h-4 w-4 text-muted-foreground" />
-            <input name="q" placeholder="Search the knowledge base…" className="w-56 bg-transparent outline-none placeholder:text-muted-foreground" />
-          </form>
-
           <div className="ml-auto flex items-center gap-2">
-            {isAdmin ? (
-              // Admins can preview any role
-              <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1" title="Admin: preview as role">
-                <Icons.UserCog className="h-4 w-4 text-muted-foreground" />
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as typeof role)}
-                  className="bg-transparent text-sm font-medium outline-none"
-                  aria-label="Preview as role"
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <span className="hidden items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium sm:flex">
-                <Icons.GraduationCap className="h-4 w-4 text-accent" /> {roleLabel}
-              </span>
+            {isAdmin && (
+              role === "participant" ? (
+                <button onClick={() => setRole("admin")} className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/15">
+                  <Icons.Eye className="h-4 w-4" /> Exit preview
+                </button>
+              ) : (
+                <button onClick={() => setRole("participant")} className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-secondary">
+                  <Icons.Eye className="h-4 w-4" /> View as participant
+                </button>
+              )
             )}
 
             <NotificationsBell />
@@ -156,6 +133,13 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+
+        {isAdmin && role === "participant" && (
+          <div className="flex items-center justify-center gap-2 border-b bg-accent/10 px-4 py-1.5 text-xs font-medium text-accent">
+            <Icons.Eye className="h-3.5 w-3.5" /> You're previewing the participant experience.
+            <button onClick={() => setRole("admin")} className="underline">Exit preview</button>
+          </div>
+        )}
 
         <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
       </div>

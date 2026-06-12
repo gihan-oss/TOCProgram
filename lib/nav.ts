@@ -5,62 +5,45 @@ export interface NavItem {
   label: string;
   icon: string; // lucide icon name
   group: string;
-  roles: Role[]; // which roles can see it
+  roles: Role[];
 }
 
-const STAFF: Role[] = ["admin", "facilitator", "coordinator", "executive"];
-
+// Deliberately small menus. Participants get a focused path; admins get a
+// console + the course builder + people. Admins can reach everything else, it's
+// just not cluttering the menu (see canAccess + the Admin console cards).
 export const NAV: NavItem[] = [
-  // ---- Learner: journey-first, not everything open at once ----
-  { href: "/journey", label: "My Journey", icon: "Footprints", group: "Overview", roles: ["participant"] },
+  // ---- Participant ----
+  { href: "/learning", label: "My Learning", icon: "GraduationCap", group: "Learn", roles: ["participant"] },
+  { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Learn", roles: ["participant"] },
 
-  // ---- Staff overview ----
-  { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard", group: "Overview", roles: STAFF },
-
-  // ---- Administration (admins only) ----
-  { href: "/admin", label: "Admin Console", icon: "ShieldCheck", group: "Administration", roles: ["admin"] },
+  // ---- Admin ----
+  { href: "/admin", label: "Admin Home", icon: "LayoutDashboard", group: "Administration", roles: ["admin"] },
+  { href: "/learning", label: "Course Builder", icon: "BookMarked", group: "Administration", roles: ["admin", "facilitator"] },
   { href: "/admin/access", label: "People & Access", icon: "UserPlus", group: "Administration", roles: ["admin"] },
+  { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Administration", roles: ["admin", "facilitator"] },
 
-  // ---- Strategy (MAS GLA framework) ----
-  { href: "/strategy", label: "Strategy House", icon: "Building2", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "participant", "executive"] },
-  { href: "/programs", label: "Programs (TOC)", icon: "FolderKanban", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "participant", "executive"] },
-
-  // ---- Learn ----
-  { href: "/learning", label: "Learning Modules", icon: "GraduationCap", group: "Learn", roles: ["admin", "facilitator", "coordinator", "participant"] },
-  { href: "/assessments", label: "Assessments", icon: "ClipboardCheck", group: "Learn", roles: ["admin", "facilitator", "coordinator", "participant"] },
-
-  // ---- Build ----
-  { href: "/toc", label: "Theory of Change", icon: "Workflow", group: "Build", roles: ["admin", "facilitator", "participant"] },
-  { href: "/logframe", label: "Logframe", icon: "Table2", group: "Build", roles: ["admin", "facilitator", "participant"] },
-  { href: "/assumptions", label: "Assumption Registry", icon: "ShieldAlert", group: "Build", roles: ["admin", "facilitator", "participant"] },
-  { href: "/measurement", label: "Measurement Plan", icon: "Ruler", group: "Build", roles: ["admin", "facilitator", "participant"] },
-
-  // ---- Measure ----
-  { href: "/impact", label: "Impact Dashboard", icon: "TrendingUp", group: "Measure", roles: STAFF },
-  { href: "/implementation", label: "Implementation", icon: "Rocket", group: "Measure", roles: STAFF },
-  { href: "/package", label: "Implementation Package", icon: "PackageCheck", group: "Measure", roles: ["admin", "facilitator", "coordinator", "participant"] },
-  { href: "/evidence", label: "Evidence Repository", icon: "FolderOpen", group: "Measure", roles: ["admin", "facilitator", "coordinator", "participant"] },
-
-  // ---- Manage / resources ----
-  { href: "/cohorts", label: "Cohorts & People", icon: "Users", group: "Manage", roles: ["admin", "facilitator", "coordinator"] },
-  { href: "/reports", label: "Reporting", icon: "FileBarChart", group: "Manage", roles: ["admin", "facilitator", "coordinator", "executive"] },
-  { href: "/knowledge", label: "Knowledge Base", icon: "BookOpen", group: "Resources", roles: ["admin", "facilitator", "coordinator", "participant", "executive"] },
-  { href: "/assistant", label: "AI Assistant", icon: "Sparkles", group: "Resources", roles: ["admin", "facilitator", "participant"] },
+  // ---- Facilitator / coordinator / executive (kept light) ----
+  { href: "/cohorts", label: "People", icon: "Users", group: "Manage", roles: ["facilitator", "coordinator"] },
+  { href: "/reports", label: "Reports", icon: "FileBarChart", group: "Manage", roles: ["coordinator", "executive"] },
+  { href: "/impact", label: "Impact", icon: "TrendingUp", group: "Manage", roles: ["executive"] },
 ];
 
 export function navFor(role: Role) {
   return NAV.filter((n) => n.roles.includes(role));
 }
 
-// Can this role reach this path? Learners only see their journey-focused set.
+// Admins can reach any route (their menu is just trimmed for clarity).
+// Other roles are confined to what's in their menu.
 export function canAccess(role: Role, pathname: string) {
+  if (role === "admin") return true;
   const allowed = navFor(role).map((n) => n.href);
   return allowed.some((href) => pathname === href || pathname.startsWith(href + "/"));
 }
 
-// Where each role lands after sign-in.
 export function homeFor(role: Role) {
-  if (role === "participant") return "/journey";
   if (role === "admin") return "/admin";
-  return "/dashboard";
+  if (role === "participant") return "/learning";
+  if (role === "executive") return "/impact";
+  if (role === "coordinator") return "/reports";
+  return "/learning"; // facilitator → course builder
 }

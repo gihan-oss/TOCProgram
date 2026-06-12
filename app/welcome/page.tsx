@@ -17,14 +17,14 @@ const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "
 
 const ROLE_TASKS: Record<Role, { intro: string; tasks: { icon: string; text: string }[]; cta: string }> = {
   participant: {
-    intro: "Your journey runs one stage at a time — Question Zero first, then your program's Theory of Change.",
+    intro: "Your learning opens up one module at a time. Finish one to unlock the next.",
     tasks: [
-      { icon: "Crosshair", text: "Answer Question Zero for your program" },
-      { icon: "PlayCircle", text: "Work through the short learning modules" },
-      { icon: "Workflow", text: "Build your program's Theory of Change" },
-      { icon: "PackageCheck", text: "Submit your implementation package" },
+      { icon: "PlayCircle", text: "Watch videos and read the materials" },
+      { icon: "FileText", text: "Open the PDFs and files your facilitator shares" },
+      { icon: "ClipboardCheck", text: "Take short tests to check your understanding" },
+      { icon: "Unlock", text: "Unlock the next module as you complete each one" },
     ],
-    cta: "Start my journey",
+    cta: "Start learning",
   },
   facilitator: {
     intro: "You'll guide members through implementation and keep programs accountable.",
@@ -45,13 +45,14 @@ const ROLE_TASKS: Record<Role, { intro: string; tasks: { icon: string; text: str
     cta: "Go to my dashboard",
   },
   admin: {
-    intro: "You run the system: people, programs, cohorts and reporting.",
+    intro: "You build the course and manage who's in. Here's the loop:",
     tasks: [
-      { icon: "UserPlus", text: "Invite people and set access" },
-      { icon: "FolderKanban", text: "Manage the Programs TOC dashboard" },
-      { icon: "FileBarChart", text: "Review organization-wide reporting" },
+      { icon: "BookMarked", text: "Create modules in the Course Builder" },
+      { icon: "Plus", text: "Add videos, PDFs, files, notes and tests" },
+      { icon: "UserPlus", text: "Invite admins and learners by email" },
+      { icon: "Eye", text: "Preview it with “View as participant”" },
     ],
-    cta: "Open the Admin Console",
+    cta: "Open Admin Home",
   },
   executive: {
     intro: "You'll see whether activity is converting into measurable impact.",

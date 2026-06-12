@@ -1,17 +1,27 @@
 "use client";
 
-// Admin-managed learning content. Empty by default — facilitators/admins ADD
-// modules and resources (videos, articles, worksheets…); participants only see
-// what's been added. Persisted in localStorage (shared key) so it survives
-// reloads; swap to Supabase later for cross-device/team sync.
+// Admin-managed course content. Empty by default. Admins/facilitators build
+// modules and add content to them — Videos, PDFs, Files, Notes, Links and
+// Tests. Participants see the modules one at a time, unlocking the next as they
+// finish the current one. Stored in localStorage; swap to Supabase for sharing.
 
-export type ResourceType = "Video" | "Article" | "Slides" | "Worksheet" | "Reading";
+export type ResourceType = "Video" | "PDF" | "File" | "Note" | "Link" | "Quiz";
+
+export interface QuizQuestion {
+  prompt: string;
+  options: string[];
+  answer: number; // index of the correct option
+}
 
 export interface Resource {
   id: string;
   type: ResourceType;
   title: string;
-  url: string;
+  url?: string; // Video / Link / PDF / File (external link)
+  fileName?: string; // uploaded file name
+  fileData?: string; // data URL for a small uploaded file
+  body?: string; // Note text
+  questions?: QuizQuestion[]; // Quiz
 }
 
 export interface CourseModule {
@@ -19,8 +29,6 @@ export interface CourseModule {
   title: string;
   summary: string;
   resources: Resource[];
-  hasQuiz: boolean;
-  hasAssignment: boolean;
 }
 
 const KEY = "toc-curriculum";
@@ -29,25 +37,26 @@ const DONE_KEY = (email: string) => `toc-progress:${email.toLowerCase()}`;
 export function loadModules(): CourseModule[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as CourseModule[]) : [];
+    return JSON.parse(localStorage.getItem(KEY) || "[]") as CourseModule[];
   } catch {
     return [];
   }
 }
 
-export function saveModules(modules: CourseModule[]) {
+// Returns false if the save failed (e.g. storage quota exceeded by a big file).
+export function saveModules(modules: CourseModule[]): boolean {
   try {
     localStorage.setItem(KEY, JSON.stringify(modules));
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-// ---- per-user completion (which resources a learner has finished) ----
 export function loadDone(email: string): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = localStorage.getItem(DONE_KEY(email));
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    return new Set(JSON.parse(localStorage.getItem(DONE_KEY(email)) || "[]") as string[]);
   } catch {
     return new Set();
   }
@@ -59,12 +68,27 @@ export function saveDone(email: string, done: Set<string>) {
   } catch {}
 }
 
-export const RESOURCE_TYPES: ResourceType[] = ["Video", "Article", "Slides", "Worksheet", "Reading"];
+// A module is complete when it has resources and the learner has finished them all.
+export function moduleComplete(m: CourseModule, done: Set<string>) {
+  return m.resources.length > 0 && m.resources.every((r) => done.has(r.id));
+}
+
+export const RESOURCE_TYPES: ResourceType[] = ["Video", "PDF", "File", "Note", "Link", "Quiz"];
 
 export const RESOURCE_ICON: Record<ResourceType, string> = {
   Video: "PlayCircle",
-  Article: "Newspaper",
-  Slides: "Presentation",
-  Worksheet: "FileText",
-  Reading: "BookOpen",
+  PDF: "FileText",
+  File: "Paperclip",
+  Note: "StickyNote",
+  Link: "Link",
+  Quiz: "ClipboardCheck",
+};
+
+export const RESOURCE_HELP: Record<ResourceType, string> = {
+  Video: "A video lesson — paste a YouTube, Vimeo or Drive link.",
+  PDF: "A PDF — upload the file or paste a link.",
+  File: "Any file (slides, worksheet, image…) — upload or link.",
+  Note: "A written note or instructions the learner reads in place.",
+  Link: "A link to an external article or page.",
+  Quiz: "A short test — add questions with multiple-choice answers.",
 };
