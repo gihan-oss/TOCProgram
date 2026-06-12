@@ -113,15 +113,15 @@ export async function markAllRead(email: string): Promise<void> {
 
 // ---------------- Email ----------------
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; demo?: boolean }> {
+export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; demo?: boolean; error?: string }> {
   try {
     const res = await fetch("/api/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ to, subject, html }),
     });
-    return (await res.json()) as { ok: boolean; demo?: boolean };
+    return (await res.json()) as { ok: boolean; demo?: boolean; error?: string };
   } catch {
-    return { ok: false };
+    return { ok: false, error: "Network error" };
   }
 }

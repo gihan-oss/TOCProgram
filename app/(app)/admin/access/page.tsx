@@ -36,7 +36,12 @@ export default function AccessPage() {
       `You're invited to the ${MAS.partner} Impact Portal`,
       `<p>Salaam,</p><p>You've been invited as <b>${label}</b>. Sign in with this email to get started:</p><p><a href="https://toc-program.vercel.app/login">Open the portal</a></p>`,
     );
-    toast(res.ok ? (res.demo ? "Invite recorded — email simulated (BREVO_API_KEY not detected in this deployment)" : "Invitation email sent") : "Invite recorded — email failed to send", res.ok ? "success" : "error");
+    toast(
+      res.ok
+        ? (res.demo ? "Invite recorded — email simulated (BREVO_API_KEY not detected in this deployment)" : "Invitation email sent")
+        : `Invite recorded — email failed: ${res.error ?? "unknown error"}`,
+      res.ok ? "success" : "error",
+    );
   }
   function remove(target: string) {
     setRows((r) => r.filter((x) => x.email !== target));

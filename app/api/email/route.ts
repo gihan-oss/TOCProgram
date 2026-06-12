@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const err = await res.text();
       console.error("[email] Brevo error:", err);
-      return NextResponse.json({ ok: false, error: "Email provider error (Brevo)" }, { status: 502 });
+      return NextResponse.json({ ok: false, error: `Brevo: ${err}`.slice(0, 280) }, { status: 502 });
     }
     return NextResponse.json({ ok: true, provider: "brevo" });
   }
