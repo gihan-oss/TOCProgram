@@ -21,6 +21,10 @@ export const NAV: NavItem[] = [
   { href: "/admin", label: "Admin Console", icon: "ShieldCheck", group: "Administration", roles: ["admin"] },
   { href: "/admin/access", label: "People & Access", icon: "UserPlus", group: "Administration", roles: ["admin"] },
 
+  // ---- Strategy (MAS GLA framework) ----
+  { href: "/strategy", label: "Strategy House", icon: "Building2", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "participant", "executive"] },
+  { href: "/programs", label: "Programs (TOC)", icon: "FolderKanban", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "participant", "executive"] },
+
   // ---- Learn ----
   { href: "/learning", label: "Learning Modules", icon: "GraduationCap", group: "Learn", roles: ["admin", "facilitator", "coordinator", "participant"] },
   { href: "/assessments", label: "Assessments", icon: "ClipboardCheck", group: "Learn", roles: ["admin", "facilitator", "coordinator", "participant"] },
