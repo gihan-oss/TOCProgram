@@ -156,8 +156,17 @@ export default function ProgramsPage() {
                         <Icons.Pencil className="h-3.5 w-3.5" />
                       </button>
                     </div>
+                    {(p.subFocus || p.department || p.region) && (
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {p.subFocus && <Badge tone="muted">{p.subFocus}</Badge>}
+                        {p.department && <span className="text-[11px] text-muted-foreground">{p.department}</span>}
+                        {p.region && <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">{p.region}</span>}
+                      </div>
+                    )}
+                    {p.questionZero && <p className="mt-1.5 text-xs italic text-muted-foreground">“{p.questionZero}”</p>}
                     <p className="mt-1.5 text-xs text-muted-foreground"><span className="font-medium text-foreground">Input (who):</span> {p.input || "—"}</p>
                     <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Baseline:</span> {p.baseline || "—"}</p>
+                    {p.target && <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Target:</span> {p.target}</p>}
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Badge tone="accent">Change: {p.outcome}</Badge>

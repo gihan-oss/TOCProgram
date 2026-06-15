@@ -19,6 +19,11 @@ export const NAV: NavItem[] = [
   { href: "/measurement", label: "Measurement", icon: "Ruler", group: "Build", roles: ["participant"] },
   { href: "/package", label: "My Package", icon: "PackageCheck", group: "Build", roles: ["participant"] },
 
+  // ---- Facilitator: run the cohort ----
+  { href: "/plan", label: "Facilitator Plan", icon: "ClipboardList", group: "Facilitate", roles: ["facilitator", "admin"] },
+  { href: "/cohorts", label: "Participants", icon: "Users", group: "Facilitate", roles: ["facilitator"] },
+  { href: "/assessments", label: "Assessments", icon: "ClipboardCheck", group: "Facilitate", roles: ["facilitator", "admin"] },
+
   // ---- Admin / staff: administration ----
   { href: "/admin", label: "Admin Home", icon: "LayoutDashboard", group: "Administration", roles: ["admin"] },
   { href: "/learning", label: "Course Builder", icon: "BookMarked", group: "Administration", roles: ["admin", "facilitator"] },
@@ -60,5 +65,5 @@ export function homeFor(role: Role) {
   if (role === "participant") return "/journey";
   if (role === "executive") return "/dashboard";
   if (role === "coordinator") return "/dashboard";
-  return "/learning"; // facilitator → course builder
+  return "/plan"; // facilitator → their cohort plan
 }
