@@ -43,10 +43,3 @@ export function resolveAccess(email: string): Access {
     reason: "Access is restricted. Your email isn't on the approved list — please contact your administrator for an invitation.",
   };
 }
-
-// Accounts surfaced on the login screen in demo mode so stakeholders can try
-// both experiences.
-export const DEMO_ACCOUNTS = [
-  { label: "Administrator", email: "hmaki@amalandcompany.com" },
-  { label: "Learner", email: "learner@example.org" },
-];
