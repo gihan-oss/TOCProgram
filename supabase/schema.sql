@@ -70,6 +70,26 @@ drop policy if exists "delete assignments" on public.program_assignments;
 create policy "delete assignments" on public.program_assignments
   for delete using (true);
 
+-- ---- Members / invitations (the access allowlist, shared & permanent) ----
+create table if not exists public.members (
+  email         text primary key,
+  name          text not null default '',
+  role          text not null default 'participant',
+  status        text not null default 'Invited',
+  temp_password text not null default '',
+  created_at    timestamptz not null default now()
+);
+alter table public.members enable row level security;
+
+drop policy if exists "members read" on public.members;
+create policy "members read"   on public.members for select using (true);
+drop policy if exists "members insert" on public.members;
+create policy "members insert" on public.members for insert with check (true);
+drop policy if exists "members update" on public.members;
+create policy "members update" on public.members for update using (true);
+drop policy if exists "members delete" on public.members;
+create policy "members delete" on public.members for delete using (true);
+
 -- ===========================================================================
 -- Course content (shared, permanent)
 -- ===========================================================================

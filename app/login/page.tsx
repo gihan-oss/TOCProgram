@@ -8,7 +8,7 @@ import { Button, Photo, FloatingIcons } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/components/auth";
 import { IMAGES } from "@/lib/images";
-import { DEMO_ACCOUNTS, resolveAccess } from "@/lib/access";
+import { resolveAccess } from "@/lib/access";
 import { homeFor } from "@/lib/nav";
 import { hasOnboarded } from "@/lib/onboarding";
 
@@ -84,20 +84,8 @@ export default function LoginPage() {
             <div className="mt-4 rounded-xl border border-accent/30 bg-accent/10 p-3 text-xs">
               <p className="flex items-start gap-2 text-foreground">
                 <Icons.ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <span>Access is restricted to approved accounts. Try one of these (any 6+ char password):</span>
+                <span>Access is restricted to people who&apos;ve been invited. Sign in with the email address your invitation was sent to.</span>
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {DEMO_ACCOUNTS.map((a) => (
-                  <button
-                    key={a.email}
-                    type="button"
-                    onClick={() => { setEmail(a.email); setPassword("demo1234"); setMode("signin"); }}
-                    className="rounded-lg border bg-card px-2.5 py-1 font-medium hover:bg-secondary"
-                  >
-                    {a.label}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 

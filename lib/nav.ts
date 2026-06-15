@@ -14,10 +14,13 @@ export const NAV: NavItem[] = [
   // ---- Participant: a guided path ----
   { href: "/journey", label: "My Journey", icon: "Footprints", group: "Overview", roles: ["participant"] },
   { href: "/learning", label: "My Learning", icon: "GraduationCap", group: "Learn", roles: ["participant"] },
+  { href: "/assessments", label: "Assessments", icon: "ClipboardCheck", group: "Learn", roles: ["participant"] },
   { href: "/toc", label: "Theory of Change", icon: "Workflow", group: "Build", roles: ["participant"] },
   { href: "/logframe", label: "Logframe", icon: "Table2", group: "Build", roles: ["participant"] },
+  { href: "/assumptions", label: "Assumption Registry", icon: "ShieldAlert", group: "Build", roles: ["participant"] },
   { href: "/measurement", label: "Measurement", icon: "Ruler", group: "Build", roles: ["participant"] },
   { href: "/package", label: "My Package", icon: "PackageCheck", group: "Build", roles: ["participant"] },
+  { href: "/evidence", label: "Evidence Repository", icon: "FolderOpen", group: "Build", roles: ["participant"] },
 
   // ---- Facilitator: run the cohort ----
   { href: "/plan", label: "Facilitator Plan", icon: "ClipboardList", group: "Facilitate", roles: ["facilitator", "admin"] },
@@ -35,10 +38,11 @@ export const NAV: NavItem[] = [
   { href: "/implementation", label: "Implementation", icon: "Rocket", group: "Insights", roles: ["admin", "facilitator", "executive"] },
 
   // ---- Strategy & Programs ----
-  { href: "/strategy", label: "Strategy House", icon: "Building2", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "executive"] },
-  { href: "/programs", label: "Programs (TOC)", icon: "FolderKanban", group: "Strategy", roles: ["admin", "facilitator", "coordinator"] },
+  { href: "/strategy", label: "Strategy House", icon: "Building2", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "executive", "participant"] },
+  { href: "/programs", label: "Programs (TOC)", icon: "FolderKanban", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "participant"] },
 
   // ---- Help (everyone) ----
+  { href: "/knowledge", label: "Knowledge Base", icon: "BookOpen", group: "Help", roles: ["participant", "admin", "facilitator", "coordinator", "executive"] },
   { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Help", roles: ["participant", "admin", "facilitator"] },
 ];
 
