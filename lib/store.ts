@@ -111,6 +111,61 @@ export async function markAllRead(email: string): Promise<void> {
   } catch {}
 }
 
+// ---------------- Members / invitations ----------------
+// The access allowlist. Persisted so invited people survive sign-out & reload
+// (Supabase when configured, otherwise localStorage on this browser).
+
+export interface Member {
+  email: string;
+  name: string;
+  role: "admin" | "participant";
+  status: "Active" | "Invited";
+  temp_password: string;
+  created_at?: string;
+}
+
+const MKEY = "toc-members";
+
+export async function listMembers(): Promise<Member[]> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data } = await sb.from("members").select("*").order("created_at", { ascending: false });
+    return (data as Member[] | null) ?? [];
+  }
+  try {
+    const raw = localStorage.getItem(MKEY);
+    return raw ? (JSON.parse(raw) as Member[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveMember(member: Member): Promise<void> {
+  const row = { ...member, email: member.email.toLowerCase() };
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    await sb.from("members").upsert(row, { onConflict: "email" });
+    return;
+  }
+  try {
+    const rest = (await listMembers()).filter((m) => m.email !== row.email);
+    localStorage.setItem(MKEY, JSON.stringify([{ ...row, created_at: new Date().toISOString() }, ...rest]));
+  } catch {}
+}
+
+export async function removeMember(email: string): Promise<void> {
+  const e = email.toLowerCase();
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    await sb.from("members").delete().eq("email", e);
+    return;
+  }
+  try {
+    const rest = (await listMembers()).filter((m) => m.email !== e);
+    localStorage.setItem(MKEY, JSON.stringify(rest));
+  } catch {}
+}
+
 // ---------------- Email ----------------
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; demo?: boolean; error?: string }> {
