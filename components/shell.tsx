@@ -7,6 +7,7 @@ import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navFor, canAccess, homeFor } from "@/lib/nav";
 import { ROLES, CURRENT_USER } from "@/lib/data";
+import type { Role } from "@/lib/types";
 import { useApp } from "./providers";
 import { useAuth } from "./auth";
 import { Logo } from "./logo";
@@ -18,11 +19,16 @@ function Icon({ name, className }: { name: string; className?: string }) {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { role, setRole, theme, toggleTheme } = useApp();
+  const { role: previewRole, setRole, theme, toggleTheme } = useApp();
   const { user, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = user?.role === "admin";
+  // Only admins may preview another role. Everyone else is locked to their real
+  // role — so a stale saved role (e.g. a previous admin session on this browser)
+  // can never leak admin UI into a learner's session. Sign in as a learner →
+  // stay a learner.
+  const role: Role = isAdmin ? previewRole : (user?.role ?? "participant");
   const displayName = user?.name || CURRENT_USER.name;
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const [mobileOpen, setMobileOpen] = useState(false);
