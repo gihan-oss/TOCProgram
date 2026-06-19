@@ -10,7 +10,7 @@ import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import {
-  loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile,
+  loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile, moduleComplete,
   RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP, QUIZ_PASS, quizStars,
   providerEmbed, isImageUrl, isVideoFileUrl, isAudioFileUrl, isPdfUrl,
   type CourseModule, type Resource, type ResourceType, type QuizQuestion, type WorksheetField, type LearnerMeta,
@@ -60,6 +60,8 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
   if (loaded && !module) return notFound();
   if (!module) return null;
   const moduleIndex = modules.findIndex((m) => m.id === id);
+  const nextModule = moduleIndex >= 0 ? modules[moduleIndex + 1] : undefined;
+  const moduleDone = moduleComplete(module, done);
 
   function celebrate() {
     setConfetti(true);
@@ -170,6 +172,25 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
       )}
 
       {canEdit && <AddContent onAdd={addResource} />}
+
+      {!canEdit && module.resources.length > 0 && (
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
+          <Link href="/learning" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Icons.ArrowLeft className="h-4 w-4" /> All modules
+          </Link>
+          {nextModule ? (
+            moduleDone ? (
+              <Link href={`/learning/${nextModule.id}`}><Button size="sm">Next module <Icons.ArrowRight className="h-4 w-4" /></Button></Link>
+            ) : (
+              <Button size="sm" disabled title="Finish everything above to continue">Next module <Icons.ArrowRight className="h-4 w-4" /></Button>
+            )
+          ) : moduleDone ? (
+            <Link href="/learning"><Button size="sm">Finish <Icons.Check className="h-4 w-4" /></Button></Link>
+          ) : (
+            <Button size="sm" disabled title="Finish everything above">Finish <Icons.Check className="h-4 w-4" /></Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -226,17 +247,18 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
   onRemove: () => void;
 }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[r.type]] ?? Icons.File;
+  const isMedia = r.type === "Video" || r.type === "PDF" || r.type === "File" || r.type === "Link";
 
   return (
     <Card className="p-4">
       <div className="flex items-start gap-3">
-        <button onClick={() => onComplete(!done)} aria-label="Toggle complete" className="mt-0.5">
-          {done ? <Icons.CheckCircle2 className="h-5 w-5 text-[hsl(var(--success))]" /> : <Icons.Circle className="h-5 w-5 text-muted-foreground" />}
-        </button>
-        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+        <Icon className="mt-1 h-4 w-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
+              {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+            </div>
             <div className="flex items-center gap-2">
               <Badge tone="muted">{RESOURCE_LABEL[r.type]}</Badge>
               {canEdit && (
@@ -253,6 +275,18 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
             <WorksheetPlayer r={r} answers={answers} done={done} onSave={onWorksheet} />
           ) : (
             <MediaBody r={r} />
+          )}
+
+          {/* Passive items (video, PDF, file, link) are completed with a button,
+              not a checkbox. Quizzes/worksheets complete via their own actions. */}
+          {!canEdit && isMedia && (
+            <div className="mt-3">
+              {done ? (
+                <Button size="sm" variant="outline" onClick={() => onComplete(false)}><Icons.Check className="h-4 w-4" /> Completed</Button>
+              ) : (
+                <Button size="sm" onClick={() => onComplete(true)}>Mark complete <Icons.ArrowRight className="h-4 w-4" /></Button>
+              )}
+            </div>
           )}
         </div>
       </div>
