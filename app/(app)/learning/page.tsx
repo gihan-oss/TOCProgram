@@ -25,7 +25,13 @@ export default function LearningPage() {
 
   useEffect(() => {
     (async () => {
-      setModules(await loadModules());
+      let mods = await loadModules();
+      // Auto-load the MASGLA course the first time an admin opens an empty
+      // portal, so the content is simply there — no hidden button to find.
+      if (mods.length === 0 && (user?.role === "admin" || user?.role === "facilitator")) {
+        if (await saveModules(MASGLA_STARTER)) mods = MASGLA_STARTER;
+      }
+      setModules(mods);
       if (user) {
         setDone(await loadDone(user.email));
         setMeta(await loadMeta(user.email));
@@ -168,6 +174,15 @@ export default function LearningPage() {
               );
             })}
           </div>
+        </Card>
+      )}
+
+      {canEdit && modules.length > 0 && modules.every((m) => m.resources.length === 0) && (
+        <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 border-accent/40 bg-accent/5 p-4">
+          <p className="text-sm">Your modules don't have any content yet. Load the full MASGLA course into them?</p>
+          <Button size="sm" onClick={reloadStarter} disabled={seeding}>
+            {seeding ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Icons.Sparkles className="h-4 w-4" />} Fill with MASGLA content
+          </Button>
         </Card>
       )}
 
