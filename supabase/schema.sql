@@ -115,6 +115,8 @@ create table if not exists public.course_progress (
   done        text[] not null default '{}',
   updated_at  timestamptz not null default now()
 );
+-- Gamification: best quiz scores + saved worksheet answers, per learner.
+alter table public.course_progress add column if not exists meta jsonb not null default '{}'::jsonb;
 alter table public.course_progress enable row level security;
 
 drop policy if exists "progress read own" on public.course_progress;

@@ -7,12 +7,22 @@ import { getSupabaseBrowserClient } from "./supabase";
 // Supabase Storage). Without it, it falls back to localStorage so the app still
 // works in demo mode.
 
-export type ResourceType = "Video" | "PDF" | "File" | "Note" | "Link" | "Quiz";
+export type ResourceType = "Video" | "PDF" | "File" | "Note" | "Worksheet" | "Link" | "Quiz";
 
 export interface QuizQuestion {
   prompt: string;
   options: string[];
   answer: number;
+}
+
+// A worksheet is a set of prompts the learner fills in (for their own program)
+// right on the page. Answers are saved per-learner.
+export interface WorksheetField {
+  id: string;
+  label: string;
+  hint?: string;
+  long?: boolean; // multi-line answer
+  required?: boolean;
 }
 
 export interface Resource {
@@ -22,8 +32,20 @@ export interface Resource {
   url?: string;
   fileName?: string;
   fileData?: string; // data URL fallback (no Supabase)
-  body?: string;
+  body?: string; // Note text, or a worksheet's intro
   questions?: QuizQuestion[];
+  fields?: WorksheetField[]; // worksheet prompts
+}
+
+// A quiz is passed at 80% (e.g. 4/5) — understanding, not gatekeeping.
+export const QUIZ_PASS = 0.8;
+export function quizStars(correct: number, total: number): 0 | 1 | 2 | 3 {
+  if (total === 0) return 0;
+  const pct = correct / total;
+  if (pct >= 1) return 3;
+  if (pct >= QUIZ_PASS) return 2;
+  if (pct >= 0.5) return 1;
+  return 0;
 }
 
 export interface CourseModule {
@@ -93,6 +115,45 @@ export async function saveDone(email: string, done: Set<string>) {
   } catch {}
 }
 
+// ---------------- Per-learner gamification meta ----------------
+// Best quiz scores (for stars / XP) and worksheet answers, kept alongside the
+// `done` set in the same course_progress row (a `meta` jsonb column).
+export interface LearnerMeta {
+  scores: Record<string, { correct: number; total: number }>; // best score per quiz resource id
+  worksheets: Record<string, Record<string, string>>; // answers per worksheet resource id
+}
+const META_KEY = (email: string) => `toc-progress-meta:${email.toLowerCase()}`;
+const emptyMeta = (): LearnerMeta => ({ scores: {}, worksheets: {} });
+function normalizeMeta(m: unknown): LearnerMeta {
+  const o = (m && typeof m === "object" ? m : {}) as Partial<LearnerMeta>;
+  return { scores: o.scores ?? {}, worksheets: o.worksheets ?? {} };
+}
+
+export async function loadMeta(email: string): Promise<LearnerMeta> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data } = await sb.from("course_progress").select("meta").eq("email", email.toLowerCase()).maybeSingle();
+    return normalizeMeta(data?.meta);
+  }
+  if (typeof window === "undefined") return emptyMeta();
+  try {
+    return normalizeMeta(JSON.parse(localStorage.getItem(META_KEY(email)) || "null"));
+  } catch {
+    return emptyMeta();
+  }
+}
+
+export async function saveMeta(email: string, meta: LearnerMeta) {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    await sb.from("course_progress").upsert({ email: email.toLowerCase(), meta, updated_at: new Date().toISOString() });
+    return;
+  }
+  try {
+    localStorage.setItem(META_KEY(email), JSON.stringify(meta));
+  } catch {}
+}
+
 // ---------------- File upload ----------------
 
 export async function uploadFile(file: File): Promise<{ url?: string; dataUrl?: string; fileName: string; error?: string }> {
@@ -121,13 +182,14 @@ export function moduleComplete(m: CourseModule, done: Set<string>) {
   return m.resources.length > 0 && m.resources.every((r) => done.has(r.id));
 }
 
-export const RESOURCE_TYPES: ResourceType[] = ["Video", "PDF", "File", "Note", "Link", "Quiz"];
+export const RESOURCE_TYPES: ResourceType[] = ["Video", "PDF", "File", "Note", "Worksheet", "Link", "Quiz"];
 
 export const RESOURCE_ICON: Record<ResourceType, string> = {
   Video: "PlayCircle",
   PDF: "FileText",
   File: "Paperclip",
   Note: "StickyNote",
+  Worksheet: "PencilRuler",
   Link: "Link",
   Quiz: "ClipboardCheck",
 };
@@ -139,6 +201,7 @@ export const RESOURCE_LABEL: Record<ResourceType, string> = {
   PDF: "PDF",
   File: "File",
   Note: "Text",
+  Worksheet: "Worksheet",
   Link: "Link",
   Quiz: "Quiz",
 };
@@ -148,8 +211,9 @@ export const RESOURCE_HELP: Record<ResourceType, string> = {
   PDF: "Opens inline in a built-in reader (no download needed). Upload the file or paste a link.",
   File: "Slides, worksheets, images, audio… Images and media preview inline; anything else downloads. Upload or link.",
   Note: "Write text / reading material the learner reads right on the page.",
+  Worksheet: "A fillable worksheet learners complete for their own program. Add prompts; their answers are saved and earn points.",
   Link: "A link to an external article or page (opens in a new tab).",
-  Quiz: "A short test — add questions with multiple-choice answers.",
+  Quiz: "A short test — add questions with multiple-choice answers. Pass at 80%, unlimited retakes.",
 };
 
 // ---------------- Inline media (no redirects) ----------------

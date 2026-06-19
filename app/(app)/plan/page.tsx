@@ -9,17 +9,17 @@ import { PARTICIPANTS } from "@/lib/data";
 const PILLARS = [
   {
     icon: "CalendarClock",
-    title: "Bi-weekly cadence",
-    why: "One session every two weeks gives participants time to complete their session worksheet and apply concepts to their real program before the next call. This converts training into practice, not just information transfer.",
-    feature: "Schedule sessions every 2 weeks",
+    title: "Weekly cadence over 5 weeks",
+    why: "One live session each week keeps momentum and forces same-week application to a real program. Each session builds cleanly on the last: the first sets the shared language, the next four each produce one finished artifact.",
+    feature: "Schedule one session per week for 5 weeks",
     href: "/learning",
     cta: "Open Course Builder",
   },
   {
     icon: "Timer",
-    title: "60-minute sessions",
-    why: "Staff and volunteers have limited time. 60 minutes is long enough for meaningful learning and a live activity, short enough to sustain commitment across 8 weeks. All pre-work is done asynchronously between sessions.",
-    feature: "Keep each module to a 60-minute live block + async pre-work",
+    title: "90-minute sessions",
+    why: "Long enough for direct instruction (~40 min) plus live applied work on the participant's own program (~30 min) and a clean close — short enough to sustain over 5 weeks. Worksheet pre-work is done asynchronously between sessions.",
+    feature: "Keep each module to a 90-minute live block + async worksheet",
     href: "/learning",
     cta: "Set up modules",
   },
@@ -50,14 +50,11 @@ const PILLARS = [
 ];
 
 const SESSIONS = [
-  { n: 1, title: "Q-Zero — Strategic Clarity", focus: "Three Laws of Q-Zero · Outcome thinking", worksheet: "Q-Zero draft" },
-  { n: 2, title: "Q-Zero — If-Then & Approval", focus: "If-Then statements · Traffic-light self-assessment", worksheet: "Approved Q-Zero", deliverable: "Q-Zero" },
-  { n: 3, title: "Theory of Change — Inputs → Outputs", focus: "Inputs (who) · Activities · Outputs", worksheet: "Draft causal chain" },
-  { n: 4, title: "Theory of Change — Outcomes & Causal Logic", focus: "Outcomes vs impact · Causal logic", worksheet: "Complete causal chain", deliverable: "Causal Chain" },
-  { n: 5, title: "Logframe — Vertical & Horizontal Logic", focus: "The logframe grid · vertical/horizontal logic", worksheet: "Logframe skeleton" },
-  { n: 6, title: "Logframe — Indicators & Verification", focus: "Indicators · baselines · means of verification", worksheet: "Completed logframe", deliverable: "Logframe" },
-  { n: 7, title: "Measurement — SMART Indicators & Assumptions", focus: "SMART indicators · assumptions · risk ratings", worksheet: "Measurement draft" },
-  { n: 8, title: "Measurement & Wrap — Keep / Modify / Cancel", focus: "Keep/Modify/Cancel · final package", worksheet: "Measurement plan", deliverable: "Measurement Plan" },
+  { n: 1, title: "Why This Matters & Intro to TOC", focus: "The case for measuring impact · the five-level framework", worksheet: "Place your program" },
+  { n: 2, title: "Q-Zero", focus: "Three Laws of Q-Zero · traffic-light self-check", worksheet: "Q-Zero If–Then", deliverable: "Q-Zero" },
+  { n: 3, title: "The Impact Pathway", focus: "Five-level causal chain · assumptions at each link", worksheet: "Impact pathway", deliverable: "Causal Chain" },
+  { n: 4, title: "Building the Logframe", focus: "4×4 matrix · vertical & horizontal logic", worksheet: "Draft logframe", deliverable: "Logframe" },
+  { n: 5, title: "Measuring & Validating Impact", focus: "SMART indicators · assumptions · Keep / Modify / Cancel", worksheet: "Measurement plan", deliverable: "Measurement Plan" },
 ];
 
 const ARTIFACTS = ["Q-Zero", "Causal Chain", "Logframe", "Measurement Plan"];
@@ -72,7 +69,7 @@ export default function FacilitatorPlan() {
           <Badge tone="accent" className="bg-white/15 text-white">Facilitator playbook</Badge>
           <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">Run your cohort to implementation</h1>
           <p className="mt-2 max-w-2xl text-sm text-primary-foreground/85">
-            Eight bi-weekly, 60-minute sessions that move every participant from learning to a submitted implementation package — the evidence base for the <span className="font-semibold">100% target by December 2026.</span>
+            Five weekly, 90-minute sessions that move every participant from learning to a submitted implementation package — the evidence base for the <span className="font-semibold">100% target by December 2026.</span>
           </p>
         </div>
       </div>
@@ -101,7 +98,7 @@ export default function FacilitatorPlan() {
       </div>
 
       {/* 8-session schedule */}
-      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wider text-muted-foreground">The 8-session schedule (bi-weekly · 60 min)</h2>
+      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wider text-muted-foreground">The 5-session schedule (weekly · 90 min)</h2>
       <Card className="overflow-hidden">
         <div className="divide-y">
           {SESSIONS.map((s) => (
