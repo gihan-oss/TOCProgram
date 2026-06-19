@@ -10,6 +10,15 @@ export const MAS = {
   northStar: "To move people and nurture lifelong, God-centered agents of change.",
 };
 
+// The client this portal is currently configured for. The learning portal is
+// white-labelled per client — every "Welcome to … Theory of Change" surface is
+// driven from here, so onboarding the next client is a one-line change.
+export const CLIENT = {
+  name: MAS.org, // e.g. "MAS GLA"
+  // The title shown across the learning portal: "MAS GLA Theory of Change".
+  tocTitle: `${MAS.org} Theory of Change`,
+};
+
 // The 6-layer strategy methodology (the "Strategy House" cascade).
 export const METHODOLOGY = [
   { n: 1, name: "Vision", desc: "The long-term aspiration that anchors everything." },
