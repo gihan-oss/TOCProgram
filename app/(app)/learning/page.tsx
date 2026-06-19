@@ -213,56 +213,73 @@ export default function LearningPage() {
           <EmptyHint>No modules have been published yet — check back soon.</EmptyHint>
         )
       ) : (
-        <div className="space-y-3">
-          {modules.map((m, i) => {
-            const totalItems = m.resources.length;
-            const completed = m.resources.filter((r) => done.has(r.id)).length;
-            const pct = totalItems ? Math.round((completed / totalItems) * 100) : 0;
-            // gradual unlock for learners — each module opens the next level
-            const locked = !canEdit && i > 0 && !moduleComplete(modules[i - 1], done);
-            const complete = moduleComplete(m, done);
+        <>
+          <div className="space-y-3">
+            {modules.map((m, i) => ({ m, i }))
+              // Learners only see what they've reached: completed modules + the
+              // current one. Future modules stay hidden until unlocked.
+              .filter(({ i }) => canEdit || activeIdx < 0 || i <= activeIdx)
+              .map(({ m, i }) => {
+                const totalItems = m.resources.length;
+                const completed = m.resources.filter((r) => done.has(r.id)).length;
+                const pct = totalItems ? Math.round((completed / totalItems) * 100) : 0;
+                const complete = moduleComplete(m, done);
+                const isCurrent = !canEdit && i === activeIdx;
+                const justUnlocked = isCurrent && i > 0 && completed === 0; // freshly opened
 
-            const inner = (
-              <Card className={`p-5 ${locked ? "opacity-60" : "transition-shadow hover:shadow-md"}`}>
-                <div className="flex items-start gap-4">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${complete ? "bg-[hsl(var(--success)/0.15)] text-[hsl(var(--success))]" : locked ? "bg-muted text-muted-foreground" : "bg-accent/15 text-accent"}`}>
-                    {complete ? <Icons.Check className="h-5 w-5" /> : locked ? <Icons.Lock className="h-4 w-4" /> : i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Module {i + 1}</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold">{m.title}</h3>
-                      {complete && <Badge tone="success">Complete</Badge>}
-                      {locked && <Badge tone="muted"><Icons.Lock className="h-3 w-3" /> Locked</Badge>}
-                    </div>
-                    {m.summary && <p className="mt-0.5 text-sm text-muted-foreground">{m.summary}</p>}
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {totalItems} item{totalItems !== 1 ? "s" : ""}{!canEdit && totalItems > 0 ? ` · ${completed}/${totalItems} done` : ""}
-                      {locked && i > 0 ? ` · finish “${modules[i - 1].title}” to unlock` : ""}
-                    </p>
-                    {!canEdit && totalItems > 0 && (
-                      <div className="mt-1.5 h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
-                    )}
-                  </div>
-                  {canEdit && (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button onClick={() => move(i, -1)} disabled={i === 0} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30" aria-label="Move up"><Icons.ChevronUp className="h-4 w-4" /></button>
-                      <button onClick={() => move(i, 1)} disabled={i === modules.length - 1} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30" aria-label="Move down"><Icons.ChevronDown className="h-4 w-4" /></button>
-                      <button onClick={() => removeModule(m.id)} className="rounded-md p-1 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]" aria-label="Remove"><Icons.Trash2 className="h-4 w-4" /></button>
-                    </div>
-                  )}
-                  {!locked && <Icons.ChevronRight className="h-5 w-5 shrink-0 self-center text-muted-foreground" />}
-                </div>
-              </Card>
-            );
+                const inner = (
+                  <Card className={`p-5 transition-shadow hover:shadow-md ${isCurrent ? "ring-2 ring-accent/50" : ""}`}>
+                    <div className="flex items-start gap-4">
+                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${complete ? "bg-[hsl(var(--success)/0.15)] text-[hsl(var(--success))]" : "bg-accent/15 text-accent"}`}>
+                        {complete ? <Icons.Check className="h-5 w-5" /> : i + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Module {i + 1}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold">{m.title}</h3>
+                          {complete && <Badge tone="success">Complete</Badge>}
+                          {justUnlocked && <Badge tone="accent"><Icons.Sparkles className="h-3 w-3" /> Just unlocked</Badge>}
+                          {isCurrent && !justUnlocked && !complete && completed > 0 && <Badge tone="accent">In progress</Badge>}
+                        </div>
 
-            return locked ? (
-              <div key={m.id} title="Finish the previous module to unlock">{inner}</div>
-            ) : (
-              <Link key={m.id} href={`/learning/${m.id}`}>{inner}</Link>
-            );
-          })}
-        </div>
+                        {justUnlocked ? (
+                          <div className="mt-2 flex items-start gap-2 rounded-lg bg-accent/10 p-2.5 text-sm text-accent">
+                            <Icons.PartyPopper className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span><b>You've unlocked this!</b>{m.summary ? ` ${m.summary}` : " Open it to begin."}</span>
+                          </div>
+                        ) : (
+                          m.summary && <p className="mt-0.5 text-sm text-muted-foreground">{m.summary}</p>
+                        )}
+
+                        {!canEdit && totalItems > 0 && (
+                          <>
+                            <p className="mt-2 text-xs text-muted-foreground">{totalItems} item{totalItems !== 1 ? "s" : ""} · {completed}/{totalItems} done</p>
+                            <div className="mt-1.5 h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
+                          </>
+                        )}
+                        {canEdit && <p className="mt-2 text-xs text-muted-foreground">{totalItems} item{totalItems !== 1 ? "s" : ""}</p>}
+                      </div>
+                      {canEdit && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); move(i, -1); }} disabled={i === 0} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30" aria-label="Move up"><Icons.ChevronUp className="h-4 w-4" /></button>
+                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); move(i, 1); }} disabled={i === modules.length - 1} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30" aria-label="Move down"><Icons.ChevronDown className="h-4 w-4" /></button>
+                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeModule(m.id); }} className="rounded-md p-1 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]" aria-label="Remove"><Icons.Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      )}
+                      <Icons.ChevronRight className="h-5 w-5 shrink-0 self-center text-muted-foreground" />
+                    </div>
+                  </Card>
+                );
+
+                return <Link key={m.id} href={`/learning/${m.id}`}>{inner}</Link>;
+              })}
+          </div>
+          {!canEdit && activeIdx >= 0 && modules.length - (activeIdx + 1) > 0 && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Icons.Lock className="h-3.5 w-3.5" /> {modules.length - (activeIdx + 1)} more module{modules.length - (activeIdx + 1) !== 1 ? "s" : ""} unlock as you finish each one.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
