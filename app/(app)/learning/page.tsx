@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Icons from "lucide-react";
-import { Card, Badge, Button, SectionTitle, EmptyHint } from "@/components/ui";
+import { Card, Badge, Button, EmptyHint } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
+import { CLIENT } from "@/lib/mas";
 import { loadModules, saveModules, loadDone, moduleComplete, type CourseModule } from "@/lib/content";
 
 export default function LearningPage() {
@@ -49,14 +50,71 @@ export default function LearningPage() {
     await persist(next);
   }
 
+  // ---- learner progress / "open one level at a time" ----
+  const firstName = user?.name?.split(" ")[0] ?? "";
+  const total = modules.length;
+  const completedCount = modules.filter((m) => moduleComplete(m, done)).length;
+  const activeIdx = modules.findIndex((m) => !moduleComplete(m, done)); // next level to open
+  const totalRes = modules.reduce((s, m) => s + m.resources.length, 0);
+  const doneRes = modules.reduce((s, m) => s + m.resources.filter((r) => done.has(r.id)).length, 0);
+  const overall = totalRes ? Math.round((doneRes / totalRes) * 100) : total ? Math.round((completedCount / total) * 100) : 0;
+
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <SectionTitle sub={canEdit ? "Build the course: create modules, then add videos, PDFs, files, notes and tests. Learners see them one at a time." : "Work through each module. The next one unlocks when you finish the current one."}>
-          {canEdit ? "Course Builder" : "My Learning"}
-        </SectionTitle>
-        {canEdit && <Button size="sm" onClick={() => setAdding((v) => !v)}><Icons.Plus className="h-4 w-4" /> Add module</Button>}
-      </div>
+      {canEdit ? (
+        // ---------- Admin / facilitator: course builder ----------
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+              <Icons.Building2 className="h-3.5 w-3.5" /> {CLIENT.name}
+            </span>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">Course Builder — Theory of Change</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Build the {CLIENT.name} course as ordered modules, then add videos, PDFs, text and tests. Each module opens the next level — learners unlock them one at a time, in order.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => setAdding((v) => !v)}><Icons.Plus className="h-4 w-4" /> Add module</Button>
+        </div>
+      ) : (
+        // ---------- Learner: branded welcome + onboarding into the modules ----------
+        <div className="relative mb-6 overflow-hidden rounded-3xl border bg-primary p-7 text-primary-foreground sm:p-9">
+          <div className="mesh absolute inset-0 opacity-30" />
+          <span className="relative inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+            <Icons.GraduationCap className="h-3.5 w-3.5" /> Learning Portal
+          </span>
+          <h1 className="relative mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">
+            Welcome to {CLIENT.tocTitle}
+          </h1>
+          <p className="relative mt-3 max-w-xl text-sm text-primary-foreground/85">
+            {firstName ? `${firstName}, this` : "This"} is your guided path. The course is built as modules, and each module opens the next level. Finish one to unlock the next — so you understand it one step at a time.
+          </p>
+
+          {total > 0 && (
+            <div className="relative mt-6 flex flex-wrap items-center gap-4">
+              <div className="min-w-[200px] flex-1">
+                <div className="flex justify-between text-xs text-primary-foreground/80">
+                  <span>{completedCount} of {total} module{total !== 1 ? "s" : ""} complete</span>
+                  <span>{overall}%</span>
+                </div>
+                <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-white/20">
+                  <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${overall}%` }} />
+                </div>
+              </div>
+              {activeIdx >= 0 ? (
+                <Link href={`/learning/${modules[activeIdx].id}`}>
+                  <Button variant="secondary" size="sm">
+                    {completedCount === 0 ? "Start Module 1" : `Resume Module ${activeIdx + 1}`} <Icons.ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-medium backdrop-blur">
+                  <Icons.PartyPopper className="h-4 w-4" /> All modules complete
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {canEdit && adding && (
         <Card className="mb-4 p-5">
@@ -69,14 +127,14 @@ export default function LearningPage() {
       )}
 
       {modules.length === 0 ? (
-        <EmptyHint>{canEdit ? "No modules yet. Click “Add module” to create your first one, then open it to add videos, PDFs, files, notes and tests." : "No modules have been published yet — check back soon."}</EmptyHint>
+        <EmptyHint>{canEdit ? "No modules yet. Click “Add module” to create your first one, then open it to add videos, PDFs, files, text and tests." : "No modules have been published yet — check back soon."}</EmptyHint>
       ) : (
         <div className="space-y-3">
           {modules.map((m, i) => {
-            const total = m.resources.length;
+            const totalItems = m.resources.length;
             const completed = m.resources.filter((r) => done.has(r.id)).length;
-            const pct = total ? Math.round((completed / total) * 100) : 0;
-            // gradual unlock for learners
+            const pct = totalItems ? Math.round((completed / totalItems) * 100) : 0;
+            // gradual unlock for learners — each module opens the next level
             const locked = !canEdit && i > 0 && !moduleComplete(modules[i - 1], done);
             const complete = moduleComplete(m, done);
 
@@ -87,6 +145,7 @@ export default function LearningPage() {
                     {complete ? <Icons.Check className="h-5 w-5" /> : locked ? <Icons.Lock className="h-4 w-4" /> : i + 1}
                   </div>
                   <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Module {i + 1}</p>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold">{m.title}</h3>
                       {complete && <Badge tone="success">Complete</Badge>}
@@ -94,10 +153,10 @@ export default function LearningPage() {
                     </div>
                     {m.summary && <p className="mt-0.5 text-sm text-muted-foreground">{m.summary}</p>}
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {total} item{total !== 1 ? "s" : ""}{!canEdit && total > 0 ? ` · ${completed}/${total} done` : ""}
+                      {totalItems} item{totalItems !== 1 ? "s" : ""}{!canEdit && totalItems > 0 ? ` · ${completed}/${totalItems} done` : ""}
                       {locked && i > 0 ? ` · finish “${modules[i - 1].title}” to unlock` : ""}
                     </p>
-                    {!canEdit && total > 0 && (
+                    {!canEdit && totalItems > 0 && (
                       <div className="mt-1.5 h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
                     )}
                   </div>
