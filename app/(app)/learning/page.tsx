@@ -9,7 +9,7 @@ import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import { loadModules, saveModules, loadDone, loadMeta, moduleComplete, type CourseModule, type LearnerMeta } from "@/lib/content";
 import { computeGameState } from "@/lib/gamify";
-import { MASGLA_STARTER } from "@/lib/starter-course";
+import { MASGLA_STARTER, effectiveModules, courseIsEmpty } from "@/lib/starter-course";
 
 export default function LearningPage() {
   const { user } = useAuth();
@@ -25,17 +25,13 @@ export default function LearningPage() {
 
   useEffect(() => {
     (async () => {
-      let mods = await loadModules();
-      // Auto-load the MASGLA course whenever the portal has no real content —
-      // either no modules at all, OR only empty module shells left from before.
-      // Admins/facilitators trigger the (persisted) fill, so it's simply there
-      // with zero manual steps.
-      const isAdminish = user?.role === "admin" || user?.role === "facilitator";
-      const needsContent = mods.length === 0 || mods.every((m) => m.resources.length === 0);
-      if (isAdminish && needsContent) {
-        if (await saveModules(MASGLA_STARTER)) mods = MASGLA_STARTER;
-      }
-      setModules(mods);
+      const stored = await loadModules();
+      const empty = courseIsEmpty(stored);
+      // Always SHOW the MASGLA course when there's no real content — straight
+      // from code, so it never depends on a database write succeeding.
+      setModules(empty ? MASGLA_STARTER : stored);
+      // Best-effort persist for admins so edits stick; display doesn't rely on it.
+      if (empty && (user?.role === "admin" || user?.role === "facilitator")) void saveModules(MASGLA_STARTER);
       if (user) {
         setDone(await loadDone(user.email));
         setMeta(await loadMeta(user.email));

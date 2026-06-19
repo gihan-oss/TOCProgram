@@ -6,6 +6,19 @@
 
 import type { CourseModule } from "./content";
 
+// True when the stored course has no real content — no modules at all, or only
+// empty module shells. In that case we show the MASGLA course straight from
+// code (below), so the content is ALWAYS visible even if the database write to
+// persist it hasn't happened or failed.
+export function courseIsEmpty(stored: CourseModule[]): boolean {
+  return stored.length === 0 || stored.every((m) => m.resources.length === 0);
+}
+// The effective modules to display: stored content if it exists, otherwise the
+// built-in MASGLA course.
+export function effectiveModules(stored: CourseModule[]): CourseModule[] {
+  return courseIsEmpty(stored) ? MASGLA_STARTER : stored;
+}
+
 export const MASGLA_STARTER: CourseModule[] = [
   // ===================================================================== M1
   {
