@@ -62,6 +62,10 @@ export default function LearningPage() {
     setSeeding(false);
     toast("MASGLA TOC starter loaded — 5 modules with worksheets and quizzes");
   }
+  async function reloadStarter() {
+    if (!window.confirm("Replace ALL current modules with the latest MASGLA starter content? This can't be undone.")) return;
+    await loadStarter();
+  }
 
   // ---- learner progress / gamification ----
   const firstName = user?.name?.split(" ")[0] ?? "";
@@ -87,7 +91,14 @@ export default function LearningPage() {
               Build the {CLIENT.name} course as ordered modules, then add videos, PDFs, text and tests. Each module opens the next level — learners unlock them one at a time, in order.
             </p>
           </div>
-          <Button size="sm" onClick={() => setAdding((v) => !v)}><Icons.Plus className="h-4 w-4" /> Add module</Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {modules.length > 0 && (
+              <Button size="sm" variant="outline" onClick={reloadStarter} disabled={seeding}>
+                {seeding ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Icons.RefreshCw className="h-4 w-4" />} Reload starter
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setAdding((v) => !v)}><Icons.Plus className="h-4 w-4" /> Add module</Button>
+          </div>
         </div>
       ) : (
         // ---------- Learner: branded welcome + onboarding into the modules ----------
