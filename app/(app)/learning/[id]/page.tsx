@@ -9,6 +9,7 @@ import { Confetti } from "@/components/confetti";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
+import { effectiveModules } from "@/lib/starter-course";
 import {
   loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile, moduleComplete,
   RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP, QUIZ_PASS, quizStars,
@@ -47,7 +48,7 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     (async () => {
-      setModules(await loadModules());
+      setModules(effectiveModules(await loadModules()));
       if (user) {
         setDone(await loadDone(user.email));
         setMeta(await loadMeta(user.email));

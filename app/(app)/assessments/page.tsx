@@ -6,6 +6,7 @@ import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
 import { loadModules, loadDone, loadMeta, QUIZ_PASS, quizStars, type CourseModule, type LearnerMeta } from "@/lib/content";
+import { effectiveModules } from "@/lib/starter-course";
 
 function Stars({ value }: { value: number }) {
   return (
@@ -25,7 +26,7 @@ export default function AssessmentsPage() {
 
   useEffect(() => {
     (async () => {
-      setModules(await loadModules());
+      setModules(effectiveModules(await loadModules()));
       if (user) {
         await loadDone(user.email); // ensure progress row exists
         setMeta(await loadMeta(user.email));
