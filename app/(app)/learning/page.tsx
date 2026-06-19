@@ -26,9 +26,13 @@ export default function LearningPage() {
   useEffect(() => {
     (async () => {
       let mods = await loadModules();
-      // Auto-load the MASGLA course the first time an admin opens an empty
-      // portal, so the content is simply there — no hidden button to find.
-      if (mods.length === 0 && (user?.role === "admin" || user?.role === "facilitator")) {
+      // Auto-load the MASGLA course whenever the portal has no real content —
+      // either no modules at all, OR only empty module shells left from before.
+      // Admins/facilitators trigger the (persisted) fill, so it's simply there
+      // with zero manual steps.
+      const isAdminish = user?.role === "admin" || user?.role === "facilitator";
+      const needsContent = mods.length === 0 || mods.every((m) => m.resources.length === 0);
+      if (isAdminish && needsContent) {
         if (await saveModules(MASGLA_STARTER)) mods = MASGLA_STARTER;
       }
       setModules(mods);
