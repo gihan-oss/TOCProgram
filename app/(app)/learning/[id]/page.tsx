@@ -441,6 +441,48 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
 
   function set(id: string, v: string) { setVals((p) => ({ ...p, [id]: v })); }
 
+  // Open a clean, Amal & Company–branded printable sheet. Filled answers print
+  // as text; blank prompts print as ruled lines so it works as a handout too.
+  function printWorksheet() {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const brand = "#5b4bd6", accent = "#0ea5a4", soft = "#6b7280";
+    const rowsHtml = fields.map((f, i) => {
+      const val = (vals[f.id] ?? "").trim();
+      const answer = val
+        ? `<div class="ans">${esc(val).replace(/\n/g, "<br>")}</div>`
+        : `<div class="blank"></div>`;
+      return `<div class="field"><div class="label">${i + 1}. ${esc(f.label)}${f.required ? ' <span style="color:#dc2626">*</span>' : ""}</div>${f.hint ? `<div class="hint">${esc(f.hint)}</div>` : ""}${answer}</div>`;
+    }).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(r.title)}</title><style>
+      @page{margin:18mm}*{box-sizing:border-box}
+      body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;margin:0;font-size:14px}
+      .head{border-bottom:3px solid ${brand};padding-bottom:12px;margin-bottom:18px}
+      .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+      .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:${brand}}
+      .brand img{height:32px}
+      .client{font-size:11px;color:${soft};text-transform:uppercase;letter-spacing:.06em;font-weight:700;text-align:right}
+      h1{font-size:20px;margin:14px 0 4px}
+      .intro{font-size:13px;color:${soft};margin:0;white-space:pre-wrap}
+      .field{margin:15px 0;page-break-inside:avoid}
+      .label{font-weight:700}.hint{font-size:12px;color:${soft};margin-top:2px}
+      .ans{margin-top:6px;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;min-height:26px;white-space:pre-wrap}
+      .blank{margin-top:10px;height:84px;background:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,#cbd5e1 27px,#cbd5e1 28px)}
+      .foot{margin-top:26px;border-top:1px solid #e5e7eb;padding-top:10px;font-size:11px;color:${soft};display:flex;justify-content:space-between}
+    </style></head><body>
+      <div class="head"><div class="row">
+        <div class="brand"><img src="${origin}/logo.png" alt="" onerror="this.style.display='none'">Amal &amp; Company</div>
+        <div class="client">${esc(CLIENT.tocTitle)}</div>
+      </div><h1>${esc(r.title)}</h1>${r.body ? `<p class="intro">${esc(r.body)}</p>` : ""}</div>
+      ${rowsHtml}
+      <div class="foot"><span>Amal &amp; Company · ${esc(CLIENT.tocTitle)}</span><span>${new Date().toLocaleDateString()}</span></div>
+      <scr` + `ipt>window.onload=function(){setTimeout(function(){window.print()},200)}</scr` + `ipt>
+    </body></html>`;
+    const w = window.open("", "_blank", "width=880,height=1100");
+    if (!w) { toast("Allow pop-ups to print the worksheet", "error"); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+
   return (
     <div className="mt-3 overflow-hidden rounded-xl border bg-card shadow-sm">
       {/* sheet header */}
@@ -487,6 +529,7 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
           <div className="h-2 w-full max-w-[160px] overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
           {!canComplete && required.length > 0 && <span className="hidden text-xs text-muted-foreground sm:inline">Fill the required prompts</span>}
         </div>
+        <Button size="sm" variant="outline" onClick={printWorksheet}><Icons.Printer className="h-4 w-4" /> Print</Button>
         <Button size="sm" variant="outline" onClick={() => { onSave(vals, false); toast("Progress saved"); }}>Save progress</Button>
         <Button size="sm" disabled={!canComplete} onClick={() => onSave(vals, true)}>
           <Icons.Sparkles className="h-4 w-4" /> {done ? "Save changes" : "Submit worksheet"}
