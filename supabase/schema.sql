@@ -80,6 +80,8 @@ create table if not exists public.members (
   created_at    timestamptz not null default now()
 );
 alter table public.members enable row level security;
+-- Which client (organization) an invited member belongs to.
+alter table public.members add column if not exists client text not null default '';
 
 drop policy if exists "members read" on public.members;
 create policy "members read"   on public.members for select using (true);

@@ -121,6 +121,7 @@ export interface Member {
   role: "admin" | "participant";
   status: "Active" | "Invited";
   temp_password: string;
+  client?: string; // which client (organization) they belong to
   created_at?: string;
 }
 
