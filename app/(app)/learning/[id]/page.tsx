@@ -16,6 +16,23 @@ import {
   type CourseModule, type Resource, type ResourceType, type QuizQuestion, type WorksheetField, type LearnerMeta,
 } from "@/lib/content";
 
+// Consecutive Text sections render as one flowing article; everything else
+// (video, PDF, worksheet, quiz, file) stays its own card.
+type Block = { kind: "article"; notes: Resource[] } | { kind: "single"; r: Resource };
+function groupBlocks(resources: Resource[]): Block[] {
+  const blocks: Block[] = [];
+  for (const r of resources) {
+    const last = blocks[blocks.length - 1];
+    if (r.type === "Note") {
+      if (last && last.kind === "article") last.notes.push(r);
+      else blocks.push({ kind: "article", notes: [r] });
+    } else {
+      blocks.push({ kind: "single", r });
+    }
+  }
+  return blocks;
+}
+
 export default function ModuleDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { user } = useAuth();
@@ -74,6 +91,15 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
       return next;
     });
   }
+  function completeMany(ids: string[]) {
+    setDone((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      if (user) void saveDone(user.email, next);
+      return next;
+    });
+    toast("Marked as read ✓");
+  }
   function recordScore(rid: string, correct: number, total: number) {
     setMeta((prev) => {
       const cur = prev.scores[rid];
@@ -114,26 +140,76 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
       {module.resources.length === 0 ? (
         <EmptyHint>{canEdit ? "Nothing here yet. Add a video, PDF, file, text, worksheet or test below — it all lives right here on the page." : "No content in this module yet."}</EmptyHint>
       ) : (
-        <div className="space-y-3">
-          {module.resources.map((r) => (
-            <ResourceCard
-              key={r.id}
-              r={r}
-              canEdit={canEdit}
-              done={done.has(r.id)}
-              best={meta.scores[r.id]}
-              answers={meta.worksheets[r.id] ?? {}}
-              onComplete={(v) => setComplete(r.id, v)}
-              onScore={(c, t, passed) => { recordScore(r.id, c, t); if (passed) { if (!done.has(r.id)) celebrate(); setComplete(r.id, true); } }}
-              onWorksheet={(answers, complete) => { recordWorksheet(r.id, answers); if (complete) { if (!done.has(r.id)) celebrate(); setComplete(r.id, true); } }}
-              onRemove={() => removeResource(r.id)}
-            />
-          ))}
+        <div className="space-y-4">
+          {groupBlocks(module.resources).map((b, bi) =>
+            b.kind === "article" ? (
+              <ArticleBlock
+                key={`article-${bi}`}
+                notes={b.notes}
+                doneSet={done}
+                canEdit={canEdit}
+                onReadAll={() => completeMany(b.notes.map((n) => n.id))}
+                onRemove={removeResource}
+              />
+            ) : (
+              <ResourceCard
+                key={b.r.id}
+                r={b.r}
+                canEdit={canEdit}
+                done={done.has(b.r.id)}
+                best={meta.scores[b.r.id]}
+                answers={meta.worksheets[b.r.id] ?? {}}
+                onComplete={(v) => setComplete(b.r.id, v)}
+                onScore={(c, t, passed) => { recordScore(b.r.id, c, t); if (passed) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
+                onWorksheet={(answers, complete) => { recordWorksheet(b.r.id, answers); if (complete) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
+                onRemove={() => removeResource(b.r.id)}
+              />
+            ),
+          )}
         </div>
       )}
 
       {canEdit && <AddContent onAdd={addResource} />}
     </div>
+  );
+}
+
+// ---------------- Reading: one flowing article ----------------
+function ArticleBlock({ notes, doneSet, canEdit, onReadAll, onRemove }: {
+  notes: Resource[];
+  doneSet: Set<string>;
+  canEdit: boolean;
+  onReadAll: () => void;
+  onRemove: (id: string) => void;
+}) {
+  const allRead = notes.every((n) => doneSet.has(n.id));
+  return (
+    <Card className="px-6 py-7 sm:px-10 sm:py-9">
+      <article className="mx-auto max-w-2xl">
+        {notes.map((n, i) => (
+          <section key={n.id} className={i > 0 ? "mt-10" : ""}>
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{n.title}</h2>
+              {canEdit && (
+                <button onClick={() => onRemove(n.id)} className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]" aria-label="Remove section">
+                  <Icons.Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {n.body && <Prose text={n.body} />}
+          </section>
+        ))}
+        {!canEdit && (
+          <div className="mt-8 flex items-center gap-2 border-t pt-5">
+            {allRead ? (
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[hsl(var(--success))]"><Icons.CheckCircle2 className="h-4 w-4" /> Read</span>
+            ) : (
+              <Button size="sm" onClick={onReadAll}><Icons.Check className="h-4 w-4" /> Mark as read</Button>
+            )}
+          </div>
+        )}
+      </article>
+    </Card>
   );
 }
 

@@ -109,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut: AuthState["signOut"] = async () => {
     if (supabase) await supabase.auth.signOut();
     else localStorage.removeItem(DEMO_KEY);
+    try { localStorage.removeItem("toc-role"); } catch {} // don't carry a role between accounts
     setUser(null);
   };
 
