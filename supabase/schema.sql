@@ -126,6 +126,22 @@ create policy "progress insert own" on public.course_progress for insert with ch
 drop policy if exists "progress update own" on public.course_progress;
 create policy "progress update own" on public.course_progress for update using (auth.jwt() ->> 'email' = email);
 
+-- ---- Client directory (shared & permanent) ------------------------------
+-- All clients live in one JSON document that admins read and edit.
+create table if not exists public.clients (
+  id          text primary key default 'default',
+  data        jsonb not null default '[]',
+  updated_at  timestamptz not null default now()
+);
+alter table public.clients enable row level security;
+
+drop policy if exists "clients read" on public.clients;
+create policy "clients read"   on public.clients for select using (true);
+drop policy if exists "clients insert" on public.clients;
+create policy "clients insert" on public.clients for insert to authenticated with check (true);
+drop policy if exists "clients update" on public.clients;
+create policy "clients update" on public.clients for update to authenticated using (true);
+
 -- Storage bucket for uploaded files (PDFs, slides, images…).
 insert into storage.buckets (id, name, public) values ('course-files', 'course-files', true)
   on conflict (id) do nothing;

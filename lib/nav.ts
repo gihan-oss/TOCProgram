@@ -29,6 +29,7 @@ export const NAV: NavItem[] = [
 
   // ---- Admin / staff: administration ----
   { href: "/admin", label: "Admin Home", icon: "LayoutDashboard", group: "Administration", roles: ["admin"] },
+  { href: "/admin/clients", label: "Clients", icon: "Building2", group: "Administration", roles: ["admin"] },
   { href: "/learning", label: "Course Builder", icon: "BookMarked", group: "Administration", roles: ["admin", "facilitator"] },
   { href: "/admin/access", label: "People & Access", icon: "UserPlus", group: "Administration", roles: ["admin"] },
 
