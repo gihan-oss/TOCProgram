@@ -1,38 +1,86 @@
 // The real MASGLA Theory of Change program, ready to load into the Course
-// Builder in one click: five sequential modules (one per session), each with
-// the session reading, its fillable worksheet, and a knowledge check. Content
-// is drawn from the MASGLA × Amal & Company TOC Training documents.
+// Builder in one click: five sequential modules (one per session). Each module
+// is the session's reading broken into article sections (they render as one
+// flowing article), then its fillable worksheet, then a knowledge check.
+// Content is drawn from the MASGLA × Amal & Company "Five-Session Walkthrough".
 
 import type { CourseModule } from "./content";
 
 export const MASGLA_STARTER: CourseModule[] = [
+  // ===================================================================== M1
   {
     id: "m-toc-1",
     title: "Module 1 — Why This Matters & Intro to TOC",
     summary: "Build a shared language and walk the full five-level Theory of Change framework.",
     resources: [
       {
-        id: "m1-read",
+        id: "m1-why",
         type: "Note",
-        title: "Read first — Why a Theory of Change?",
+        title: "Why a Theory of Change?",
         body:
-`If someone asked "your program — does it actually work?", most of us answer by describing what we DO ("we run Youth Camp"). But the real question is: what changes in someone's life because of what you do — and can you prove it?
+`"Your program — does it actually work?" Most of us answer by describing what we DO ("we run Youth Camp"). But the real question is: what changes in someone's life because of what you do — and can you prove it?
 
 A Theory of Change (TOC) is your answer. In one sentence:
+
 IF we do the right things, for the right people, in the right way… THEN specific, measurable change will happen in their lives — and we can prove it.
 
-Why MASGLA needs this: our Program Dashboard tells us what we ran and how many attended — not what changed. That gap limits funding, makes decisions instinct-based, blocks learning across regions, and weakens our story.
+WHY MASGLA NEEDS THIS
 
-THE FIVE LEVELS (each builds on the last):
-1. INPUTS — the WHO: the specific people you serve (not budget or staff).
-2. ACTIVITIES — what your team delivers (sessions, retreats, classes).
-3. OUTPUTS — what activities produce, counted as Baseline · Metric · Target.
-4. OUTCOMES — what changes in a person in 6–18 months (the heart of impact).
-5. IMPACT — the long-term community transformation over 3–5 years.
+Our Program Dashboard tells us what we ran and how many attended — not what changed. That gap costs us four ways:
+• It limits funding — funders ask for evidence of impact, not a list of events.
+• It makes decisions instinct-based — we can't prove which programs work, so Keep / Modify / Cancel becomes guesswork.
+• It blocks learning across regions — IE and OC can't compare what works without a shared framework.
+• It weakens our story — without centering impact we lose the storytelling that builds affiliation, funding, and volunteers.
 
-MASGLA's six Areas of Focus: Islam to Muslims · Leadership Development · Community Mobilization · Social Justice · Islam for non-Muslims · Operate with Excellence. Your program's TOC should connect to one — and ladder up to one of the four Tarbiyah outcomes: Lifelong Learner, Bearer of the Message, Agent of Change, Exemplary Citizen.
+A Theory of Change doesn't replace your passion — it gives your passion a structure others can see, measure, and fund.
 
-This is adult learning: bring your real program. Every worksheet is filled in for your own assigned program — never a hypothetical.`,
+WHAT YOU'LL WALK AWAY WITH
+• A shared TOC vocabulary — the five levels in active memory
+• Your own program placed in an Area of Focus, an outcome category, and a Tarbiyah outcome
+• A first-pass five-level map of your program
+
+Tarbiyah outcome this session serves: Lifelong Learner.`,
+      },
+      {
+        id: "m1-levels",
+        type: "Note",
+        title: "The Five Levels of a Theory of Change",
+        body:
+`Every TOC has five levels, each building on the one before (examples shown for Youth Camp):
+
+1. INPUTS — the WHO: the specific people you serve (not budget or staff). e.g. high-school juniors/seniors, spiritually active, vetted; 120 participants.
+2. ACTIVITIES — what your team delivers. e.g. a 5-day, spiritually structured retreat at Angelus Oaks with Islamic mentorship.
+3. OUTPUTS — countable results, tracked as Baseline · Metric · Target. e.g. baseline 40% salah pre-camp; metric % salah at 3-month follow-up; target 100 completions and 65% salah.
+4. OUTCOMES — what changes in a person in 6–18 months (behavior, knowledge, capacity). e.g. youth form lasting Islamic bonds and keep trackable spiritual habits after camp.
+5. IMPACT — long-term community transformation over 3–5 years. e.g. a generation carrying Islamic identity into adult Muslim leadership.
+
+THE COMPOUNDING COST OF NOT MEASURING
+• It starts here: we don't capture our impact.
+• Which means: we can't tell the story of the change we create.
+• Which leads to: weaker affiliation with the organization.
+• And ends in: less support — funding and volunteers fall away.
+
+A TOC interrupts this chain at the first link — it makes the work legible to people who weren't in the room.`,
+      },
+      {
+        id: "m1-areas",
+        type: "Note",
+        title: "Six Areas of Focus & the Tarbiyah Outcomes",
+        body:
+`MASGLA organizes its work across six Areas of Focus. Your program's TOC should connect to one, and target its outcome category:
+• Islam to Muslims — KNOWLEDGE; BEHAVIORAL. (Youth Camp, Qiyam, Usrah, BJJ, Quran/Arabic, MAS Breakroom.)
+• Leadership Development — CAPACITY; INFLUENCE. (Agents of Change, Effective Muslim Activist, TI Camp, Men's/Women's Camp.)
+• Community Mobilization — NETWORK; SCALE. (Lighthouse YP Conference, Islamic Knowledge Competition.)
+• Social Justice — PARTNERSHIP; STRATEGIC ALIGNMENT. (Voices Unveiled, PACE Advocacy.)
+• Islam for non-Muslims — POSITIVE IMAGE; ACCEPTING ISLAM. (Da'wah, interfaith, public campaigns.)
+• Operate with Excellence — WELCOMING CULTURE; STRATEGIC ALIGNMENT; FINANCIAL SUSTAINABILITY.
+
+THE FOUR TARBIYAH OUTCOMES
+Underneath every program sit four cross-cutting outcomes — the kind of Muslim each program helps shape. Your Outcomes row (Session 3) and indicators (Session 5) should ladder up to one or more:
+• Lifelong Learner — keeps seeking beneficial knowledge; treats learning as worship.
+• Bearer of the Message — carries and conveys Islam through word, character, practice.
+• Agent of Change — acts on what they know; improves self, family, community; stands for justice.
+• Exemplary Citizen — principled, productive, engaged in wider society; models Islam at work and in civic life.`,
       },
       {
         id: "m1-ws",
@@ -66,29 +114,80 @@ This is adult learning: bring your real program. Every worksheet is filled in fo
       },
     ],
   },
+
+  // ===================================================================== M2
   {
     id: "m-toc-2",
     title: "Module 2 — Q-Zero",
     summary: "Sharpen your program into a clean, testable If–Then statement.",
     resources: [
       {
-        id: "m2-read",
+        id: "m2-what",
         type: "Note",
-        title: "Read first — The Three Laws of Q-Zero",
+        title: "What is Q-Zero?",
         body:
-`Q-Zero asks the most important question about your program: why does it produce change — in a single, testable sentence?
+`Q-Zero is the most important question about your program: why does it produce change — in a single, testable sentence?
 
-THE FORMULA: IF we do [approach or philosophy], THEN [specific behavioral or condition change] will occur. No event names, no attendance, no logistics — just a philosophy (the IF) and the change it produces (the THEN).
+THE Q-ZERO FORMULA
+IF we do [approach or philosophy], THEN [specific behavioral or condition change] will occur.
 
-THE THREE LAWS (quality gates):
-• Law 1 — Liberate the IF. Name a philosophy, not an event. If swapping in another program still fits, it's too generic. ❌ "If we run BJJ classes…"  ✓ "If we create consistent, faith-framed physical-discipline environments for young men…"
-• Law 2 — Demand a behavioral THEN. Describe what changes in a person, not what you deliver. Test: "If the program ran perfectly but nothing changed in anyone's life, would this THEN still be true?" If yes, it's still an output. ❌ "…then 100 youth will attend."  ✓ "…then youth adopt structured spiritual habits they continue independently after camp."
-• Law 3 — Tie to mission. The THEN must connect to Islamic identity, community revival, and principled leadership — MASGLA's fingerprint.
+What's NOT in it: no event names, no attendance numbers, no logistics. Just a philosophy (the IF) and the change it produces (the THEN).
 
-TRAFFIC-LIGHT CHECK before sharing:
-🔴 Red — IF is an event, THEN is delivery, no mission link. Start over.
-🟡 Yellow — behavioral THEN but vague ("grow spiritually") or IF still logistics. Sharpen: how would you know it happened?
-🟢 Green — IF is a philosophy, THEN is a specific attributable change, mission-tied. Ready.`,
+WHAT YOU'LL WALK AWAY WITH
+• A polished, mission-tied Q-Zero for your own program
+• The Three Laws + Traffic Light as a reusable quality check
+• The ability to spot when an IF is still an event, and a THEN still a delivery
+
+Tarbiyah outcome this session serves: Bearer of the Message.`,
+      },
+      {
+        id: "m2-laws",
+        type: "Note",
+        title: "The Three Laws of Q-Zero",
+        body:
+`Your Q-Zero must pass all three gates before it's ready.
+
+LAW 1 — LIBERATE THE IF
+Name a philosophy, not an event. If you could swap in another program and the IF still fits, it's too generic.
+• Wrong: "If we run BJJ classes…"
+• Right: "If we create consistent, faith-framed physical-discipline environments for young men…"
+
+LAW 2 — DEMAND A BEHAVIORAL THEN
+Describe what changes in a person, not what you deliver. Test: "If the program ran perfectly but nothing changed in anyone's life, would this THEN still be true?" If yes, it's still an output.
+• Wrong: "…then 100 youth will attend camp."
+• Right: "…then youth adopt structured spiritual habits they continue independently after camp."
+
+LAW 3 — TIE TO MISSION
+The THEN must connect to MASGLA's mission — Islamic identity, community revival, principled leadership. If it could belong to any sports club or nonprofit, it doesn't yet have MASGLA's fingerprint.
+• Wrong: "…then youth will feel more confident."
+• Right: "…then youth feel grounded in their Islamic identity and make decisions anchored in their values as Muslims."`,
+      },
+      {
+        id: "m2-traffic",
+        type: "Note",
+        title: "The Traffic-Light Check",
+        body:
+`After writing your Q-Zero, rate it before sharing with the group:
+• Red — IF names an event; THEN is attendance/delivery; no mission link. Start over: what's the philosophy behind the event?
+• Yellow — behavioral THEN but vague ("grow spiritually"), or the IF is still logistics. Sharpen: how would you know it happened? What would you see, hear, or measure?
+• Green — IF names a philosophy; THEN is a specific, attributable change; clearly mission-tied. You're ready — bring it to the group to strengthen further.`,
+      },
+      {
+        id: "m2-examples",
+        type: "Note",
+        title: "Before & After — real MASGLA examples",
+        body:
+`YOUTH CAMP
+Before: "If we provide spiritually intense retreats for high schoolers, then they will form meaningful bonds and gain positive mentorship."
+After: "If we immerse carefully selected high schoolers in a spiritually structured, nature-based retreat with Islamic mentorship, then they will develop lasting brotherhood bonds and return home with specific, trackable spiritual habits they continue independently."
+
+BJJ CLASSES
+Before: "If we provide halal martial arts spaces for young men, then they will develop brotherhood, physical discipline, and emotional maturity."
+After: "If we create consistent, faith-framed martial arts environments for young men, then they will develop self-discipline, emotional regulation, and Islamic brotherhood that extends beyond the mat into their daily lives."
+
+MAS BREAKROOM
+Before: "If we create programs that guide people to form close bonds for the sake of Allah, then Muslims will have stronger support systems."
+After: "If we create intentional, faith-centered social environments for adults 18–35, then participants form Islamic friendships that function as mutual accountability structures — deepening their deen outside the program."`,
       },
       {
         id: "m2-ws",
@@ -115,36 +214,67 @@ TRAFFIC-LIGHT CHECK before sharing:
           { prompt: "The THEN of a Q-Zero must describe…", options: ["A behavioral or condition change in a person", "How many people attend", "What your program delivers", "The cost of the program"], answer: 0 },
           { prompt: "Law 3 of Q-Zero requires the THEN to…", options: ["Tie to MASGLA's mission", "Be under ten words", "Name a venue", "Include a budget"], answer: 0 },
           { prompt: "Why does 'If we host Youth Camp, then 100 youth will attend' fail?", options: ["The IF names an event and the THEN is attendance, not a change", "It is too long", "It mentions youth", "It has no date"], answer: 0 },
-          { prompt: "A 🟢 Green traffic-light rating means…", options: ["IF is a philosophy, THEN is a specific attributable change, and it's mission-tied", "The program is fully funded", "All sessions are scheduled", "The worksheet is submitted"], answer: 0 },
+          { prompt: "A green traffic-light rating means…", options: ["IF is a philosophy, THEN is a specific attributable change, and it's mission-tied", "The program is fully funded", "All sessions are scheduled", "The worksheet is submitted"], answer: 0 },
         ],
       },
     ],
   },
+
+  // ===================================================================== M3
   {
     id: "m-toc-3",
     title: "Module 3 — The Impact Pathway",
     summary: "Expand your Q-Zero into the full five-level causal chain, with assumptions at every link.",
     resources: [
       {
-        id: "m3-read",
+        id: "m3-spine",
         type: "Note",
-        title: "Read first — The five-level causal chain",
+        title: "From your Q-Zero to the full chain",
         body:
-`Your Q-Zero is the spine of your TOC. The impact pathway gives it detail: five levels, each building on the last. Every arrow is a causal claim ("because of this, that happens") and rests on an assumption. If an assumption breaks, the chain breaks — so documenting assumptions is the most strategic thing you can do.
+`Your Q-Zero is the spine of your TOC. The impact pathway gives it detail: five levels, each building on the last.
 
-THE LEVELS & their common mistakes:
-• INPUTS (the WHO) — your audience. Mistake: listing resources (budget, staff, venue) instead of people.
-• ACTIVITIES — what you deliver. Mistake: confusing activities with outputs.
-• OUTPUTS — countable results, as Baseline · Metric · Target. Mistake: writing outcomes in the output row.
-• OUTCOMES — what changes in a person in 6–18 months. Mistake: being vague ("youth will grow spiritually").
-• IMPACT — community transformation in 3–5 years. Mistake: claiming impact one program can't achieve alone.
+Every arrow in the chain is a causal claim ("because of this, that happens") and rests on an assumption — a condition that must be true for the chain to hold. If an assumption breaks, the chain breaks. Documenting assumptions is the most strategic thing you can do.
 
-BASELINE · METRIC · TARGET — be precise:
-• Baseline = the current state before the program (your "before" picture).
-• Metric = the exact unit you'll count or measure.
-• Target = the specific, time-bound value you're aiming for. (Set the baseline BEFORE the program — you can't know if you hit the target without it.)
+WHAT YOU'LL WALK AWAY WITH
+• A complete five-level impact pathway for your program
+• At least one named assumption per causal link, by type
+• A working Output-vs-Outcome distinction you can apply on the fly
 
-FOUR ASSUMPTION TYPES: Participant (readiness/motivation), Environmental (partnerships, campus/political climate), Organizational (MASGLA's own capacity), Causal (is the causal claim itself true?).`,
+Tarbiyah outcomes this session serves: Bearer of the Message + Agent of Change.`,
+      },
+      {
+        id: "m3-levels",
+        type: "Note",
+        title: "The five levels & their common mistakes",
+        body:
+`• INPUTS (the WHO) — your audience: who they are before the program starts. Mistake: listing resources (budget, staff, venue) instead of people.
+• ACTIVITIES — what your team delivers. Mistake: confusing activities with outputs.
+• OUTPUTS — countable results (Baseline · Metric · Target). Mistake: writing outcomes here — "300 youth felt more connected" is an outcome, not an output.
+• OUTCOMES — what changes in a person in 6–18 months. Mistake: being vague — "youth will grow spiritually" is a wish, not an outcome.
+• IMPACT — community transformation over 3–5 years. Mistake: claiming impact one program can't achieve alone — impact is a contribution.`,
+      },
+      {
+        id: "m3-bmt",
+        type: "Note",
+        title: "Baseline, Metric, Target",
+        body:
+`The Output level has three parts — keep them precise:
+• BASELINE — the current state before the program runs. e.g. 40% of participants report consistent salah at intake.
+• METRIC — the exact unit you count or measure. e.g. % reporting consistent salah at a 3-month follow-up.
+• TARGET — the specific, time-bound value you aim for. e.g. 100 completions and 65% consistent salah at the 3-month survey.
+
+Remember: set your baseline BEFORE the program begins — you can't know if you hit the target without knowing where you started.`,
+      },
+      {
+        id: "m3-assumptions",
+        type: "Note",
+        title: "The four assumption types",
+        body:
+`Every arrow rests on an assumption. There are four types:
+• PARTICIPANT — readiness, motivation, circumstances of the people you serve. e.g. families allow overnight camp attendance.
+• ENVIRONMENTAL — external conditions: masjid partnerships, campus climate, regional context. e.g. masjid facilities stay accessible.
+• ORGANIZATIONAL — MASGLA's own capacity: staff, volunteers, coordination. e.g. trained naqeebs are consistently available.
+• CAUSAL — whether the causal claim itself is true. e.g. physical discipline in a halal environment actually transfers to emotional maturity outside the gym.`,
       },
       {
         id: "m3-ws",
@@ -181,29 +311,79 @@ FOUR ASSUMPTION TYPES: Participant (readiness/motivation), Environmental (partne
       },
     ],
   },
+
+  // ===================================================================== M4
   {
     id: "m-toc-4",
     title: "Module 4 — Building the Logframe",
     summary: "Convert your impact pathway into a formal 4×4 Logical Framework Matrix.",
     resources: [
       {
-        id: "m4-read",
+        id: "m4-what",
         type: "Note",
-        title: "Read first — The 4×4 logframe",
+        title: "What is a logframe? Two kinds of logic",
         body:
-`The logframe takes your impact pathway and organizes it into a table — the same information, structured so funders and leadership can read it at a glance. It has two kinds of logic:
+`The logframe takes your impact pathway and organizes it into a table — the same information, structured so funders and leadership can read it at a glance.
 
-• VERTICAL LOGIC (top↔bottom): the causal chain. Activities produce Outputs; Outputs enable Outcomes; Outcomes drive the Goal. Check it by reading bottom-to-top.
-• HORIZONTAL LOGIC (left→right): for each level — (1) Narrative Summary (what it is), (2) Indicator (how you'll know), (3) Baseline + Target (from where, to where), (4) Means of Verification (how you collect the evidence).
+VERTICAL LOGIC (top to bottom) — the causal chain. Activities produce Outputs; Outputs enable Outcomes; Outcomes drive the Goal. Check it bottom-to-top: "If we do these Activities, does it make sense we'd produce these Outputs?" Work upward; a gap means your logic is broken.
 
-THE FOUR ROWS: GOAL (3–5 yr community change) · OUTCOME (6–18 mo change in a person) · OUTPUT (countable deliverable: Baseline→Target) · ACTIVITY (what you deliver).
+HORIZONTAL LOGIC (left to right) — for each level: (1) Narrative Summary (what it is), (2) Indicator (how you'll know), (3) Baseline + Target (from where, to where), (4) Means of Verification (how you collect the evidence). Check: "If the indicator hits target, does that prove this level happened?"
 
-THE FIVE MOST COMMON MISTAKES:
-1. Outputs dressed as outcomes ("300 youth attended" in the outcome row) → write what CHANGED in those youth.
-2. Goals too vague to verify → add population + behavior + timeframe.
-3. No means of verification → every indicator needs WHO collects, WHAT tool, WHEN, WHERE stored.
-4. Activities confused with outputs ("we held 4 events" is an activity; the output is what they produced).
-5. Outcomes not attributable to your program → name the participants, period, and specific change.`,
+WHAT YOU'LL WALK AWAY WITH
+• A draft 4×4 logframe for your program
+• Vertical & horizontal checks running in your head as you build
+• A funder-ready structure that turns your pathway into a defendable artifact
+
+Tarbiyah outcome this session serves: Exemplary Citizen.`,
+      },
+      {
+        id: "m4-structure",
+        type: "Note",
+        title: "The standard 4×4 structure",
+        body:
+`Four rows (levels) × four columns (Narrative Summary · Indicator · Baseline + Target · Means of Verification):
+• GOAL — the 3–5 year community change you contribute to. Tracked annually. MoV: community surveys, longitudinal/alumni data.
+• OUTCOME — what changes in a person in 6–18 months. MoV: pre/post surveys, interviews, follow-up calls.
+• OUTPUT — the countable deliverable (Baseline → Target). MoV: attendance logs, program reports, the Dashboard.
+• ACTIVITY — what you deliver. MoV: calendars, staff and facilitator logs.`,
+      },
+      {
+        id: "m4-worked",
+        type: "Note",
+        title: "Worked example — Youth Camp logframe",
+        body:
+`GOAL — High schoolers who carry Islamic identity and brotherhood into adult Muslim life.
+• Indicator: % of camp alumni still active in an Islamic community space 2 years after camp.
+• Baseline → Target: not yet tracked → 70% active at 2-year follow-up.
+• MoV: annual alumni survey; usrah enrollment records.
+
+OUTCOME — Participants form lasting Islamic bonds and keep trackable spiritual habits after camp.
+• Indicator: % reporting consistent salah AND one active Islamic friendship at 3 months.
+• Baseline → Target: 40% consistent salah at intake → 65% at the 3-month follow-up.
+• MoV: 3-month post-camp survey; facilitator check-in calls.
+
+OUTPUT — 100 vetted high schoolers complete the full camp.
+• Indicator: # completing the 5-day camp; # of 1:1 mentorship sessions.
+• Baseline → Target: 80 last year → 100 completions; avg 2 mentorship sessions each.
+• MoV: attendance logs; vetting records; mentor logs.
+
+ACTIVITY — A 5-day structured retreat with mentorship, bonding, and worship programming.
+• Indicator: camp delivered on schedule; all mentors briefed and present Day 1.
+• Target: 100% of planned sessions delivered.
+• MoV: camp schedule; mentor prep records; facilitator debrief.
+
+Inputs (WHO): high-school juniors/seniors, spiritually active, vetted; 100–120 across GLA chapters.`,
+      },
+      {
+        id: "m4-mistakes",
+        type: "Note",
+        title: "The five most common logframe mistakes",
+        body:
+`1. Outputs dressed as outcomes — "300 youth attended Qiyam" in the outcome row. Fix: write what CHANGED in those youth.
+2. Goals too vague to verify — "strong Muslim youth." Fix: add population + behavior + timeframe.
+3. No means of verification — an indicator with no source. Fix: name WHO collects, WHAT tool, WHEN, WHERE it's stored.
+4. Activities confused with outputs — "we held 4 events" is an activity; the output is what they produced (e.g. "1,200 attendances across 4 events").
+5. Outcomes not attributable to your program — name the participants, the period, and the specific change you produced.`,
       },
       {
         id: "m4-ws",
@@ -233,28 +413,74 @@ THE FIVE MOST COMMON MISTAKES:
       },
     ],
   },
+
+  // ===================================================================== M5
   {
     id: "m-toc-5",
     title: "Module 5 — Measuring & Validating Impact",
     summary: "Build a measurement plan with SMART indicators, baselines, targets, and assumption tracking.",
     resources: [
       {
-        id: "m5-read",
+        id: "m5-hierarchy",
         type: "Note",
-        title: "Read first — SMART indicators & Keep/Modify/Cancel",
+        title: "The measurement hierarchy",
         body:
-`THE MEASUREMENT HIERARCHY: Level 1 Activity tracking (did we deliver?) · Level 2 Output measurement (how much?) · Level 3 ✓ Outcome assessment (what changed in people?) · Level 4 Attribution (did WE cause it?). Most MASGLA programs sit at Level 2. The goal is to reach Level 3 by December 2026.
+`There are four levels of measurement. Most MASGLA programs sit at Level 2; the goal is Level 3 by December 2026.
+• LEVEL 1 — Activity tracking: did we deliver? (Did we run the camp?) Easy; tells you little about impact.
+• LEVEL 2 — Output measurement: how much? (How many participants/sessions?) What the Dashboard mostly captures today.
+• LEVEL 3 (TARGET) — Outcome assessment: what changed in people's lives? Where the real proof of impact lives.
+• LEVEL 4 — Attribution: can we prove WE caused the change? Needs comparison groups; valuable for large grants.
 
-SMART INDICATORS:
-• Specific — exact population, behavior, context (not "stronger faith").
-• Measurable — collectable with a defined tool (survey, observation, interview).
-• Achievable — realistic for your scope and duration.
-• Relevant — directly measures the outcome in your Q-Zero (not a convenient proxy).
-• Time-bound — states exactly WHEN it's collected.
+WHAT YOU'LL WALK AWAY WITH
+• At least one SMART outcome indicator for your program
+• A means-of-verification plan and an assumption register with risk ratings
+• The Keep / Modify / Cancel protocol, ready to run on real data
 
-ASSUMPTION RISK: Participant (often High — outside your control), Environmental (Medium–High), Organizational (Medium), Causal (Medium — your plan tests it).
+Tarbiyah outcome this session serves: Agent of Change.`,
+      },
+      {
+        id: "m5-smart",
+        type: "Note",
+        title: "SMART indicators",
+        body:
+`An indicator is only useful if it's SMART:
+• SPECIFIC — exact population, behavior, context (not "stronger faith").
+• MEASURABLE — collectable with a defined tool (survey, observation, interview).
+• ACHIEVABLE — realistic for your scope and duration (a one-week camp can't produce a 5-year transformation).
+• RELEVANT — directly measures the outcome in your Q-Zero, not a convenient proxy.
+• TIME-BOUND — states exactly WHEN it's collected.
 
-KEEP / MODIFY / CANCEL PROTOCOL: 1) FLAG the assumption "Under Review" when an indicator persistently misses. 2) DIAGNOSE — was the assumption invalid, or was implementation inadequate? 3) DECIDE — Keep (improve implementation), Modify (revise the theory), or Cancel (logic is flawed / need is gone). 4) DOCUMENT the decision, evidence, and revised TOC version. Your TOC is a living document — review monthly (outputs), quarterly (outcomes + decisions), annually (full version review).`,
+Example: "By end of Q4 2026, at least 65% of TI Camp participants are actively mentoring at least one person in their community, per the December survey."`,
+      },
+      {
+        id: "m5-risk",
+        type: "Note",
+        title: "Assumption types & risk",
+        body:
+`Categorize the assumptions you wrote in Session 3 and rate their risk:
+• PARTICIPANT — often HIGH risk; largely outside your control. If they break, the whole chain breaks.
+• ENVIRONMENTAL — MEDIUM to HIGH; external factors can shift without warning.
+• ORGANIZATIONAL — MEDIUM; within MASGLA's control but capacity-dependent.
+• CAUSAL — MEDIUM; your measurement plan exists to test these.`,
+      },
+      {
+        id: "m5-kmc",
+        type: "Note",
+        title: "Keep / Modify / Cancel + the review cycle",
+        body:
+`When data comes in, run the four-step protocol:
+1. FLAG — when an indicator persistently misses, mark the assumption "Under Review." Don't wait for annual planning.
+2. DIAGNOSE — is the assumption invalid (causal logic broken), or was implementation inadequate (we didn't run it well enough to test the theory)?
+3. DECIDE — KEEP (assumption valid; improve implementation), MODIFY (revise the Q-Zero/logframe to a more accurate theory), or CANCEL (logic is flawed or the need is gone).
+4. DOCUMENT — record the decision, the evidence, and the revised TOC version. This is your learning trail and your credibility with donors.
+
+THE REVIEW CYCLE — your TOC is a living document:
+• Monthly — program leads review output data; flag programs below target.
+• Quarterly — directors review outcome indicators and assumptions; make Keep / Modify / Cancel decisions.
+• Annually — full TOC version review; update baselines; publish the annual impact report.
+
+THE DECEMBER 2026 GOAL
+100% of MASGLA program leads with a completed, reviewed TOC package — Q-Zero, impact pathway, logframe, and measurement plan — for their actual program. Not an exam: evidence you can think strategically about your program and measure its impact.`,
       },
       {
         id: "m5-ws",

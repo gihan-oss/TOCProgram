@@ -10,7 +10,7 @@ import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import {
-  loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile,
+  loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile, moduleComplete,
   RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP, QUIZ_PASS, quizStars,
   providerEmbed, isImageUrl, isVideoFileUrl, isAudioFileUrl, isPdfUrl,
   type CourseModule, type Resource, type ResourceType, type QuizQuestion, type WorksheetField, type LearnerMeta,
@@ -60,6 +60,8 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
   if (loaded && !module) return notFound();
   if (!module) return null;
   const moduleIndex = modules.findIndex((m) => m.id === id);
+  const nextModule = moduleIndex >= 0 ? modules[moduleIndex + 1] : undefined;
+  const moduleDone = moduleComplete(module, done);
 
   function celebrate() {
     setConfetti(true);
@@ -135,12 +137,10 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
         {canEdit && <Badge tone="accent"><Icons.Pencil className="h-3 w-3" /> Editing</Badge>}
       </div>
 
-      {/* Content list */}
-      <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Content</h2>
       {module.resources.length === 0 ? (
-        <EmptyHint>{canEdit ? "Nothing here yet. Add a video, PDF, file, text, worksheet or test below — it all lives right here on the page." : "No content in this module yet."}</EmptyHint>
+        <div className="mt-6"><EmptyHint>{canEdit ? "Nothing here yet. Add a video, PDF, file, text, worksheet or test below — it all lives right here on the page." : "No content in this module yet."}</EmptyHint></div>
       ) : (
-        <div className="space-y-4">
+        <div className="mt-6 space-y-4">
           {groupBlocks(module.resources).map((b, bi) =>
             b.kind === "article" ? (
               <ArticleBlock
@@ -170,6 +170,25 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
       )}
 
       {canEdit && <AddContent onAdd={addResource} />}
+
+      {!canEdit && module.resources.length > 0 && (
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
+          <Link href="/learning" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Icons.ArrowLeft className="h-4 w-4" /> All modules
+          </Link>
+          {nextModule ? (
+            moduleDone ? (
+              <Link href={`/learning/${nextModule.id}`}><Button size="sm">Next module <Icons.ArrowRight className="h-4 w-4" /></Button></Link>
+            ) : (
+              <Button size="sm" disabled title="Finish everything above to continue">Next module <Icons.ArrowRight className="h-4 w-4" /></Button>
+            )
+          ) : moduleDone ? (
+            <Link href="/learning"><Button size="sm">Finish <Icons.Check className="h-4 w-4" /></Button></Link>
+          ) : (
+            <Button size="sm" disabled title="Finish everything above">Finish <Icons.Check className="h-4 w-4" /></Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -226,17 +245,18 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
   onRemove: () => void;
 }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[r.type]] ?? Icons.File;
+  const isMedia = r.type === "Video" || r.type === "PDF" || r.type === "File" || r.type === "Link";
 
   return (
     <Card className="p-4">
       <div className="flex items-start gap-3">
-        <button onClick={() => onComplete(!done)} aria-label="Toggle complete" className="mt-0.5">
-          {done ? <Icons.CheckCircle2 className="h-5 w-5 text-[hsl(var(--success))]" /> : <Icons.Circle className="h-5 w-5 text-muted-foreground" />}
-        </button>
-        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+        <Icon className="mt-1 h-4 w-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
+              {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+            </div>
             <div className="flex items-center gap-2">
               <Badge tone="muted">{RESOURCE_LABEL[r.type]}</Badge>
               {canEdit && (
@@ -253,6 +273,18 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
             <WorksheetPlayer r={r} answers={answers} done={done} onSave={onWorksheet} />
           ) : (
             <MediaBody r={r} />
+          )}
+
+          {/* Passive items (video, PDF, file, link) are completed with a button,
+              not a checkbox. Quizzes/worksheets complete via their own actions. */}
+          {!canEdit && isMedia && (
+            <div className="mt-3">
+              {done ? (
+                <Button size="sm" variant="outline" onClick={() => onComplete(false)}><Icons.Check className="h-4 w-4" /> Completed</Button>
+              ) : (
+                <Button size="sm" onClick={() => onComplete(true)}>Mark complete <Icons.ArrowRight className="h-4 w-4" /></Button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -409,33 +441,55 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
   function set(id: string, v: string) { setVals((p) => ({ ...p, [id]: v })); }
 
   return (
-    <div className="mt-3 space-y-3 rounded-lg border p-3">
-      {r.body && <p className="whitespace-pre-wrap rounded-md bg-secondary/50 p-2.5 text-sm leading-relaxed">{r.body}</p>}
-
-      <div className="flex items-center gap-2">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
-        <span className="text-xs text-muted-foreground">{filled}/{fields.length}</span>
-        {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+    <div className="mt-3 overflow-hidden rounded-xl border bg-card shadow-sm">
+      {/* sheet header */}
+      <div className="flex items-center justify-between gap-2 border-b border-dashed bg-secondary/40 px-4 py-2.5">
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-accent">
+          <Icons.PencilRuler className="h-3.5 w-3.5" /> Worksheet · for your program
+        </span>
+        <span className="text-xs font-medium text-muted-foreground">{filled}/{fields.length} answered</span>
       </div>
 
-      {fields.map((f) => (
-        <label key={f.id} className="block">
-          <span className="mb-1 block text-sm font-medium">{f.label}{f.required && <span className="text-[hsl(var(--danger))]"> *</span>}</span>
-          {f.hint && <span className="mb-1 block text-xs text-muted-foreground">{f.hint}</span>}
-          {f.long ? (
-            <textarea value={vals[f.id] ?? ""} onChange={(e) => set(f.id, e.target.value)} className="modal-input h-24" placeholder="Your answer…" />
-          ) : (
-            <input value={vals[f.id] ?? ""} onChange={(e) => set(f.id, e.target.value)} className="modal-input" placeholder="Your answer…" />
-          )}
-        </label>
-      ))}
+      <div className="space-y-5 px-4 py-5 sm:px-6">
+        {r.body && <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{r.body}</p>}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" disabled={!canComplete} onClick={() => onSave(vals, true)}>
-          <Icons.Sparkles className="h-4 w-4" /> {done ? "Save changes" : "Save & complete"}
-        </Button>
+        {fields.map((f, i) => (
+          <div key={f.id} className="flex gap-3">
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/12 text-xs font-bold text-accent">{i + 1}</span>
+            <div className="min-w-0 flex-1">
+              <label className="block text-sm font-semibold">{f.label}{f.required && <span className="text-[hsl(var(--danger))]"> *</span>}</label>
+              {f.hint && <p className="mt-0.5 text-xs text-muted-foreground">{f.hint}</p>}
+              {f.long ? (
+                <textarea
+                  value={vals[f.id] ?? ""}
+                  onChange={(e) => set(f.id, e.target.value)}
+                  rows={4}
+                  placeholder="Write your answer…"
+                  className="worksheet-lines mt-2 block w-full resize-y rounded-lg border bg-background px-3 text-sm leading-[30px] outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
+                />
+              ) : (
+                <input
+                  value={vals[f.id] ?? ""}
+                  onChange={(e) => set(f.id, e.target.value)}
+                  placeholder="Write your answer…"
+                  className="mt-2 block w-full border-0 border-b-2 border-dashed border-input bg-transparent px-1 py-1.5 text-sm outline-none transition-colors focus:border-accent"
+                />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* footer actions */}
+      <div className="flex flex-wrap items-center gap-3 border-t bg-secondary/30 px-4 py-3 sm:px-6">
+        <div className="flex flex-1 items-center gap-2">
+          <div className="h-2 w-full max-w-[160px] overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
+          {!canComplete && required.length > 0 && <span className="hidden text-xs text-muted-foreground sm:inline">Fill the required prompts</span>}
+        </div>
         <Button size="sm" variant="outline" onClick={() => { onSave(vals, false); toast("Progress saved"); }}>Save progress</Button>
-        {!canComplete && required.length > 0 && <span className="text-xs text-muted-foreground">Fill the required prompts to complete</span>}
+        <Button size="sm" disabled={!canComplete} onClick={() => onSave(vals, true)}>
+          <Icons.Sparkles className="h-4 w-4" /> {done ? "Save changes" : "Submit worksheet"}
+        </Button>
       </div>
     </div>
   );
