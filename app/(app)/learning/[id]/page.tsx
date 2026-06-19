@@ -5,14 +5,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import * as Icons from "lucide-react";
 import { Card, Badge, Button, EmptyHint } from "@/components/ui";
+import { Confetti } from "@/components/confetti";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import {
-  loadModules, saveModules, loadDone, saveDone, uploadFile,
-  RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP,
+  loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile,
+  RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP, QUIZ_PASS, quizStars,
   providerEmbed, isImageUrl, isVideoFileUrl, isAudioFileUrl, isPdfUrl,
-  type CourseModule, type Resource, type ResourceType, type QuizQuestion,
+  type CourseModule, type Resource, type ResourceType, type QuizQuestion, type WorksheetField, type LearnerMeta,
 } from "@/lib/content";
 
 export default function ModuleDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -23,12 +24,17 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
 
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [meta, setMeta] = useState<LearnerMeta>({ scores: {}, worksheets: {} });
   const [loaded, setLoaded] = useState(false);
+  const [confetti, setConfetti] = useState(false);
 
   useEffect(() => {
     (async () => {
       setModules(await loadModules());
-      if (user) setDone(await loadDone(user.email));
+      if (user) {
+        setDone(await loadDone(user.email));
+        setMeta(await loadMeta(user.email));
+      }
       setLoaded(true);
     })();
   }, [user?.email]);
@@ -37,6 +43,11 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
   if (loaded && !module) return notFound();
   if (!module) return null;
   const moduleIndex = modules.findIndex((m) => m.id === id);
+
+  function celebrate() {
+    setConfetti(true);
+    setTimeout(() => setConfetti(false), 1900);
+  }
 
   async function persist(next: CourseModule) {
     const all = modules.map((m) => (m.id === next.id ? next : m));
@@ -56,14 +67,33 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
     toast("Removed");
   }
   function setComplete(rid: string, value: boolean) {
-    const next = new Set(done);
-    value ? next.add(rid) : next.delete(rid);
-    setDone(next);
-    if (user) void saveDone(user.email, next);
+    setDone((prev) => {
+      const next = new Set(prev);
+      value ? next.add(rid) : next.delete(rid);
+      if (user) void saveDone(user.email, next);
+      return next;
+    });
+  }
+  function recordScore(rid: string, correct: number, total: number) {
+    setMeta((prev) => {
+      const cur = prev.scores[rid];
+      if (cur && cur.total === total && cur.correct >= correct) return prev; // keep best
+      const next = { ...prev, scores: { ...prev.scores, [rid]: { correct, total } } };
+      if (user) void saveMeta(user.email, next);
+      return next;
+    });
+  }
+  function recordWorksheet(rid: string, answers: Record<string, string>) {
+    setMeta((prev) => {
+      const next = { ...prev, worksheets: { ...prev.worksheets, [rid]: answers } };
+      if (user) void saveMeta(user.email, next);
+      return next;
+    });
   }
 
   return (
     <div className="mx-auto max-w-3xl">
+      {confetti && <Confetti />}
       <Link href="/learning" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <Icons.ArrowLeft className="h-4 w-4" /> {canEdit ? "Course builder" : "My learning"}
       </Link>
@@ -82,11 +112,22 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
       {/* Content list */}
       <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Content</h2>
       {module.resources.length === 0 ? (
-        <EmptyHint>{canEdit ? "Nothing here yet. Add a video, PDF, file, text or test below — it all plays right here on the page." : "No content in this module yet."}</EmptyHint>
+        <EmptyHint>{canEdit ? "Nothing here yet. Add a video, PDF, file, text, worksheet or test below — it all lives right here on the page." : "No content in this module yet."}</EmptyHint>
       ) : (
         <div className="space-y-3">
           {module.resources.map((r) => (
-            <ResourceCard key={r.id} r={r} canEdit={canEdit} done={done.has(r.id)} onComplete={(v) => setComplete(r.id, v)} onRemove={() => removeResource(r.id)} />
+            <ResourceCard
+              key={r.id}
+              r={r}
+              canEdit={canEdit}
+              done={done.has(r.id)}
+              best={meta.scores[r.id]}
+              answers={meta.worksheets[r.id] ?? {}}
+              onComplete={(v) => setComplete(r.id, v)}
+              onScore={(c, t, passed) => { recordScore(r.id, c, t); if (passed) { if (!done.has(r.id)) celebrate(); setComplete(r.id, true); } }}
+              onWorksheet={(answers, complete) => { recordWorksheet(r.id, answers); if (complete) { if (!done.has(r.id)) celebrate(); setComplete(r.id, true); } }}
+              onRemove={() => removeResource(r.id)}
+            />
           ))}
         </div>
       )}
@@ -97,7 +138,17 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
 }
 
 // ---------------- Resource display ----------------
-function ResourceCard({ r, canEdit, done, onComplete, onRemove }: { r: Resource; canEdit: boolean; done: boolean; onComplete: (v: boolean) => void; onRemove: () => void }) {
+function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, onWorksheet, onRemove }: {
+  r: Resource;
+  canEdit: boolean;
+  done: boolean;
+  best?: { correct: number; total: number };
+  answers: Record<string, string>;
+  onComplete: (v: boolean) => void;
+  onScore: (correct: number, total: number, passed: boolean) => void;
+  onWorksheet: (answers: Record<string, string>, complete: boolean) => void;
+  onRemove: () => void;
+}) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[r.type]] ?? Icons.File;
 
   return (
@@ -109,7 +160,7 @@ function ResourceCard({ r, canEdit, done, onComplete, onRemove }: { r: Resource;
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium">{r.title}</p>
+            <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
             <div className="flex items-center gap-2">
               <Badge tone="muted">{RESOURCE_LABEL[r.type]}</Badge>
               {canEdit && (
@@ -120,23 +171,25 @@ function ResourceCard({ r, canEdit, done, onComplete, onRemove }: { r: Resource;
             </div>
           </div>
 
-          <ResourceBody r={r} onComplete={onComplete} />
+          {r.type === "Quiz" && r.questions ? (
+            <QuizPlayer questions={r.questions} best={best} onResult={onScore} />
+          ) : r.type === "Worksheet" ? (
+            <WorksheetPlayer r={r} answers={answers} done={done} onSave={onWorksheet} />
+          ) : (
+            <MediaBody r={r} />
+          )}
         </div>
       </div>
     </Card>
   );
 }
 
-// Renders every resource INLINE so learners never get redirected away.
-function ResourceBody({ r, onComplete }: { r: Resource; onComplete: (v: boolean) => void }) {
+// Renders media INLINE so learners never get redirected away.
+function MediaBody({ r }: { r: Resource }) {
   const src = r.fileData || r.url || "";
 
   if (r.type === "Note") {
-    return r.body ? <p className="mt-2 whitespace-pre-wrap rounded-lg bg-secondary/60 p-3 text-sm leading-relaxed">{r.body}</p> : null;
-  }
-
-  if (r.type === "Quiz" && r.questions) {
-    return <QuizPlayer questions={r.questions} onPass={() => onComplete(true)} />;
+    return r.body ? <Prose text={r.body} /> : null;
   }
 
   if (r.type === "Link") {
@@ -161,7 +214,7 @@ function ResourceBody({ r, onComplete }: { r: Resource; onComplete: (v: boolean)
   }
 
   if (r.type === "PDF") {
-    const embed = r.url ? providerEmbed(r.url) : null; // e.g. a Google Drive PDF
+    const embed = r.url ? providerEmbed(r.url) : null;
     const frameSrc = embed || src;
     if (!frameSrc) return <NoSource />;
     return (
@@ -174,7 +227,6 @@ function ResourceBody({ r, onComplete }: { r: Resource; onComplete: (v: boolean)
     );
   }
 
-  // File — preview images / video / audio / pdf inline; otherwise offer download.
   if (r.type === "File") {
     if (isImageUrl(src)) {
       // eslint-disable-next-line @next/next/no-img-element
@@ -208,19 +260,144 @@ function NoSource() {
   return <p className="mt-2 text-sm text-muted-foreground">No file or link added yet.</p>;
 }
 
-function QuizPlayer({ questions, onPass }: { questions: QuizQuestion[]; onPass: () => void }) {
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const correct = questions.filter((q, i) => answers[i] === q.answer).length;
-  const passed = submitted && correct === questions.length;
+// Renders written content as a readable article: section headings, bullet and
+// numbered lists, and comfortable paragraph spacing — not a flat gray block.
+function Prose({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
 
-  useEffect(() => {
-    if (passed) onPass();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passed]);
+  const flush = () => {
+    if (!list) return;
+    const { ordered, items } = list;
+    blocks.push(
+      ordered ? (
+        <ol key={blocks.length} className="my-3 list-decimal space-y-1.5 pl-5 marker:font-semibold marker:text-accent">
+          {items.map((t, i) => <li key={i} className="pl-1">{t}</li>)}
+        </ol>
+      ) : (
+        <ul key={blocks.length} className="my-3 space-y-1.5">
+          {items.map((t, i) => (
+            <li key={i} className="flex gap-2.5"><span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent" /><span>{t}</span></li>
+          ))}
+        </ul>
+      ),
+    );
+    list = null;
+  };
+
+  lines.forEach((raw) => {
+    const t = raw.trim();
+    if (!t) { flush(); return; }
+    if (/^[•\-*]\s+/.test(t)) {
+      if (!list || list.ordered) { flush(); list = { ordered: false, items: [] }; }
+      list.items.push(t.replace(/^[•\-*]\s+/, ""));
+      return;
+    }
+    if (/^\d+\.\s+/.test(t)) {
+      if (!list || !list.ordered) { flush(); list = { ordered: true, items: [] }; }
+      list.items.push(t.replace(/^\d+\.\s+/, ""));
+      return;
+    }
+    flush();
+    const letters = t.replace(/[^a-zA-Z]/g, "");
+    const isUpper = letters.length > 1 && letters === letters.toUpperCase();
+    const isLabel = t.endsWith(":") && t.length < 72 && !/\.\s/.test(t);
+    if (isUpper || isLabel) {
+      blocks.push(<h4 key={blocks.length} className="mt-5 text-xs font-bold uppercase tracking-wider text-accent">{t.replace(/:$/, "")}</h4>);
+    } else {
+      blocks.push(<p key={blocks.length} className="my-2.5">{t}</p>);
+    }
+  });
+  flush();
+
+  return <div className="mt-2 text-[15px] leading-7 text-foreground/90 [&>*:first-child]:mt-0">{blocks}</div>;
+}
+
+// ---------------- Gamified worksheet ----------------
+function WorksheetPlayer({ r, answers, done, onSave }: {
+  r: Resource;
+  answers: Record<string, string>;
+  done: boolean;
+  onSave: (answers: Record<string, string>, complete: boolean) => void;
+}) {
+  const toast = useToast();
+  const fields = r.fields ?? [];
+  const [vals, setVals] = useState<Record<string, string>>(answers);
+
+  const required = fields.filter((f) => f.required);
+  const filled = fields.filter((f) => (vals[f.id] ?? "").trim()).length;
+  const pct = fields.length ? Math.round((filled / fields.length) * 100) : 0;
+  const canComplete = fields.length > 0 && required.every((f) => (vals[f.id] ?? "").trim()) && filled > 0;
+
+  function set(id: string, v: string) { setVals((p) => ({ ...p, [id]: v })); }
 
   return (
     <div className="mt-3 space-y-3 rounded-lg border p-3">
+      {r.body && <p className="whitespace-pre-wrap rounded-md bg-secondary/50 p-2.5 text-sm leading-relaxed">{r.body}</p>}
+
+      <div className="flex items-center gap-2">
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
+        <span className="text-xs text-muted-foreground">{filled}/{fields.length}</span>
+        {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+      </div>
+
+      {fields.map((f) => (
+        <label key={f.id} className="block">
+          <span className="mb-1 block text-sm font-medium">{f.label}{f.required && <span className="text-[hsl(var(--danger))]"> *</span>}</span>
+          {f.hint && <span className="mb-1 block text-xs text-muted-foreground">{f.hint}</span>}
+          {f.long ? (
+            <textarea value={vals[f.id] ?? ""} onChange={(e) => set(f.id, e.target.value)} className="modal-input h-24" placeholder="Your answer…" />
+          ) : (
+            <input value={vals[f.id] ?? ""} onChange={(e) => set(f.id, e.target.value)} className="modal-input" placeholder="Your answer…" />
+          )}
+        </label>
+      ))}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={!canComplete} onClick={() => onSave(vals, true)}>
+          <Icons.Sparkles className="h-4 w-4" /> {done ? "Save changes" : "Save & complete"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => { onSave(vals, false); toast("Progress saved"); }}>Save progress</Button>
+        {!canComplete && required.length > 0 && <span className="text-xs text-muted-foreground">Fill the required prompts to complete</span>}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Gamified quiz ----------------
+function QuizPlayer({ questions, best, onResult }: {
+  questions: QuizQuestion[];
+  best?: { correct: number; total: number };
+  onResult: (correct: number, total: number, passed: boolean) => void;
+}) {
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const total = questions.length;
+  const correct = questions.filter((q, i) => answers[i] === q.answer).length;
+  const passed = correct / total >= QUIZ_PASS;
+  const stars = quizStars(correct, total);
+  const xpEarned = passed ? 40 + correct * 10 + (correct === total ? 30 : 0) : 0;
+
+  // longest run of consecutive correct answers
+  let run = 0, streak = 0;
+  questions.forEach((q, i) => { if (answers[i] === q.answer) { run++; streak = Math.max(streak, run); } else run = 0; });
+
+  function submit() {
+    setSubmitted(true);
+    onResult(correct, total, passed);
+  }
+  function retry() { setSubmitted(false); setAnswers({}); }
+
+  return (
+    <div className="mt-3 space-y-4 rounded-xl border p-4">
+      {best && best.total > 0 && !submitted && (
+        <div className="flex items-center gap-2 rounded-md bg-secondary/50 px-2.5 py-1.5 text-xs">
+          <Stars value={quizStars(best.correct, best.total)} />
+          <span className="text-muted-foreground">Best: {best.correct}/{best.total}</span>
+        </div>
+      )}
+
       {questions.map((q, i) => (
         <div key={i}>
           <p className="text-sm font-medium">{i + 1}. {q.prompt}</p>
@@ -231,22 +408,49 @@ function QuizPlayer({ questions, onPass }: { questions: QuizQuestion[]; onPass: 
               const isAns = q.answer === j;
               return (
                 <label key={j} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm ${reveal && isAns ? "border-[hsl(var(--success))] bg-[hsl(var(--success)/0.08)]" : reveal && chosen ? "border-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.08)]" : chosen ? "border-accent" : ""}`}>
-                  <input type="radio" name={`q${i}`} checked={chosen} onChange={() => setAnswers((a) => ({ ...a, [i]: j }))} disabled={submitted} /> {opt}
+                  <input type="radio" name={`q-${q.prompt}-${i}`} checked={chosen} onChange={() => setAnswers((a) => ({ ...a, [i]: j }))} disabled={submitted} /> {opt}
                 </label>
               );
             })}
           </div>
         </div>
       ))}
+
       {!submitted ? (
-        <Button size="sm" onClick={() => setSubmitted(true)} disabled={Object.keys(answers).length < questions.length}>Submit answers</Button>
+        <Button size="sm" onClick={submit} disabled={Object.keys(answers).length < total}>Submit answers</Button>
       ) : (
-        <div className="flex items-center gap-3">
-          <span className={`text-sm font-semibold ${passed ? "text-[hsl(var(--success))]" : "text-[hsl(var(--warning))]"}`}>{correct} / {questions.length} correct</span>
-          {passed ? <span className="text-sm text-[hsl(var(--success))]">Passed ✓</span> : <Button size="sm" variant="outline" onClick={() => { setSubmitted(false); setAnswers({}); }}>Try again</Button>}
+        <div className="rounded-lg bg-secondary/50 p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Stars value={stars} />
+            <span className={`text-sm font-semibold ${passed ? "text-[hsl(var(--success))]" : "text-[hsl(var(--warning))]"}`}>{correct} / {total} correct</span>
+            {passed ? (
+              <Badge tone="success"><Icons.Sparkles className="h-3 w-3" /> +{xpEarned} XP</Badge>
+            ) : (
+              <Button size="sm" variant="outline" onClick={retry}>Try again</Button>
+            )}
+          </div>
+          <p className="mt-2 text-sm">
+            {passed
+              ? correct === total
+                ? "Perfect score, masha'Allah — you've got this cold. 🌟"
+                : "Passed — solid understanding. Review the misses and you're set."
+              : `Almost — you need ${Math.ceil(total * QUIZ_PASS)}/${total} to pass. Unlimited tries; the goal is understanding, not gatekeeping.`}
+          </p>
+          {streak >= 3 && <p className="mt-1 text-xs font-medium text-accent">🔥 {streak} in a row!</p>}
+          {passed && <Button size="sm" variant="ghost" className="mt-1 px-2" onClick={retry}>Retake</Button>}
         </div>
       )}
     </div>
+  );
+}
+
+function Stars({ value }: { value: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {[1, 2, 3].map((n) => (
+        <Icons.Star key={n} className={`h-4 w-4 ${n <= value ? "fill-[hsl(var(--warning))] text-[hsl(var(--warning))]" : "text-muted-foreground/40"}`} />
+      ))}
+    </span>
   );
 }
 
@@ -261,10 +465,12 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
   const [fileData, setFileData] = useState("");
   const [uploading, setUploading] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([{ prompt: "", options: ["", ""], answer: 0 }]);
+  const [fields, setFields] = useState<WorksheetField[]>([{ id: `wf-${Date.now()}`, label: "", long: true, required: true }]);
 
   function reset() {
     setTitle(""); setUrl(""); setBody(""); setFileName(""); setFileData("");
     setQuestions([{ prompt: "", options: ["", ""], answer: 0 }]);
+    setFields([{ id: `wf-${Date.now()}`, label: "", long: true, required: true }]);
   }
 
   async function onFile(f: File | undefined) {
@@ -287,6 +493,10 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
     if (type === "Note") {
       if (!body.trim()) { toast("Write some text first", "error"); return; }
       onAdd({ id, type, title, body });
+    } else if (type === "Worksheet") {
+      const clean = fields.filter((f) => f.label.trim()).map((f) => ({ id: f.id, label: f.label.trim(), hint: f.hint?.trim() || undefined, long: f.long, required: f.required }));
+      if (clean.length === 0) { toast("Add at least one prompt", "error"); return; }
+      onAdd({ id, type, title, body: body.trim() || undefined, fields: clean });
     } else if (type === "Quiz") {
       const clean = questions.filter((q) => q.prompt.trim() && q.options.filter((o) => o.trim()).length >= 2);
       if (clean.length === 0) { toast("Add at least one question with two options", "error"); return; }
@@ -308,7 +518,7 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
         {RESOURCE_TYPES.map((t) => {
           const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[t]] ?? Icons.File;
           return (
-            <button key={t} type="button" onClick={() => { setType(t); }} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors ${type === t ? "bg-primary text-primary-foreground" : "border bg-card hover:bg-secondary"}`}>
+            <button key={t} type="button" onClick={() => setType(t)} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors ${type === t ? "bg-primary text-primary-foreground" : "border bg-card hover:bg-secondary"}`}>
               <Icon className="h-3.5 w-3.5" /> {RESOURCE_LABEL[t]}
             </button>
           );
@@ -341,6 +551,25 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
           <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write the text / reading material…" className="modal-input h-40" />
         )}
 
+        {type === "Worksheet" && (
+          <div className="space-y-3 rounded-lg border p-3">
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Intro / instructions (optional)" className="modal-input h-20" />
+            <p className="text-xs font-medium text-muted-foreground">Prompts the learner fills in:</p>
+            {fields.map((f, fi) => (
+              <div key={f.id} className="space-y-2 rounded-md border p-2.5">
+                <input value={f.label} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, label: e.target.value } : x))} placeholder={`Prompt ${fi + 1} (e.g. "Draft your IF statement")`} className="modal-input" />
+                <input value={f.hint ?? ""} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, hint: e.target.value } : x))} placeholder="Hint (optional)" className="modal-input" />
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                  <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={!!f.long} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, long: e.target.checked } : x))} /> Long answer</label>
+                  <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={!!f.required} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, required: e.target.checked } : x))} /> Required</label>
+                  {fields.length > 1 && <button type="button" onClick={() => setFields((fs) => fs.filter((_, i) => i !== fi))} className="text-[hsl(var(--danger))] hover:underline">Remove</button>}
+                </div>
+              </div>
+            ))}
+            <button type="button" onClick={() => setFields((fs) => [...fs, { id: `wf-${Date.now()}-${fs.length}`, label: "", long: true, required: true }])} className="text-xs font-medium text-accent hover:underline">+ add prompt</button>
+          </div>
+        )}
+
         {type === "Quiz" && (
           <div className="space-y-3 rounded-lg border p-3">
             {questions.map((q, qi) => (
@@ -356,7 +585,7 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
               </div>
             ))}
             <button type="button" onClick={() => setQuestions((qs) => [...qs, { prompt: "", options: ["", ""], answer: 0 }])} className="text-xs font-medium text-accent hover:underline">+ add question</button>
-            <p className="text-[11px] text-muted-foreground">Select the radio next to the correct option for each question.</p>
+            <p className="text-[11px] text-muted-foreground">Select the radio next to the correct option for each question. Learners pass at 80%, with unlimited retakes.</p>
           </div>
         )}
 

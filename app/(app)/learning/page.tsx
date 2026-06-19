@@ -7,7 +7,9 @@ import { Card, Badge, Button, EmptyHint } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
-import { loadModules, saveModules, loadDone, moduleComplete, type CourseModule } from "@/lib/content";
+import { loadModules, saveModules, loadDone, loadMeta, moduleComplete, type CourseModule, type LearnerMeta } from "@/lib/content";
+import { computeGameState } from "@/lib/gamify";
+import { MASGLA_STARTER } from "@/lib/starter-course";
 
 export default function LearningPage() {
   const { user } = useAuth();
@@ -15,14 +17,19 @@ export default function LearningPage() {
   const toast = useToast();
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [meta, setMeta] = useState<LearnerMeta>({ scores: {}, worksheets: {} });
   const [adding, setAdding] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
 
   useEffect(() => {
     (async () => {
       setModules(await loadModules());
-      if (user) setDone(await loadDone(user.email));
+      if (user) {
+        setDone(await loadDone(user.email));
+        setMeta(await loadMeta(user.email));
+      }
     })();
   }, [user?.email]);
 
@@ -49,9 +56,16 @@ export default function LearningPage() {
     [next[i], next[j]] = [next[j], next[i]];
     await persist(next);
   }
+  async function loadStarter() {
+    setSeeding(true);
+    await persist(MASGLA_STARTER);
+    setSeeding(false);
+    toast("MASGLA TOC starter loaded — 5 modules with worksheets and quizzes");
+  }
 
-  // ---- learner progress / "open one level at a time" ----
+  // ---- learner progress / gamification ----
   const firstName = user?.name?.split(" ")[0] ?? "";
+  const game = computeGameState(modules, done, meta);
   const total = modules.length;
   const completedCount = modules.filter((m) => moduleComplete(m, done)).length;
   const activeIdx = modules.findIndex((m) => !moduleComplete(m, done)); // next level to open
@@ -116,6 +130,36 @@ export default function LearningPage() {
         </div>
       )}
 
+      {!canEdit && total > 0 && (
+        <Card className="mb-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-sm font-bold text-accent">Lv {game.levelIndex + 1}</div>
+              <div>
+                <p className="font-semibold">{game.levelName}</p>
+                <p className="text-xs text-muted-foreground">{game.xp} XP{game.isMax ? " · max level reached 🎉" : ` · ${game.toNext} XP to next level`}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-medium text-muted-foreground">{game.earnedBadges}/{game.badges.length} badges</p>
+            </div>
+          </div>
+          {!game.isMax && game.spanLevel > 0 && (
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${Math.round((game.intoLevel / game.spanLevel) * 100)}%` }} /></div>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {game.badges.map((b) => {
+              const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[b.icon] ?? Icons.Award;
+              return (
+                <div key={b.id} title={`${b.name} — ${b.desc}`} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${b.earned ? "animate-pop-in bg-accent/15 text-accent" : "bg-muted text-muted-foreground/70"}`}>
+                  {b.earned ? <Icon className="h-3.5 w-3.5" /> : <Icons.Lock className="h-3 w-3" />} {b.name}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       {canEdit && adding && (
         <Card className="mb-4 p-5">
           <form onSubmit={addModule} className="space-y-3">
@@ -127,7 +171,21 @@ export default function LearningPage() {
       )}
 
       {modules.length === 0 ? (
-        <EmptyHint>{canEdit ? "No modules yet. Click “Add module” to create your first one, then open it to add videos, PDFs, files, text and tests." : "No modules have been published yet — check back soon."}</EmptyHint>
+        canEdit ? (
+          <Card className="p-6 text-center">
+            <Icons.BookMarked className="mx-auto h-8 w-8 text-accent" />
+            <p className="mt-2 font-semibold">No modules yet</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">Start from scratch with “Add module”, or load the ready-made MASGLA Theory of Change course — 5 modules, each with reading, a worksheet and a knowledge check.</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Button size="sm" onClick={loadStarter} disabled={seeding}>
+                {seeding ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Icons.Sparkles className="h-4 w-4" />} Load MASGLA TOC starter
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAdding(true)}><Icons.Plus className="h-4 w-4" /> Add module</Button>
+            </div>
+          </Card>
+        ) : (
+          <EmptyHint>No modules have been published yet — check back soon.</EmptyHint>
+        )
       ) : (
         <div className="space-y-3">
           {modules.map((m, i) => {
