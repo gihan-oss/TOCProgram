@@ -11,6 +11,7 @@ import { IMAGES } from "@/lib/images";
 import { resolveAccess } from "@/lib/access";
 import { homeFor } from "@/lib/nav";
 import { hasOnboarded } from "@/lib/onboarding";
+import { MAS } from "@/lib/mas";
 
 function destFor(email: string, role: ReturnType<typeof resolveAccess>["role"]) {
   return hasOnboarded(email) ? homeFor(role) : "/welcome";
@@ -41,21 +42,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="relative grid min-h-screen lg:grid-cols-2">
+      <div className="fixed inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-primary via-accent to-primary" />
       {/* Left — imagery panel */}
       <div className="relative hidden overflow-hidden bg-primary lg:block">
         <Photo src="/photo-gathering.jpg" alt="MAS GLA community gathering" className="absolute inset-0 h-full w-full opacity-35" gradient="from-primary to-accent" />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/80 via-primary/60 to-accent/50" />
         <FloatingIcons />
         <div className="relative flex h-full flex-col justify-between p-12 text-primary-foreground">
-          <Link href="/"><Logo invert subtitle="Impact Portal" size="md" /></Link>
+          <Link href="/"><Logo invert size="md" /></Link>
           <div className="max-w-md animate-fade-up">
-            <h1 className="text-4xl font-extrabold leading-tight">Turn learning into measurable impact.</h1>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
+              {MAS.org} · {MAS.vision}
+            </span>
+            <h1 className="mt-4 text-4xl font-extrabold leading-tight">The home for {MAS.org}&apos;s whole transformation.</h1>
             <p className="mt-4 text-primary-foreground/85">
-              The strategic operating system for nonprofits, foundations, ministries and social enterprises — built around implementation evidence, not attendance.
+              From our North Star to the six areas of focus, learning, implementation and impact — every part of the chapter&apos;s work, in one place. {MAS.northStar}
             </p>
             <div className="mt-8 grid grid-cols-3 gap-3 text-center">
-              {[["Modules", "4"], ["Dashboards", "6"], ["Roles", "5"]].map(([l, v]) => (
+              {[["Areas of focus", "6"], ["Modules", "4"], ["Roles", "5"]].map(([l, v]) => (
                 <div key={l} className="rounded-xl bg-white/10 p-3 backdrop-blur">
                   <p className="text-2xl font-bold">{v}</p>
                   <p className="text-xs text-primary-foreground/80">{l}</p>
@@ -63,7 +68,7 @@ export default function LoginPage() {
               ))}
             </div>
           </div>
-          <p className="text-xs text-primary-foreground/70">“What change are we creating, and how do we know it’s happening?”</p>
+          <p className="text-xs text-primary-foreground/70">An Amal &amp; Company platform · Scaling Social Impact</p>
         </div>
       </div>
 
@@ -77,7 +82,7 @@ export default function LoginPage() {
 
           <h2 className="text-2xl font-bold tracking-tight">{mode === "signin" ? "Welcome back" : "Create your account"}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin" ? "Sign in to continue to your portal." : "Start building your theory of change."}
+            {mode === "signin" ? `Sign in to continue to the ${MAS.org} portal.` : `Create your account to join the ${MAS.org} portal.`}
           </p>
 
           {isDemo && (
@@ -111,7 +116,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New to Impact OS?" : "Already have an account?"}{" "}
+            {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
             <button onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }} className="font-semibold text-accent hover:underline">
               {mode === "signin" ? "Create an account" : "Sign in"}
             </button>

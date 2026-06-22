@@ -122,6 +122,7 @@ export default function WelcomePage() {
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-primary text-primary-foreground">
+      <div className="absolute inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-white/0 via-white/70 to-white/0" />
       <div className="mesh absolute inset-0 opacity-40" />
       <FloatingIcons />
 
