@@ -15,6 +15,7 @@ export const NAV: NavItem[] = [
   { href: "/journey", label: "My Journey", icon: "Footprints", group: "Overview", roles: ["participant"] },
   { href: "/learning", label: "My Learning", icon: "GraduationCap", group: "Learn", roles: ["participant"] },
   { href: "/assessments", label: "Assessments", icon: "ClipboardCheck", group: "Learn", roles: ["participant"] },
+  { href: "/certificate", label: "My Certificate", icon: "Award", group: "Learn", roles: ["participant"] },
   { href: "/toc", label: "Theory of Change", icon: "Workflow", group: "Build", roles: ["participant"] },
   { href: "/logframe", label: "Logframe", icon: "Table2", group: "Build", roles: ["participant"] },
   { href: "/assumptions", label: "Assumption Registry", icon: "ShieldAlert", group: "Build", roles: ["participant"] },
@@ -47,6 +48,14 @@ export const NAV: NavItem[] = [
   { href: "/knowledge", label: "Knowledge Base", icon: "BookOpen", group: "Help", roles: ["participant", "admin", "facilitator", "coordinator", "executive"] },
   { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Help", roles: ["participant", "admin", "facilitator"] },
 ];
+
+// The "Build" stage — and the certificate that bridges into it — stay locked
+// for participants until all learning modules are complete.
+export const GATED_GROUP = "Build";
+export const GATED_HREFS = ["/toc", "/logframe", "/assumptions", "/measurement", "/package", "/evidence", "/certificate"];
+export function isGatedPath(pathname: string) {
+  return GATED_HREFS.some((h) => pathname === h || pathname.startsWith(h + "/"));
+}
 
 export function navFor(role: Role) {
   // de-dupe by href (a couple of routes appear with role-specific labels)
