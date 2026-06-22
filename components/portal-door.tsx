@@ -26,7 +26,7 @@ export function PortalDoor({ href = "/login" }: { href?: string }) {
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduce) { router.push(href); return; }
     setOpening(true);
-    setTimeout(() => router.push(href), 1500);
+    setTimeout(() => router.push(href), 1850);
   }
 
   return (
@@ -76,11 +76,19 @@ function DoorReveal() {
         </div>
       </div>
 
-      {/* Glowing seam flash as the doors part */}
-      <div className="absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 animate-seam-flash" style={{ background: `linear-gradient(to bottom, transparent, ${PURPLE}, #fff, ${PURPLE}, transparent)`, boxShadow: `0 0 40px 8px ${PURPLE}` }} />
+      {/* Electric seam — energy races along the straight line as the doors part.
+          It only appears AFTER the logo has drawn and faded, so it never cuts
+          through the white logo. */}
+      <div className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 animate-seam-flash">
+        <div className="animate-seam-flicker h-full w-full" style={{ background: `linear-gradient(to bottom, transparent, ${PURPLE}, #fff, ${PURPLE}, transparent)`, boxShadow: `0 0 26px 5px ${PURPLE}` }} />
+        <div className="pointer-events-none absolute inset-0">
+          <div className="animate-seam-spark-down absolute left-0 h-[22%] w-full" style={{ background: `linear-gradient(to bottom, transparent, #fff, ${PURPLE}, transparent)`, boxShadow: `0 0 22px 7px ${PURPLE}, 0 0 10px 2px #fff` }} />
+          <div className="animate-seam-spark-up absolute left-0 h-[16%] w-full" style={{ background: `linear-gradient(to top, transparent, #fff, ${PURPLE}, transparent)`, boxShadow: `0 0 18px 5px ${PURPLE}` }} />
+        </div>
+      </div>
 
-      {/* Single white logo that draws itself in from both sides, then fades as
-          the doors open. */}
+      {/* Single white logo that draws itself in, holds, then fades — before the
+          electric seam appears. */}
       <div className="absolute inset-0 flex items-center justify-center animate-brand-out">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <Image src="/logo-white.png" alt="Amal & Company" width={260} height={84} className="animate-logo-draw h-14 w-auto object-contain" priority />
