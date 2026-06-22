@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { DoorOpen, ArrowRight, Loader2 } from "lucide-react";
+import { DoorOpen, ArrowRight } from "lucide-react";
 
 // The "Launch the portal" call-to-action — branded for Amal & Company — that
 // opens the portal with a double-door reveal: deep-navy doors split apart from
@@ -25,7 +25,7 @@ export function PortalDoor({ href = "/login" }: { href?: string }) {
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduce) { router.push(href); return; }
     setOpening(true);
-    setTimeout(() => router.push(href), 1250);
+    setTimeout(() => router.push(href), 1500);
   }
 
   return (
@@ -57,17 +57,10 @@ function DoorReveal() {
   };
   return (
     <div className="fixed inset-0 z-[100] overflow-hidden animate-overlay-out" aria-hidden>
-      {/* Interior revealed behind the doors */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-background animate-interior-in">
+      {/* Bright interior behind the doors (no logo — keeps it to a single mark) */}
+      <div className="absolute inset-0 bg-background animate-interior-in">
         <div className="mesh absolute inset-0" />
         <div className="absolute left-1/2 top-1/2 h-[60vmin] w-[60vmin] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl" style={{ background: `radial-gradient(closest-side, ${SKY}55, transparent)` }} />
-        <div className="relative flex flex-col items-center">
-          <Image src="/logo.png" alt="Amal & Company" width={260} height={84} className="h-16 w-auto object-contain dark:hidden" priority />
-          <Image src="/logo-white.png" alt="Amal & Company" width={260} height={84} className="hidden h-16 w-auto object-contain dark:block" priority />
-          <p className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Opening the portal…
-          </p>
-        </div>
       </div>
 
       {/* The two doors */}
@@ -85,10 +78,22 @@ function DoorReveal() {
       {/* Glowing seam flash as the doors part */}
       <div className="absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 animate-seam-flash" style={{ background: `linear-gradient(to bottom, transparent, ${SKY}, #fff, ${SKY}, transparent)`, boxShadow: `0 0 40px 8px ${SKY}` }} />
 
-      {/* Brand seal that breaks apart as the doors open */}
-      <div className="absolute inset-0 flex items-center justify-center animate-seal-out">
-        <div className="flex h-28 w-28 items-center justify-center rounded-3xl border border-white/15 shadow-2xl" style={{ background: `linear-gradient(135deg, ${NAVY_2}, ${NAVY})` }}>
-          <Image src="/logo-white.png" alt="Amal & Company" width={96} height={96} className="h-14 w-auto object-contain" priority />
+      {/* Single transparent logo, "doodled" — a hand-drawn loop sketches around it,
+          then it fades as the doors open. */}
+      <div className="absolute inset-0 flex items-center justify-center animate-brand-out">
+        <div className="relative">
+          <svg viewBox="0 0 360 170" className="absolute left-1/2 top-1/2 h-[150px] w-[320px] -translate-x-1/2 -translate-y-1/2" fill="none" aria-hidden>
+            <path
+              className="animate-draw-doodle"
+              d="M188 22 C92 14 30 44 26 86 C22 130 110 152 196 150 C300 148 344 116 332 80 C322 50 268 28 188 22"
+              stroke={SKY}
+              strokeWidth="3"
+              strokeLinecap="round"
+              transform="rotate(-3 180 85)"
+            />
+          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <Image src="/logo-white.png" alt="Amal & Company" width={220} height={70} className="relative h-12 w-auto object-contain" priority />
         </div>
       </div>
     </div>
