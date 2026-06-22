@@ -8,6 +8,17 @@ export const MAS = {
   partner: "Amal & Company",
   vision: "Vision 2026",
   northStar: "To move people and nurture lifelong, God-centered agents of change.",
+  // Where questions asked through Nuri (the in-portal navigator) are sent.
+  // Change this one line to route them to the right inbox.
+  contactEmail: "hello@amalandcompany.com",
+};
+
+// The in-portal guide/mascot. People can open Nuri anywhere to ask a question;
+// later he can grow into a full navigator/assistant.
+export const NAVIGATOR = {
+  name: "Nuri",
+  image: "/navigator.png",
+  tagline: "Your portal navigator",
 };
 
 // The client this portal is currently configured for. The learning portal is
