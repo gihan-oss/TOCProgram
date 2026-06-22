@@ -12,6 +12,7 @@ import { useApp } from "./providers";
 import { useAuth } from "./auth";
 import { Logo } from "./logo";
 import { NotificationsBell } from "./notifications";
+import { Navigator } from "./navigator";
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle;
@@ -150,6 +151,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
         <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
       </div>
+
+      {/* Nuri — the in-portal navigator, available everywhere */}
+      <Navigator />
     </div>
   );
 }

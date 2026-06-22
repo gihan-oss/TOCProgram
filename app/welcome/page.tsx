@@ -147,7 +147,7 @@ export default function WelcomePage() {
               Welcome, {firstName}
             </h1>
             <p className="animate-fade-up mt-4 text-lg text-primary-foreground/85" style={{ animationDelay: "400ms" }}>
-              You're joining a community working toward one North Star — and this takes two minutes.
+              You're joining the home for our whole transformation — learning, programs, measurement and impact, all working toward one North Star. This takes two minutes.
             </p>
             <div className="animate-fade-up mt-8" style={{ animationDelay: "600ms" }}>
               <Button variant="secondary" size="lg" onClick={() => setStep(1)}>Let's begin <Icons.ArrowRight className="h-5 w-5" /></Button>
@@ -161,8 +161,8 @@ export default function WelcomePage() {
             <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-white/60">Our North Star</p>
             <div className="min-h-[150px] text-2xl font-semibold leading-relaxed sm:text-3xl">
               <Typewriter
-                text={`"${MAS.northStar}"\n\nEvery program here must answer Question Zero — who are we moving, and what change are we creating? That's how activity becomes impact.`}
-                speed={20}
+                text={`"${MAS.northStar}"\n\nThis is more than a Theory of Change tool — it's where our whole transformation lives: learning, programs, measurement and impact, across all six areas of focus.\n\nEvery program still answers Question Zero — who are we moving, and what change are we creating? That's how activity becomes impact.`}
+                speed={18}
               />
             </div>
             <div className="mt-8 flex gap-3">

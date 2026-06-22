@@ -38,7 +38,7 @@ export default function Landing() {
 
           <div className="mt-9 flex justify-center">
             <Link href="/login">
-              <Button size="lg">Enter the portal <ArrowRight className="h-5 w-5" /></Button>
+              <Button size="lg">Launch the portal <ArrowRight className="h-5 w-5" /></Button>
             </Link>
           </div>
 
