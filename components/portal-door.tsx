@@ -32,18 +32,14 @@ export function PortalDoor({ href = "/login" }: { href?: string }) {
       <button
         onClick={launch}
         disabled={opening}
-        className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-2xl px-8 py-4 text-base font-semibold text-white shadow-xl transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-90"
+        className="group inline-flex items-center gap-2.5 rounded-2xl px-8 py-4 text-base font-semibold text-white shadow-xl transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-90"
         style={{ background: `linear-gradient(135deg, ${NAVY_2}, ${NAVY})`, boxShadow: `0 12px 34px -12px ${NAVY}, 0 0 0 1px rgba(255,255,255,0.06) inset` }}
       >
-        {/* moving sheen */}
-        <span className="pointer-events-none absolute inset-0">
-          <span className="absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-18deg] bg-white/15 blur-md animate-sheen" />
-        </span>
-        <span className="relative flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.12)" }}>
           <DoorOpen className="h-5 w-5" style={{ color: SKY }} />
         </span>
-        <span className="relative">Launch the portal</span>
-        <ArrowRight className="relative h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
+        <span>Launch the portal</span>
+        <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
       </button>
 
       {opening && <DoorReveal />}
