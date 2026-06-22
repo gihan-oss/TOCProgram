@@ -121,6 +121,27 @@ body {
   60% { transform: scale(1.12); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
+/* ---- Game-show quiz (Wayground-style) motion ---- */
+@keyframes pop-score {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  25% { transform: translateY(-10px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-54px) scale(1); opacity: 0; }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+@keyframes tile-in {
+  from { transform: translateY(12px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes timer-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 
 @layer components {
   .modal-input {
@@ -161,6 +182,10 @@ body {
   .animate-pulse-ring { animation: pulse-ring 2s ease-out infinite; }
   .animate-confetti { animation: confetti-fall linear forwards; }
   .animate-pop-in { animation: pop-in 0.4s ease-out both; }
+  .animate-pop-score { animation: pop-score 0.9s ease-out forwards; }
+  .animate-shake { animation: shake 0.45s ease-in-out both; }
+  .animate-tile-in { animation: tile-in 0.35s ease-out both; }
+  .animate-timer-flash { animation: timer-flash 0.7s ease-in-out infinite; }
   .mesh {
     background:
       radial-gradient(60% 60% at 15% 20%, hsl(var(--accent) / 0.18), transparent 60%),

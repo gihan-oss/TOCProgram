@@ -6,13 +6,14 @@ import { notFound } from "next/navigation";
 import * as Icons from "lucide-react";
 import { Card, Badge, Button, EmptyHint } from "@/components/ui";
 import { Confetti } from "@/components/confetti";
+import { QuizGame } from "@/components/quiz-game";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import { effectiveModules } from "@/lib/starter-course";
 import {
   loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile, moduleComplete,
-  RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP, QUIZ_PASS, quizStars,
+  RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP,
   providerEmbed, isImageUrl, isVideoFileUrl, isAudioFileUrl, isPdfUrl,
   type CourseModule, type Resource, type ResourceType, type QuizQuestion, type WorksheetField, type LearnerMeta,
 } from "@/lib/content";
@@ -269,7 +270,7 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
           </div>
 
           {r.type === "Quiz" && r.questions ? (
-            <QuizPlayer questions={r.questions} best={best} onResult={onScore} />
+            <QuizGame questions={r.questions} best={best} onResult={onScore} />
           ) : r.type === "Worksheet" ? (
             <WorksheetPlayer r={r} answers={answers} done={done} onSave={onWorksheet} />
           ) : (
@@ -536,95 +537,6 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
         </Button>
       </div>
     </div>
-  );
-}
-
-// ---------------- Gamified quiz ----------------
-function QuizPlayer({ questions, best, onResult }: {
-  questions: QuizQuestion[];
-  best?: { correct: number; total: number };
-  onResult: (correct: number, total: number, passed: boolean) => void;
-}) {
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const total = questions.length;
-  const correct = questions.filter((q, i) => answers[i] === q.answer).length;
-  const passed = correct / total >= QUIZ_PASS;
-  const stars = quizStars(correct, total);
-  const xpEarned = passed ? 40 + correct * 10 + (correct === total ? 30 : 0) : 0;
-
-  // longest run of consecutive correct answers
-  let run = 0, streak = 0;
-  questions.forEach((q, i) => { if (answers[i] === q.answer) { run++; streak = Math.max(streak, run); } else run = 0; });
-
-  function submit() {
-    setSubmitted(true);
-    onResult(correct, total, passed);
-  }
-  function retry() { setSubmitted(false); setAnswers({}); }
-
-  return (
-    <div className="mt-3 space-y-4 rounded-xl border p-4">
-      {best && best.total > 0 && !submitted && (
-        <div className="flex items-center gap-2 rounded-md bg-secondary/50 px-2.5 py-1.5 text-xs">
-          <Stars value={quizStars(best.correct, best.total)} />
-          <span className="text-muted-foreground">Best: {best.correct}/{best.total}</span>
-        </div>
-      )}
-
-      {questions.map((q, i) => (
-        <div key={i}>
-          <p className="text-sm font-medium">{i + 1}. {q.prompt}</p>
-          <div className="mt-1.5 space-y-1">
-            {q.options.map((opt, j) => {
-              const chosen = answers[i] === j;
-              const reveal = submitted;
-              const isAns = q.answer === j;
-              return (
-                <label key={j} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm ${reveal && isAns ? "border-[hsl(var(--success))] bg-[hsl(var(--success)/0.08)]" : reveal && chosen ? "border-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.08)]" : chosen ? "border-accent" : ""}`}>
-                  <input type="radio" name={`q-${q.prompt}-${i}`} checked={chosen} onChange={() => setAnswers((a) => ({ ...a, [i]: j }))} disabled={submitted} /> {opt}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-
-      {!submitted ? (
-        <Button size="sm" onClick={submit} disabled={Object.keys(answers).length < total}>Submit answers</Button>
-      ) : (
-        <div className="rounded-lg bg-secondary/50 p-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <Stars value={stars} />
-            <span className={`text-sm font-semibold ${passed ? "text-[hsl(var(--success))]" : "text-[hsl(var(--warning))]"}`}>{correct} / {total} correct</span>
-            {passed ? (
-              <Badge tone="success"><Icons.Sparkles className="h-3 w-3" /> +{xpEarned} XP</Badge>
-            ) : (
-              <Button size="sm" variant="outline" onClick={retry}>Try again</Button>
-            )}
-          </div>
-          <p className="mt-2 text-sm">
-            {passed
-              ? correct === total
-                ? "Perfect score, masha'Allah — you've got this cold. 🌟"
-                : "Passed — solid understanding. Review the misses and you're set."
-              : `Almost — you need ${Math.ceil(total * QUIZ_PASS)}/${total} to pass. Unlimited tries; the goal is understanding, not gatekeeping.`}
-          </p>
-          {streak >= 3 && <p className="mt-1 text-xs font-medium text-accent">🔥 {streak} in a row!</p>}
-          {passed && <Button size="sm" variant="ghost" className="mt-1 px-2" onClick={retry}>Retake</Button>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Stars({ value }: { value: number }) {
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {[1, 2, 3].map((n) => (
-        <Icons.Star key={n} className={`h-4 w-4 ${n <= value ? "fill-[hsl(var(--warning))] text-[hsl(var(--warning))]" : "text-muted-foreground/40"}`} />
-      ))}
-    </span>
   );
 }
 
