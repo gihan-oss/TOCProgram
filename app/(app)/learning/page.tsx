@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, Button, EmptyHint } from "@/components/ui";
+import { Confetti } from "@/components/confetti";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
@@ -22,6 +23,23 @@ export default function LearningPage() {
   const [seeding, setSeeding] = useState(false);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
+  const [celebrate, setCelebrate] = useState(false);
+
+  // Fire confetti once, the first time a learner completes every module.
+  useEffect(() => {
+    if (canEdit || modules.length === 0 || !user) return;
+    const withContent = modules.filter((m) => m.resources.length > 0);
+    const all = withContent.length > 0 && withContent.every((m) => moduleComplete(m, done));
+    if (!all) return;
+    const key = `toc-modules-celebrated:${user.email.toLowerCase()}`;
+    try {
+      if (localStorage.getItem(key) !== "1") {
+        localStorage.setItem(key, "1");
+        setCelebrate(true);
+        setTimeout(() => setCelebrate(false), 2200);
+      }
+    } catch {}
+  }, [modules, done, canEdit, user?.email]);
 
   useEffect(() => {
     (async () => {
@@ -138,13 +156,34 @@ export default function LearningPage() {
                   </Button>
                 </Link>
               ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-sm font-medium backdrop-blur">
-                  <Icons.PartyPopper className="h-4 w-4" /> All modules complete
-                </span>
+                <Link href="/certificate">
+                  <Button variant="secondary" size="sm"><Icons.Award className="h-4 w-4" /> Get your certificate</Button>
+                </Link>
               )}
             </div>
           )}
         </div>
+      )}
+
+      {celebrate && <Confetti />}
+
+      {/* All modules done → Build unlocked */}
+      {!canEdit && total > 0 && activeIdx < 0 && (
+        <Card className="mb-4 overflow-hidden border-[hsl(var(--success)/0.4)]">
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-br from-[hsl(var(--success)/0.12)] to-accent/10 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[hsl(var(--success))] text-white"><Icons.Award className="h-6 w-6" /></div>
+              <div>
+                <p className="font-bold">You finished all {total} modules! 🎉</p>
+                <p className="text-sm text-muted-foreground">The <b>Build</b> stage is now unlocked. Claim your certificate, then start your Theory of Change.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/certificate"><Button size="sm"><Icons.Award className="h-4 w-4" /> Get certificate</Button></Link>
+              <Link href="/toc"><Button size="sm" variant="outline"><Icons.Workflow className="h-4 w-4" /> Start building</Button></Link>
+            </div>
+          </div>
+        </Card>
       )}
 
       {!canEdit && total > 0 && (

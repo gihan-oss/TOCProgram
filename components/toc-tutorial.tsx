@@ -6,35 +6,35 @@ import { Typewriter } from "@/components/typewriter";
 import { MAS } from "@/lib/mas";
 
 // An animated, self-playing "how a Theory of Change works" tutorial that lives
-// in a small box on the builder. Press play and a friendly voice types out the
-// idea while mini nodes pop into a little canvas and connect themselves — outcome,
+// in a box on the builder. Press play and a friendly voice types out the idea
+// while mini nodes pop into a little canvas and connect themselves — outcome,
 // goal, the link between them, then outputs and activities and an assumption.
-// A blue button (top-right) reopens it any time.
+// A blue button (top-right) reopens it any time. Fully responsive + centered.
 
 const SEEN_KEY = "toc-tutorial-seen";
 
-// mini-canvas geometry (300 x 260)
-const CX = 150;
-const NODE: Record<string, { y: number; tone: string; dot: string; tag: string; label: string }> = {
-  goal: { y: 10, tone: "border-l-[hsl(var(--primary))]", dot: "bg-[hsl(var(--primary))]", tag: "Goal", label: "God-centered agents of change" },
-  outcome: { y: 78, tone: "border-l-[hsl(var(--accent))]", dot: "bg-[hsl(var(--accent))]", tag: "Outcome", label: "Youth build spiritual habits" },
-  output: { y: 146, tone: "border-l-[hsl(var(--success))]", dot: "bg-[hsl(var(--success))]", tag: "Output", label: "Monthly halaqahs delivered" },
-  activity: { y: 214, tone: "border-l-[hsl(var(--warning))]", dot: "bg-[hsl(var(--warning))]", tag: "Activity", label: "Host Qiyam nights" },
+const NODE: Record<string, { dot: string; tag: string; label: string }> = {
+  goal: { dot: "bg-[hsl(var(--primary))]", tag: "Goal", label: "God-centered agents of change" },
+  outcome: { dot: "bg-[hsl(var(--accent))]", tag: "Outcome", label: "Youth build spiritual habits" },
+  output: { dot: "bg-[hsl(var(--success))]", tag: "Output", label: "Monthly halaqahs delivered" },
+  activity: { dot: "bg-[hsl(var(--warning))]", tag: "Activity", label: "Host Qiyam nights" },
 };
 
-interface Scene { text: string; }
-const SCENES: Scene[] = [
-  { text: "A Theory of Change is the simple story of how your work creates change. Let me show you — watch." },
-  { text: 'Start with an Outcome — the change you want to see in people. Like: "Youth build consistent spiritual habits."' },
-  { text: `Add the Goal it builds toward — your North Star. For ${MAS.org}: lifelong, God-centered agents of change.` },
-  { text: "Now connect them: the outcome leads up to the goal. The arrows are your logic." },
-  { text: "Underneath, add what you deliver (an Output) and what you do (an Activity). Read it bottom-to-top." },
-  { text: "Connect the chain: activity → output → outcome → goal. That's your whole story of change." },
-  { text: "Every link into an outcome needs an Assumption — why you believe it works. That's the honest part." },
-  { text: "That's it! Add nodes, drag to arrange, and connect — it saves automatically. Tap the blue button to replay this anytime. You've got this. 🌱" },
+// vertical layout inside a 300px-tall canvas
+const TOP = { goal: 6, outcome: 82, output: 158, activity: 234 };
+const CONN = { go: 58, oo: 134, ao: 210 }; // connector tops (the gaps)
+
+const SCENES = [
+  "A Theory of Change is the simple story of how your work creates change. Let me show you — watch.",
+  'Start with an Outcome — the change you want to see in people. Like: "Youth build consistent spiritual habits."',
+  `Add the Goal it builds toward — your North Star. For ${MAS.org}: lifelong, God-centered agents of change.`,
+  "Now connect them: the outcome leads up to the goal. The arrows are your logic.",
+  "Underneath, add what you deliver (an Output) and what you do (an Activity). Read it bottom-to-top.",
+  "Connect the chain: activity → output → outcome → goal. That's your whole story of change.",
+  "Every link into an outcome needs an Assumption — why you believe it works. That's the honest part.",
+  "That's it! Add nodes, drag to arrange, and connect — it saves automatically. Tap the blue button to replay this anytime. You've got this. 🌱",
 ];
 
-// What's visible by scene (cumulative).
 const showNode = (id: string, s: number) => (id === "outcome" ? s >= 1 : id === "goal" ? s >= 2 : s >= 4);
 const showEdge = (id: string, s: number) => (id === "go" ? s >= 3 : s >= 5);
 
@@ -44,19 +44,16 @@ export function TocTutorial() {
   const [scene, setScene] = useState(0);
   const advance = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-open the very first time on this browser.
   useEffect(() => {
     try { if (localStorage.getItem(SEEN_KEY) !== "1") setOpen(true); } catch {}
   }, []);
 
   function markSeen() { try { localStorage.setItem(SEEN_KEY, "1"); } catch {} }
   function clearTimer() { if (advance.current) { clearTimeout(advance.current); advance.current = null; } }
-
   function start() { clearTimer(); setStarted(true); setScene(0); }
   function go(n: number) { clearTimer(); setScene(Math.max(0, Math.min(SCENES.length - 1, n))); }
   function close() { clearTimer(); setOpen(false); markSeen(); }
   function reopen() { setOpen(true); setStarted(false); setScene(0); }
-
   useEffect(() => clearTimer, []);
 
   const last = scene === SCENES.length - 1;
@@ -73,9 +70,9 @@ export function TocTutorial() {
       </button>
 
       {!open ? null : (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 p-4 sm:items-center" onClick={close}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={close}>
           <div
-            className="animate-fade-up w-[min(94vw,380px)] overflow-hidden rounded-2xl border bg-card shadow-2xl"
+            className="animate-fade-up w-[min(96vw,560px)] overflow-hidden rounded-2xl border bg-card shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* header */}
@@ -90,51 +87,45 @@ export function TocTutorial() {
 
             {!started ? (
               // ---- press-to-start splash ----
-              <div className="px-5 py-7 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 text-accent">
-                  <Icons.Workflow className="h-7 w-7" />
+              <div className="px-6 py-8 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+                  <Icons.Workflow className="h-8 w-8" />
                 </div>
-                <p className="mt-3 font-semibold">New to building a Theory of Change?</p>
-                <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
-                  Press play — I'll walk you through it in 30 seconds, with the pieces building themselves.
+                <p className="mt-3 text-lg font-semibold">New to building a Theory of Change?</p>
+                <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                  Press play — I'll walk you through it in about 30 seconds, with the pieces building themselves.
                 </p>
-                <button onClick={start} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition-transform hover:-translate-y-0.5">
+                <button onClick={start} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-transform hover:-translate-y-0.5">
                   <Icons.Play className="h-4 w-4" /> Play the tour
                 </button>
-                <button onClick={close} className="mt-2 block w-full text-xs font-medium text-muted-foreground hover:text-foreground">Skip for now</button>
+                <button onClick={close} className="mt-3 block w-full text-xs font-medium text-muted-foreground hover:text-foreground">Skip for now</button>
               </div>
             ) : (
               // ---- playing ----
-              <div className="px-4 py-4">
-                {/* mini canvas */}
-                <div className="relative mx-auto h-[260px] w-[300px] grid-paper overflow-hidden rounded-xl border bg-background/50">
-                  <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 300 260">
-                    <defs>
-                      <marker id="tut-arrow" markerWidth="8" markerHeight="8" refX="5" refY="3" orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L0,6 L6,3 z" fill="hsl(var(--accent))" />
-                      </marker>
-                    </defs>
-                    {showEdge("go", scene) && <EdgePath key="go" y1={78} y2={50} hi={scene >= 6} />}
-                    {showEdge("oo", scene) && <EdgePath key="oo" y1={146} y2={118} hi={scene >= 6} assume={scene >= 6} />}
-                    {showEdge("ao", scene) && <EdgePath key="ao" y1={214} y2={186} />}
-                  </svg>
+              <div className="px-4 py-4 sm:px-6">
+                {/* mini canvas — responsive + centered */}
+                <div className="relative mx-auto h-[300px] w-full max-w-[440px] grid-paper overflow-hidden rounded-xl border bg-background/50">
+                  {showEdge("ao", scene) && <Connector top={CONN.ao} />}
+                  {showEdge("oo", scene) && <Connector top={CONN.oo} accent={scene >= 6} />}
+                  {showEdge("go", scene) && <Connector top={CONN.go} />}
 
-                  {(["goal", "outcome", "output", "activity"] as const).map((id) =>
-                    showNode(id, scene) ? <MiniNode key={id} id={id} /> : null,
-                  )}
+                  {showNode("activity", scene) && <MiniNode id="activity" top={TOP.activity} />}
+                  {showNode("output", scene) && <MiniNode id="output" top={TOP.output} />}
+                  {showNode("outcome", scene) && <MiniNode id="outcome" top={TOP.outcome} />}
+                  {showNode("goal", scene) && <MiniNode id="goal" top={TOP.goal} />}
 
                   {scene >= 6 && (
-                    <span className="animate-pop-in absolute left-[206px] top-[124px] z-10 inline-flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground shadow">
-                      <Icons.ShieldCheck className="h-2.5 w-2.5" /> assumption
+                    <span className="animate-pop-in absolute left-1/2 top-[126px] z-20 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground shadow">
+                      <Icons.ShieldCheck className="h-3 w-3" /> assumption
                     </span>
                   )}
                 </div>
 
                 {/* narration */}
-                <div className="mt-3 min-h-[72px] rounded-xl bg-secondary/50 p-3 text-sm leading-relaxed">
+                <div className="mt-3 min-h-[64px] rounded-xl bg-secondary/50 p-3 text-sm leading-relaxed">
                   <Typewriter
                     key={scene}
-                    text={SCENES[scene].text}
+                    text={SCENES[scene]}
                     speed={20}
                     onDone={() => {
                       if (!last) { clearTimer(); advance.current = setTimeout(() => setScene((s) => Math.min(SCENES.length - 1, s + 1)), 1400); }
@@ -171,32 +162,30 @@ export function TocTutorial() {
   );
 }
 
-function MiniNode({ id }: { id: keyof typeof NODE | string }) {
+function MiniNode({ id, top }: { id: string; top: number }) {
   const n = NODE[id];
   return (
-    <div
-      className="animate-pop-in absolute left-1/2 w-[180px] -translate-x-1/2 rounded-lg border border-l-4 bg-card p-2 shadow-sm"
-      style={{ top: n.y, borderLeftColor: undefined }}
-    >
-      <div className={`absolute inset-y-0 left-0 w-1 rounded-l ${n.dot}`} />
-      <div className="flex items-center gap-1.5 pl-1">
+    <div className="animate-pop-in absolute left-1/2 z-10 w-[86%] max-w-[240px] -translate-x-1/2 rounded-lg border bg-card px-2.5 py-1.5 shadow-sm" style={{ top }}>
+      <div className={`absolute inset-y-1 left-0 w-1 rounded-r ${n.dot}`} />
+      <div className="flex items-center gap-1.5 pl-1.5">
         <span className={`h-2 w-2 rounded ${n.dot}`} />
-        <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">{n.tag}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{n.tag}</span>
       </div>
-      <p className="mt-0.5 pl-1 text-[11px] font-medium leading-tight">{n.label}</p>
+      <p className="mt-0.5 truncate pl-1.5 text-xs font-medium leading-tight">{n.label}</p>
     </div>
   );
 }
 
-function EdgePath({ y1, y2, hi, assume }: { y1: number; y2: number; hi?: boolean; assume?: boolean }) {
+function Connector({ top, accent }: { top: number; accent?: boolean }) {
+  const color = accent ? "hsl(var(--accent))" : "hsl(var(--muted-foreground))";
   return (
-    <path
-      className="animate-draw-line"
-      d={`M ${CX} ${y1} L ${CX} ${y2}`}
-      fill="none"
-      stroke={assume ? "hsl(var(--accent))" : hi ? "hsl(var(--accent))" : "hsl(var(--muted-foreground))"}
-      strokeWidth={2}
-      markerEnd="url(#tut-arrow)"
-    />
+    <div className="absolute left-1/2 z-0 -translate-x-1/2" style={{ top }}>
+      <div className="animate-grow-y origin-top" style={{ height: 24, width: 2, background: color }} />
+      {/* up-arrow into the node above */}
+      <span
+        className="absolute left-1/2 top-0 -translate-x-1/2"
+        style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderBottom: `6px solid ${color}` }}
+      />
+    </div>
   );
 }

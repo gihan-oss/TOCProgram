@@ -5,14 +5,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils";
-import { navFor, canAccess, homeFor } from "@/lib/nav";
+import { navFor, canAccess, homeFor, isGatedPath } from "@/lib/nav";
 import { ROLES, CURRENT_USER } from "@/lib/data";
 import type { Role } from "@/lib/types";
 import { useApp } from "./providers";
 import { useAuth } from "./auth";
+import { useToast } from "./toast";
 import { Logo } from "./logo";
 import { NotificationsBell } from "./notifications";
 import { Navigator } from "./navigator";
+import { loadModules, loadDone, moduleComplete } from "@/lib/content";
+import { effectiveModules } from "@/lib/starter-course";
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle;
@@ -33,6 +36,35 @@ export function Shell({ children }: { children: ReactNode }) {
   const displayName = user?.name || CURRENT_USER.name;
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const toast = useToast();
+
+  // ---- Build stage gating: locked for participants until all modules done ----
+  const [buildUnlocked, setBuildUnlocked] = useState(false);
+  const [gateLoaded, setGateLoaded] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    if (user.role !== "participant") { setBuildUnlocked(true); setGateLoaded(true); return; }
+    let alive = true;
+    (async () => {
+      const mods = effectiveModules(await loadModules());
+      const done = await loadDone(user.email);
+      const withContent = mods.filter((m) => m.resources.length > 0);
+      const unlocked = withContent.length > 0 && withContent.every((m) => moduleComplete(m, done));
+      if (alive) { setBuildUnlocked(unlocked); setGateLoaded(true); }
+    })();
+    return () => { alive = false; };
+  }, [user?.email, user?.role, pathname]);
+
+  const lockBuild = user?.role === "participant" && !buildUnlocked;
+
+  // Keep locked learners out of the Build tools / certificate by direct URL.
+  useEffect(() => {
+    if (gateLoaded && lockBuild && isGatedPath(pathname)) {
+      toast("Finish all 5 modules to unlock the Build tools.", "error");
+      router.replace("/learning");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateLoaded, lockBuild, pathname]);
 
   // Restricted access: learners are locked to their assigned role; only
   // admins may switch the active view for previewing.
@@ -50,7 +82,7 @@ export function Shell({ children }: { children: ReactNode }) {
       router.replace(homeFor(role));
     }
   }, [role, pathname, user, router]);
-  const items = navFor(role);
+  const items = navFor(role).filter((i) => !(lockBuild && isGatedPath(i.href)));
   const groups = Array.from(new Set(items.map((i) => i.group)));
   const roleLabel = ROLES.find((r) => r.id === role)?.label ?? role;
 
@@ -59,7 +91,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Sidebar — icon rail on desktop, expands to full labels on hover */}
       <aside
         className={cn(
-          "group fixed inset-y-0 left-0 z-40 w-64 transform overflow-hidden border-r bg-card transition-[width,transform] duration-200 lg:translate-x-0 lg:w-[76px] lg:hover:w-64 lg:hover:shadow-xl",
+          "group fixed inset-y-0 left-0 z-40 w-64 transform overflow-hidden border-r bg-card transition-[width,transform] duration-200 lg:translate-x-0 lg:w-[76px] lg:hover:w-64 lg:hover:shadow-xl print:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -95,14 +127,25 @@ export function Shell({ children }: { children: ReactNode }) {
                 })}
             </div>
           ))}
+
+          {/* Locked "Build" teaser — the next level, until 5 modules are done */}
+          {lockBuild && (
+            <div className="mb-4">
+              <p className="whitespace-nowrap px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100">Build</p>
+              <div title="Finish all 5 modules to unlock the Build tools" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground/60">
+                <Icons.Lock className="h-5 w-5 shrink-0" />
+                <span className="whitespace-nowrap transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100">Locked · finish 5 modules</span>
+              </div>
+            </div>
+          )}
         </nav>
       </aside>
 
-      {mobileOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileOpen(false)} />}
+      {mobileOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden print:hidden" onClick={() => setMobileOpen(false)} />}
 
       {/* Main */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-[76px]">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b glass px-4 lg:px-6">
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-[76px] print:pl-0">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b glass px-4 lg:px-6 print:hidden">
           <button className="rounded-lg p-2 hover:bg-secondary lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
             <Icons.Menu className="h-5 w-5" />
           </button>
@@ -143,7 +186,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </header>
 
         {isAdmin && role === "participant" && (
-          <div className="flex items-center justify-center gap-2 border-b bg-accent/10 px-4 py-1.5 text-xs font-medium text-accent">
+          <div className="flex items-center justify-center gap-2 border-b bg-accent/10 px-4 py-1.5 text-xs font-medium text-accent print:hidden">
             <Icons.Eye className="h-3.5 w-3.5" /> You're previewing the participant experience.
             <button onClick={() => setRole("admin")} className="underline">Exit preview</button>
           </div>
