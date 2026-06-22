@@ -146,6 +146,11 @@ body {
 @keyframes door-l { from { transform: rotateY(0deg); } to { transform: rotateY(-115deg); } }
 @keyframes door-r { from { transform: rotateY(0deg); } to { transform: rotateY(115deg); } }
 @keyframes draw-doodle { from { stroke-dashoffset: 820; } to { stroke-dashoffset: 0; } }
+/* the logo "draws" itself in from both sides toward the centre */
+@keyframes logo-draw {
+  0% { clip-path: inset(0 50% 0 50%); opacity: 0.15; }
+  100% { clip-path: inset(0 0 0 0); opacity: 1; }
+}
 @keyframes brand-out {
   0%, 52% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.1); }
@@ -216,6 +221,7 @@ body {
   .animate-door-l { animation: door-l 0.8s cubic-bezier(0.66, 0, 0.34, 1) 0.85s forwards; }
   .animate-door-r { animation: door-r 0.8s cubic-bezier(0.66, 0, 0.34, 1) 0.85s forwards; }
   .animate-draw-doodle { stroke-dasharray: 820; animation: draw-doodle 0.75s ease-out forwards; }
+  .animate-logo-draw { animation: logo-draw 0.85s cubic-bezier(0.5, 0, 0.2, 1) forwards; }
   .animate-brand-out { animation: brand-out 1.35s ease-in forwards; }
   .animate-seam-flash { animation: seam-flash 0.9s ease-out 0.85s forwards; }
   .animate-interior-in { animation: interior-in 0.85s ease-out 0.85s both; }
