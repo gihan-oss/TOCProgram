@@ -12,6 +12,7 @@ import {
   type TocDoc, type TocDocNode, type TocDocEdge,
 } from "@/lib/toc-templates";
 import type { NodeType } from "@/lib/types";
+import { MAS } from "@/lib/mas";
 
 type ChipTone = "default" | "accent" | "success" | "warning";
 const NODE_STYLE: Record<NodeType, { label: string; ring: string; chip: ChipTone; bg: string }> = {
@@ -192,6 +193,9 @@ export default function TocBuilder() {
           </Link>
         </div>
       </div>
+
+      {/* Starter explainer — personalized to MAS GLA */}
+      <TocIntro />
 
       {/* Toolbar */}
       <Card className="mb-4 flex flex-wrap items-center gap-2 p-3">
@@ -405,6 +409,74 @@ export default function TocBuilder() {
         </div>
       )}
     </div>
+  );
+}
+
+// A warm, beginner-friendly intro that talks MAS-GLA learners through what a
+// Theory of Change actually is, in their own language. Collapsible (and the
+// choice is remembered) so starters get it and veterans can tuck it away.
+const INTRO_STEPS: { t: NodeType; q: string; ex: string }[] = [
+  { t: "activity", q: "what we do", ex: "Host a Qiyam night" },
+  { t: "output", q: "what it produces", ex: "Youth attend monthly halaqahs" },
+  { t: "outcome", q: "the change in people", ex: "Youth build consistent spiritual habits" },
+  { t: "goal", q: "our ultimate impact", ex: MAS.northStar.replace(/^To\s+/i, "").replace(/\.$/, "") },
+];
+
+function TocIntro() {
+  const [open, setOpen] = useState(true);
+  useEffect(() => { try { setOpen(localStorage.getItem("toc-intro") !== "closed"); } catch {} }, []);
+  function toggle() {
+    setOpen((v) => { const n = !v; try { localStorage.setItem("toc-intro", n ? "open" : "closed"); } catch {} return n; });
+  }
+
+  return (
+    <Card className="mb-4 overflow-hidden">
+      <button onClick={toggle} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-secondary/40">
+        <span className="flex items-center gap-2">
+          <Icons.Compass className="h-5 w-5 text-accent" />
+          <span className="font-semibold">New to this? Start here — what a Theory of Change is for {MAS.org}</span>
+        </span>
+        <Icons.ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="border-t px-4 py-4 sm:px-6">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            A <b className="text-foreground">Theory of Change</b> is simply the story of how our work creates change — for {MAS.org},
+            how one program moves a person closer to becoming a <i>lifelong, God-centered agent of change</i>. You map it as a chain of
+            four building blocks. Read it <b className="text-foreground">bottom to top</b>: we run activities, which produce outputs,
+            which lead to outcomes, which build toward our goal.
+          </p>
+
+          <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-stretch sm:gap-0">
+            {INTRO_STEPS.map((s, i) => (
+              <div key={s.t} className="flex items-stretch sm:flex-1">
+                <div className={`w-full rounded-xl border p-3 ${NODE_STYLE[s.t].ring}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-2.5 w-2.5 rounded ${NODE_STYLE[s.t].bg}`} />
+                    <p className="text-sm font-semibold">{NODE_STYLE[s.t].label.replace(" / Impact", "")}</p>
+                  </div>
+                  <p className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">{s.q}</p>
+                  <p className="mt-1.5 text-xs text-foreground/80">e.g. “{s.ex}”</p>
+                </div>
+                {i < INTRO_STEPS.length - 1 && (
+                  <div className="flex shrink-0 items-center justify-center px-1">
+                    <Icons.ChevronRight className="hidden h-4 w-4 text-muted-foreground/50 sm:block" />
+                    <Icons.ChevronDown className="h-4 w-4 text-muted-foreground/50 sm:hidden" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-3.5 text-sm leading-relaxed text-muted-foreground">
+            The arrows are your logic. Each link into an outcome carries an <b className="text-foreground">assumption</b> — <i>why</i> we
+            believe that step works (e.g. “youth attend consistently and feel they belong”). Don't aim for perfect: load the
+            <b className="text-foreground"> {MAS.org} starter</b> below and edit it, or drop in ready examples from the right. You can change anything, and it saves as you go.
+          </p>
+        </div>
+      )}
+    </Card>
   );
 }
 
