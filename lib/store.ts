@@ -5,7 +5,8 @@
 // localStorage so the app still works end-to-end in demo mode.
 
 import { getSupabaseBrowserClient } from "./supabase";
-import type { TocDoc } from "./toc-templates";
+import type { TocDoc, TocSet } from "./toc-templates";
+import { toTocSet } from "./toc-templates";
 import type { LearnerMeta } from "./content";
 
 export interface MemberProfile {
@@ -197,6 +198,16 @@ export async function saveToc(email: string, doc: TocDoc): Promise<void> {
   try {
     localStorage.setItem(TOC_KEY(email), JSON.stringify(data));
   } catch {}
+}
+
+// Multi-program set (the builder uses these). Reads tolerate the old single-doc
+// shape via toTocSet, so previously saved work migrates automatically.
+export async function loadTocSet(email: string): Promise<TocSet> {
+  return toTocSet(await loadToc(email));
+}
+
+export async function saveTocSet(email: string, set: TocSet): Promise<void> {
+  await saveToc(email, set as unknown as TocDoc);
 }
 
 // ---------------- Admin / staff: read EVERYONE's data ----------------

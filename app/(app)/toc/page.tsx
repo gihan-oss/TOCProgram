@@ -6,10 +6,10 @@ import Link from "next/link";
 import { Card, Badge, Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
-import { loadToc, saveToc } from "@/lib/store";
+import { loadTocSet, saveTocSet } from "@/lib/store";
 import {
-  STARTER_TOC, EXAMPLES, BAND_Y, NODE_DEFAULT_TITLE, emptyToc,
-  type TocDoc, type TocDocNode, type TocDocEdge,
+  STARTER_TOC, EXAMPLES, BAND_Y, NODE_DEFAULT_TITLE, newProgram,
+  type TocDocNode, type TocDocEdge, type ProgramDoc, type TocSet,
 } from "@/lib/toc-templates";
 import type { NodeType } from "@/lib/types";
 import { TocTutorial } from "@/components/toc-tutorial";
@@ -29,7 +29,7 @@ export default function TocBuilder() {
   const { user } = useAuth();
   const toast = useToast();
 
-  const [doc, setDoc] = useState<TocDoc>(emptyToc());
+  const [set, setSet] = useState<TocSet>({ programs: [], activeId: null });
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
@@ -46,18 +46,19 @@ export default function TocBuilder() {
   const skipSave = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const nodes = doc.nodes;
-  const edges = doc.edges;
-  const program = doc.program ?? "";
+  const active = set.programs.find((p) => p.id === set.activeId) ?? null;
+  const nodes = active?.nodes ?? [];
+  const edges = active?.edges ?? [];
+  const program = active?.program ?? "";
   function setProgram(v: string) { update((d) => ({ ...d, program: v })); }
 
-  // ---- load this learner's saved TOC ----
+  // ---- load this learner's saved programs ----
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const saved = await loadToc(user.email);
+      const s = await loadTocSet(user.email);
       skipSave.current = true;
-      setDoc(saved && saved.nodes ? saved : emptyToc());
+      setSet(s);
       setLoaded(true);
     })();
   }, [user?.email]);
@@ -69,13 +70,39 @@ export default function TocBuilder() {
     setStatus("saving");
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      await saveToc(user.email, doc);
+      await saveTocSet(user.email, set);
       setStatus("saved");
     }, 600);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [doc, loaded, user?.email]);
+  }, [set, loaded, user?.email]);
 
-  function update(mut: (d: TocDoc) => TocDoc) { setDoc((d) => mut(d)); }
+  // mutate only the active program within the set
+  function update(mut: (d: ProgramDoc) => ProgramDoc) {
+    setSet((s) => ({ ...s, programs: s.programs.map((p) => (p.id === s.activeId ? mut(p) : p)) }));
+  }
+
+  // ---- program management ----
+  function addProgram() {
+    const p = newProgram();
+    skipSave.current = false;
+    setSet((s) => ({ programs: [...s.programs, p], activeId: p.id }));
+    setSelected(null); setSelectedEdge(null);
+    setTimeout(() => programRef.current?.focus(), 60);
+    toast("New program — name it, then build its Theory of Change");
+  }
+  function selectProgram(id: string) {
+    setSet((s) => ({ ...s, activeId: id }));
+    setSelected(null); setSelectedEdge(null);
+  }
+  function deleteProgram(id: string) {
+    if (!window.confirm("Delete this program and its Theory of Change?")) return;
+    setSet((s) => {
+      const programs = s.programs.filter((p) => p.id !== id);
+      const next = programs.length ? programs : [newProgram()];
+      return { programs: next, activeId: id === s.activeId ? next[0].id : s.activeId };
+    });
+    toast("Program deleted");
+  }
 
   function addNode(type: NodeType, title?: string) {
     const id = `n-${Date.now()}-${Math.round(Math.random() * 999)}`;
@@ -123,7 +150,7 @@ export default function TocBuilder() {
 
   function loadStarter() {
     skipSave.current = false;
-    setDoc((d) => ({ program: d.program ?? "", nodes: STARTER_TOC.nodes.map((n) => ({ ...n })), edges: STARTER_TOC.edges.map((e) => ({ ...e })) }));
+    update((d) => ({ ...d, nodes: STARTER_TOC.nodes.map((n) => ({ ...n })), edges: STARTER_TOC.edges.map((e) => ({ ...e })) }));
     setShowTemplates(false);
     setSelected(null); setSelectedEdge(null);
     toast("MAS-GLA starter loaded — edit it to fit your program");
@@ -235,14 +262,23 @@ export default function TocBuilder() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="shrink-0 lg:w-72">
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your program</label>
+            <div className="flex items-center gap-1.5">
+              <select value={set.activeId ?? ""} onChange={(e) => selectProgram(e.target.value)} className="min-w-0 flex-1 rounded-lg border bg-background px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-ring">
+                {set.programs.map((p) => <option key={p.id} value={p.id}>{p.program?.trim() || "Untitled program"}</option>)}
+              </select>
+              <button onClick={addProgram} title="Add another program" className="shrink-0 rounded-lg border bg-card p-2 hover:bg-secondary"><Icons.Plus className="h-4 w-4" /></button>
+              {set.programs.length > 1 && (
+                <button onClick={() => set.activeId && deleteProgram(set.activeId)} title="Delete this program" className="shrink-0 rounded-lg border bg-card p-2 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]"><Icons.Trash2 className="h-4 w-4" /></button>
+              )}
+            </div>
             <input
               ref={programRef}
               value={program}
               onChange={(e) => setProgram(e.target.value)}
-              placeholder="e.g. Youth Qiyam Nights"
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Name this program… e.g. Youth Qiyam Nights"
+              className="mt-1.5 w-full rounded-lg border bg-background px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-ring"
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">Name the program this Theory of Change is for.</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">One Theory of Change per program — add as many as you like.</p>
           </div>
 
           <div className="min-w-0 flex-1">

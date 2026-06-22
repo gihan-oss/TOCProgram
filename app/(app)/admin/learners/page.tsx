@@ -88,7 +88,14 @@ export default function LearnersPage() {
       r.name = r.name || p.name; r.department = p.department || r.department; r.roleType = p.role_type || r.roleType;
       r.onboarded = r.onboarded || p.onboarded; r.lastActive = newer(r.lastActive, p.updated_at);
     });
-    tocs.forEach((t) => { const r = ensure(t.email); r.tocNodes = t.data?.nodes?.length ?? 0; r.lastActive = newer(r.lastActive, t.updated_at); });
+    tocs.forEach((t) => {
+      const r = ensure(t.email);
+      const d = t.data as { programs?: { nodes?: unknown[] }[]; nodes?: unknown[] } | undefined;
+      r.tocNodes = Array.isArray(d?.programs)
+        ? d!.programs.reduce((s, p) => s + (p.nodes?.length ?? 0), 0)
+        : (d?.nodes?.length ?? 0);
+      r.lastActive = newer(r.lastActive, t.updated_at);
+    });
     progress.forEach((p) => {
       const r = ensure(p.email);
       const done = new Set(p.done ?? []);

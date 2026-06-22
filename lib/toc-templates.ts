@@ -25,6 +25,29 @@ export interface TocDoc {
 
 export const emptyToc = (): TocDoc => ({ program: "", nodes: [], edges: [] });
 
+// A learner can build several programs, each with its own Theory of Change.
+export interface ProgramDoc extends TocDoc { id: string }
+export interface TocSet { programs: ProgramDoc[]; activeId: string | null }
+
+export function newProgram(name = ""): ProgramDoc {
+  return { id: `p-${Date.now()}-${Math.round(Math.random() * 9999)}`, program: name, nodes: [], edges: [] };
+}
+
+// Accepts the old single-doc shape OR the new multi-program shape and always
+// returns a TocSet, so existing saved work is never lost.
+export function toTocSet(data: unknown): TocSet {
+  const d = data as { programs?: ProgramDoc[]; activeId?: string | null; nodes?: unknown };
+  if (d && Array.isArray(d.programs) && d.programs.length > 0) {
+    return { programs: d.programs, activeId: d.activeId ?? d.programs[0].id };
+  }
+  if (d && Array.isArray(d.nodes)) {
+    const p: ProgramDoc = { id: `p-mig-${Date.now()}`, ...(d as TocDoc) };
+    return { programs: [p], activeId: p.id };
+  }
+  const p = newProgram();
+  return { programs: [p], activeId: p.id };
+}
+
 // Vertical bands so a new node lands in the right row for its level.
 export const BAND_Y: Record<NodeType, number> = { goal: 40, outcome: 190, output: 350, activity: 510 };
 
