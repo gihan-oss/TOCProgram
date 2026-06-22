@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { DoorOpen, ArrowRight, Loader2 } from "lucide-react";
@@ -42,7 +43,9 @@ export function PortalDoor({ href = "/login" }: { href?: string }) {
         <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" />
       </button>
 
-      {opening && <DoorReveal />}
+      {/* Rendered through a portal to <body> so the full-screen overlay isn't
+          trapped by the hero's transformed (animate-fade-up) ancestor. */}
+      {opening && typeof document !== "undefined" && createPortal(<DoorReveal />, document.body)}
     </>
   );
 }
