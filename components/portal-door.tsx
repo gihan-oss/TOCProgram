@@ -14,6 +14,7 @@ import { DoorOpen, ArrowRight } from "lucide-react";
 const PURPLE_DK = "#241f5c"; // deep
 const PURPLE_DK2 = "#352c86"; // mid
 const PURPLE = "#6d5efc"; // bright accent
+const PURPLE_LT = "#b9aaff"; // light lavender (spark core — no white, so it doesn't clash with the white logo)
 
 export function PortalDoor({ href = "/login" }: { href?: string }) {
   const router = useRouter();
@@ -76,22 +77,21 @@ function DoorReveal() {
         </div>
       </div>
 
-      {/* Electric seam — energy races along the straight line as the doors part.
-          It only appears AFTER the logo has drawn and faded, so it never cuts
-          through the white logo. */}
-      <div className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 animate-seam-flash">
-        <div className="animate-seam-flicker h-full w-full" style={{ background: `linear-gradient(to bottom, transparent, ${PURPLE}, #fff, ${PURPLE}, transparent)`, boxShadow: `0 0 26px 5px ${PURPLE}` }} />
-        <div className="pointer-events-none absolute inset-0">
-          <div className="animate-seam-spark-down absolute left-0 h-[22%] w-full" style={{ background: `linear-gradient(to bottom, transparent, #fff, ${PURPLE}, transparent)`, boxShadow: `0 0 22px 7px ${PURPLE}, 0 0 10px 2px #fff` }} />
-          <div className="animate-seam-spark-up absolute left-0 h-[16%] w-full" style={{ background: `linear-gradient(to top, transparent, #fff, ${PURPLE}, transparent)`, boxShadow: `0 0 18px 5px ${PURPLE}` }} />
-        </div>
-      </div>
+      {/* Subtle purple parting glow where the doors meet (no white, no sparks) */}
+      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 animate-seam-flash" style={{ background: `linear-gradient(to bottom, transparent, ${PURPLE}, transparent)`, boxShadow: `0 0 22px 3px ${PURPLE}` }} />
 
-      {/* Single white logo that draws itself in, holds, then fades — before the
-          electric seam appears. */}
+      {/* The white logo, with an ELECTRIC purple loop doodled around it — a glowing
+          path draws around the logo and a bright spark races along it. The energy
+          is around the logo (not through it), so nothing clashes. */}
       <div className="absolute inset-0 flex items-center justify-center animate-brand-out">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <Image src="/logo-white.png" alt="Amal & Company" width={260} height={84} className="animate-logo-draw h-14 w-auto object-contain" priority />
+        <div className="relative">
+          <svg viewBox="0 0 360 180" className="absolute left-1/2 top-1/2 h-[150px] w-[330px] -translate-x-1/2 -translate-y-1/2 overflow-visible" fill="none" style={{ filter: `drop-shadow(0 0 5px ${PURPLE})` }} aria-hidden>
+            <path pathLength={100} className="animate-doodle-draw" d="M186 20 C90 12 28 44 24 88 C20 132 110 156 196 152 C302 150 346 114 334 80 C324 48 266 26 186 20" stroke={PURPLE} strokeWidth={3} strokeLinecap="round" transform="rotate(-3 180 90)" />
+            <path pathLength={100} className="animate-doodle-race" style={{ strokeDasharray: "5 95" }} d="M186 20 C90 12 28 44 24 88 C20 132 110 156 196 152 C302 150 346 114 334 80 C324 48 266 26 186 20" stroke={PURPLE_LT} strokeWidth={3.5} strokeLinecap="round" transform="rotate(-3 180 90)" />
+          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <Image src="/logo-white.png" alt="Amal & Company" width={260} height={84} className="animate-logo-draw relative h-14 w-auto object-contain" priority />
+        </div>
       </div>
     </div>
   );
