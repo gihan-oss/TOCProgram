@@ -5,6 +5,8 @@
 // localStorage so the app still works end-to-end in demo mode.
 
 import { getSupabaseBrowserClient } from "./supabase";
+import type { TocDoc } from "./toc-templates";
+import type { LearnerMeta } from "./content";
 
 export interface MemberProfile {
   email: string;
@@ -166,6 +168,77 @@ export async function removeMember(email: string): Promise<void> {
     localStorage.setItem(MKEY, JSON.stringify(rest));
   } catch {}
 }
+
+// ---------------- Theory of Change (per-learner, saved canvas) ----------------
+
+const TOC_KEY = (e: string) => `toc-doc:${e.toLowerCase()}`;
+
+export async function loadToc(email: string): Promise<TocDoc | null> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data } = await sb.from("toc").select("data").eq("email", email.toLowerCase()).maybeSingle();
+    return (data?.data as TocDoc) ?? null;
+  }
+  try {
+    const raw = localStorage.getItem(TOC_KEY(email));
+    return raw ? (JSON.parse(raw) as TocDoc) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveToc(email: string, doc: TocDoc): Promise<void> {
+  const data = { ...doc, updatedAt: new Date().toISOString() };
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    await sb.from("toc").upsert({ email: email.toLowerCase(), data, updated_at: data.updatedAt }, { onConflict: "email" });
+    return;
+  }
+  try {
+    localStorage.setItem(TOC_KEY(email), JSON.stringify(data));
+  } catch {}
+}
+
+// ---------------- Admin / staff: read EVERYONE's data ----------------
+// These return the full set for staff (admins/facilitators/coordinators) when
+// Supabase is configured. In demo (localStorage) mode cross-learner data can't
+// exist, so they return only what this browser holds — callers show a notice.
+
+export interface ProgressRow { email: string; done: string[]; meta: LearnerMeta; updated_at?: string }
+export interface TocRow { email: string; data: TocDoc; updated_at?: string }
+
+export async function listProfiles(): Promise<MemberProfile[]> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data } = await sb.from("profiles").select("*");
+    return (data as MemberProfile[] | null) ?? [];
+  }
+  return [];
+}
+
+export async function listLearnerProgress(): Promise<ProgressRow[]> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data } = await sb.from("course_progress").select("email, done, meta, updated_at");
+    return ((data as ProgressRow[] | null) ?? []).map((r) => ({
+      ...r,
+      done: r.done ?? [],
+      meta: (r.meta as LearnerMeta) ?? { scores: {}, worksheets: {} },
+    }));
+  }
+  return [];
+}
+
+export async function listTocs(): Promise<TocRow[]> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data } = await sb.from("toc").select("email, data, updated_at");
+    return (data as TocRow[] | null) ?? [];
+  }
+  return [];
+}
+
+export const isSupabaseConfigured = () => !!getSupabaseBrowserClient();
 
 // ---------------- Email ----------------
 

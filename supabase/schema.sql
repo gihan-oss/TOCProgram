@@ -152,3 +152,46 @@ drop policy if exists "course-files read" on storage.objects;
 create policy "course-files read"   on storage.objects for select using (bucket_id = 'course-files');
 drop policy if exists "course-files upload" on storage.objects;
 create policy "course-files upload" on storage.objects for insert to authenticated with check (bucket_id = 'course-files');
+
+-- ===========================================================================
+-- Per-learner Theory of Change + staff visibility into all learner data
+-- ===========================================================================
+-- Re-runnable. After pulling this update, run the whole file once in the
+-- Supabase SQL Editor so the TOC Builder saves and admins can track learners.
+
+-- Who counts as "staff" (may read everyone's data): anyone on an admin email
+-- domain, or a member explicitly stored with role = 'admin'. SECURITY DEFINER
+-- so the check can read `members` regardless of that table's own policies.
+create or replace function public.is_staff() returns boolean
+language sql stable security definer set search_path = public as $$
+  select
+    coalesce(lower(split_part(auth.jwt() ->> 'email', '@', 2)) = 'amalandcompany.com', false)
+    or exists (
+      select 1 from public.members m
+      where lower(m.email) = lower(auth.jwt() ->> 'email') and m.role = 'admin'
+    );
+$$;
+
+-- Each learner's saved Theory of Change canvas (nodes + edges as JSON).
+create table if not exists public.toc (
+  email      text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.toc enable row level security;
+
+drop policy if exists "toc self read" on public.toc;
+create policy "toc self read"   on public.toc for select using (auth.jwt() ->> 'email' = email);
+drop policy if exists "toc staff read" on public.toc;
+create policy "toc staff read"  on public.toc for select using (public.is_staff());
+drop policy if exists "toc self insert" on public.toc;
+create policy "toc self insert" on public.toc for insert with check (auth.jwt() ->> 'email' = email);
+drop policy if exists "toc self update" on public.toc;
+create policy "toc self update" on public.toc for update using (auth.jwt() ->> 'email' = email);
+
+-- Let staff READ all progress + profiles (each learner still owns their writes).
+drop policy if exists "progress staff read" on public.course_progress;
+create policy "progress staff read" on public.course_progress for select using (public.is_staff());
+
+drop policy if exists "profiles staff read" on public.profiles;
+create policy "profiles staff read" on public.profiles for select using (public.is_staff());

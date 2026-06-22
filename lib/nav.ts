@@ -32,6 +32,7 @@ export const NAV: NavItem[] = [
   { href: "/admin/clients", label: "Clients", icon: "Building2", group: "Administration", roles: ["admin"] },
   { href: "/learning", label: "Course Builder", icon: "BookMarked", group: "Administration", roles: ["admin", "facilitator"] },
   { href: "/admin/access", label: "People & Access", icon: "UserPlus", group: "Administration", roles: ["admin"] },
+  { href: "/admin/learners", label: "Learner Tracking", icon: "UserCheck", group: "Administration", roles: ["admin", "facilitator", "coordinator"] },
 
   // ---- Insights / dashboards ----
   { href: "/dashboard", label: "Dashboard", icon: "Gauge", group: "Insights", roles: ["admin", "facilitator", "coordinator", "executive"] },
