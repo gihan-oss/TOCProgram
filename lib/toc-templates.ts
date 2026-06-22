@@ -17,12 +17,13 @@ export interface TocDocEdge {
   assumption?: string; // why we believe this link holds (required into an outcome)
 }
 export interface TocDoc {
+  program?: string; // the program this Theory of Change is for
   nodes: TocDocNode[];
   edges: TocDocEdge[];
   updatedAt?: string;
 }
 
-export const emptyToc = (): TocDoc => ({ nodes: [], edges: [] });
+export const emptyToc = (): TocDoc => ({ program: "", nodes: [], edges: [] });
 
 // Vertical bands so a new node lands in the right row for its level.
 export const BAND_Y: Record<NodeType, number> = { goal: 40, outcome: 190, output: 350, activity: 510 };

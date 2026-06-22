@@ -40,11 +40,14 @@ export default function TocBuilder() {
 
   const dragRef = useRef<{ id: string; dx: number; dy: number; moved: boolean } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const programRef = useRef<HTMLInputElement>(null);
   const skipSave = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const nodes = doc.nodes;
   const edges = doc.edges;
+  const program = doc.program ?? "";
+  function setProgram(v: string) { update((d) => ({ ...d, program: v })); }
 
   // ---- load this learner's saved TOC ----
   useEffect(() => {
@@ -118,10 +121,22 @@ export default function TocBuilder() {
 
   function loadStarter() {
     skipSave.current = false;
-    setDoc({ nodes: STARTER_TOC.nodes.map((n) => ({ ...n })), edges: STARTER_TOC.edges.map((e) => ({ ...e })) });
+    setDoc((d) => ({ program: d.program ?? "", nodes: STARTER_TOC.nodes.map((n) => ({ ...n })), edges: STARTER_TOC.edges.map((e) => ({ ...e })) }));
     setShowTemplates(false);
     setSelected(null); setSelectedEdge(null);
     toast("MAS-GLA starter loaded — edit it to fit your program");
+  }
+
+  // ---- guided roadmap: name the program, then build the chain step by step ----
+  function doStep(key: string) {
+    if (key === "program") { programRef.current?.focus(); return; }
+    if (key === "goal" || key === "outcome" || key === "output" || key === "activity") return addNode(key as NodeType);
+    if (key === "connect") { setConnectMode(true); setConnectFrom(null); toast("Click a node, then the node it leads to"); return; }
+    if (key === "assumption") {
+      const edge = edges.find((e) => nodes.find((n) => n.id === e.to)?.type === "outcome" && !(e.assumption ?? "").trim());
+      if (edge) { setSelected(null); setSelectedEdge(edge.id); toast("Add why you believe this link holds"); }
+      else toast("First connect an output to an outcome", "error");
+    }
   }
   function startBlank() {
     setShowTemplates(false);
@@ -175,6 +190,22 @@ export default function TocBuilder() {
     return c;
   }, [nodes]);
 
+  // roadmap steps (derived from the doc) — gives a progress bar + "what's next"
+  const has = (t: NodeType) => nodes.some((n) => n.type === t);
+  const hasAssumption = edges.some((e) => nodes.find((n) => n.id === e.to)?.type === "outcome" && (e.assumption ?? "").trim());
+  const steps = [
+    { key: "program", label: "Name your program", done: !!program.trim() },
+    { key: "goal", label: "Set the goal", done: has("goal") },
+    { key: "outcome", label: "Add an outcome", done: has("outcome") },
+    { key: "output", label: "Add an output", done: has("output") },
+    { key: "activity", label: "Add an activity", done: has("activity") },
+    { key: "connect", label: "Connect them", done: edges.length > 0 },
+    { key: "assumption", label: "Add an assumption", done: !!hasAssumption },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  const pct = Math.round((doneCount / steps.length) * 100);
+  const nextStep = steps.find((s) => !s.done);
+
   if (!loaded) {
     return <div className="flex h-[60vh] items-center justify-center"><Icons.Loader2 className="h-6 w-6 animate-spin text-accent" /></div>;
   }
@@ -196,6 +227,55 @@ export default function TocBuilder() {
 
       {/* Animated, self-playing tutorial (auto-opens first visit; blue button reopens) */}
       <TocTutorial />
+
+      {/* Program + roadmap — the "why" and a progress bar to move forward with */}
+      <Card className="mb-4 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <div className="shrink-0 lg:w-72">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your program</label>
+            <input
+              ref={programRef}
+              value={program}
+              onChange={(e) => setProgram(e.target.value)}
+              placeholder="e.g. Youth Qiyam Nights"
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">Name the program this Theory of Change is for.</p>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold">Build progress</span>
+              <span className="text-muted-foreground">{doneCount}/{steps.length} · {pct}%</span>
+            </div>
+            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {steps.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => doStep(s.key)}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${s.done ? "bg-[hsl(var(--success)/0.15)] text-[hsl(var(--success))]" : nextStep?.key === s.key ? "bg-accent text-accent-foreground" : "border bg-card text-muted-foreground hover:bg-secondary"}`}
+                >
+                  {s.done ? <Icons.Check className="h-3 w-3" /> : <Icons.Circle className="h-3 w-3" />} {s.label}
+                </button>
+              ))}
+            </div>
+            {nextStep ? (
+              <p className="mt-2 text-xs text-muted-foreground"><b className="text-foreground">Next:</b> {nextStep.label}. <button onClick={() => doStep(nextStep.key)} className="font-medium text-accent hover:underline">Do it →</button></p>
+            ) : (
+              <p className="mt-2 inline-flex flex-wrap items-center gap-1 text-xs font-semibold text-[hsl(var(--success))]">
+                <Icons.PartyPopper className="h-3.5 w-3.5" /> Your Theory of Change is complete!
+                <Link href="/logframe" className="text-accent hover:underline">Generate your Logframe next →</Link>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-start gap-2 rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground">
+          <Icons.Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[hsl(var(--warning))]" />
+          <span><b className="text-foreground">Why build this?</b> A Theory of Change shows how <b className="text-foreground">{program.trim() || "your program"}</b> creates real change — so your team and funders can see the logic, and you know exactly what to measure.</span>
+        </div>
+      </Card>
 
       {/* Toolbar */}
       <Card className="mb-4 flex flex-wrap items-center gap-2 p-3">
