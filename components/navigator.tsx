@@ -71,9 +71,7 @@ export function Navigator() {
           {/* header */}
           <div className="relative flex items-center gap-3 bg-primary p-4 text-primary-foreground">
             <div className="mesh pointer-events-none absolute inset-0 opacity-30" />
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15 ring-2 ring-white/30">
-              <Image src={NAVIGATOR.image} alt={NAVIGATOR.name} width={44} height={44} className="h-11 w-11 object-contain" />
-            </div>
+            <Image src={NAVIGATOR.image} alt={NAVIGATOR.name} width={64} height={64} className="relative h-16 w-16 shrink-0 object-contain drop-shadow" />
             <div className="relative min-w-0 flex-1">
               <p className="font-bold leading-tight">Hi, I'm {NAVIGATOR.name} 👋</p>
               <p className="text-xs text-primary-foreground/80">{NAVIGATOR.tagline}</p>
@@ -125,19 +123,26 @@ export function Navigator() {
         </div>
       )}
 
-      {/* Floating character button */}
+      {/* Floating character — Nuri stands on his own, no circle */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? `Close ${NAVIGATOR.name}` : `Ask ${NAVIGATOR.name}`}
-        className="group flex items-center gap-2 rounded-full border bg-card py-1.5 pl-1.5 pr-3 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl"
+        className="group relative flex flex-col items-center"
       >
-        <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-accent/10">
-          <Image src={NAVIGATOR.image} alt={NAVIGATOR.name} width={44} height={44} className="h-11 w-11 object-contain transition-transform group-hover:scale-105" priority />
-          {!open && <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-card bg-[hsl(var(--success))]" />}
+        {/* name / prompt bubble */}
+        <span className="mb-1 whitespace-nowrap rounded-full border bg-card px-3 py-1 text-xs font-bold shadow-md transition-all group-hover:-translate-y-0.5">
+          {open ? `Close ${NAVIGATOR.name}` : `${NAVIGATOR.name} · Ask me`}
         </span>
-        <span className="text-left leading-tight">
-          <span className="block text-sm font-bold">{NAVIGATOR.name}</span>
-          <span className="block text-[11px] text-muted-foreground">{open ? "Close" : "Ask me anything"}</span>
+        <span className="relative">
+          <Image
+            src={NAVIGATOR.image}
+            alt={NAVIGATOR.name}
+            width={120}
+            height={120}
+            priority
+            className="h-24 w-24 animate-float object-contain drop-shadow-xl transition-transform group-hover:scale-105 sm:h-28 sm:w-28"
+          />
+          {!open && <span className="absolute right-4 top-3 h-3.5 w-3.5 rounded-full border-2 border-background bg-[hsl(var(--success))]" />}
         </span>
       </button>
     </div>
