@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import { FloatingIcons } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { PortalDoor } from "@/components/portal-door";
@@ -11,12 +10,9 @@ export default function Landing() {
       {/* brand accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-primary via-accent to-primary" />
 
-      <header className="border-b glass">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <header className="glass">
+        <div className="mx-auto flex max-w-5xl items-center px-6 py-4">
           <Logo size="md" />
-          <span className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:block">
-            Scaling Social Impact
-          </span>
         </div>
       </header>
 
@@ -25,11 +21,7 @@ export default function Landing() {
         <div className="mesh absolute inset-0" />
         <FloatingIcons />
         <section className="relative mx-auto max-w-4xl px-6 py-14 text-center sm:py-20">
-          <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-accent" /> {MAS.org} · {MAS.vision}
-          </span>
-
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
+          <h1 className="mx-auto max-w-3xl text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
             Our home for the{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">whole transformation</span>
             {" "}— not just our Theory of Change
