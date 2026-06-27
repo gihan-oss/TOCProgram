@@ -1,4 +1,4 @@
-[![Install Claude Code](https://img.shields.io/badge/Install%20Claude%20Code-black?style=flat-square&logo=claude)](https://claude.ai/code/install?repo=gihan-oss/TOCProgram)
+[![Open in Visual Studio Code](https://img.shields.io/badge/Open%20in%20VS%20Code-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/github/gihan-oss/TOCProgram)
 
 # Impact OS — Theory of Change Portal
 
