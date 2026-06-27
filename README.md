@@ -1,3 +1,5 @@
+[![Install Claude Code](https://img.shields.io/badge/Install%20Claude%20Code-black?style=flat-square&logo=claude)](https://claude.ai/code/install?repo=gihan-oss/TOCProgram)
+
 # Impact OS — Theory of Change Portal
 
 A strategic operating system for nonprofit impact — built for nonprofits, foundations,
