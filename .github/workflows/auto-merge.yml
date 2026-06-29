@@ -1,0 +1,29 @@
+name: Auto-merge pull requests
+
+# Turns on GitHub's native auto-merge for every non-draft PR. The PR then
+# merges itself as soon as all required status checks and required reviews
+# (configured via branch-protection rules on the base branch) pass.
+#
+# Prerequisites (one-time, set in the GitHub UI):
+#   1. Settings → General → Pull Requests → check "Allow auto-merge".
+#   2. Settings → Branches → add a protection rule on `main` with at least one
+#      required status check (or required review). Without a required gate there
+#      is nothing for auto-merge to wait on, so PRs would merge instantly.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge (squash)
+        run: gh pr merge --auto --squash "${{ github.event.pull_request.html_url }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
