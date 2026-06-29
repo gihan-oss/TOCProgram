@@ -27,6 +27,13 @@ export const MASGLA_STARTER: CourseModule[] = [
     summary: "Build a shared language and walk the full five-level Theory of Change framework.",
     resources: [
       {
+        id: "m1-slides",
+        type: "File",
+        title: "Slidedeck — Why This Matters & Intro to TOC",
+        url: "/slides/module-1-why-this-matters.pptx",
+        fileName: "Module 1 — Why This Matters.pptx",
+      },
+      {
         id: "m1-why",
         type: "Note",
         title: "Why a Theory of Change?",
@@ -135,6 +142,13 @@ Underneath every program sit four cross-cutting outcomes — the kind of Muslim 
     summary: "Sharpen your program into a clean, testable If–Then statement.",
     resources: [
       {
+        id: "m2-slides",
+        type: "File",
+        title: "Slidedeck — Q-Zero",
+        url: "/slides/module-2-q-zero.pptx",
+        fileName: "Module 2 — Q-Zero.pptx",
+      },
+      {
         id: "m2-what",
         type: "Note",
         title: "What is Q-Zero?",
@@ -240,6 +254,13 @@ After: "If we create intentional, faith-centered social environments for adults 
     summary: "Expand your Q-Zero into the full five-level causal chain, with assumptions at every link.",
     resources: [
       {
+        id: "m3-slides",
+        type: "File",
+        title: "Slidedeck — The Impact Pathway",
+        url: "/slides/module-3-impact-pathway.pptx",
+        fileName: "Module 3 — Impact Pathway.pptx",
+      },
+      {
         id: "m3-spine",
         type: "Note",
         title: "From your Q-Zero to the full chain",
@@ -331,6 +352,13 @@ Remember: set your baseline BEFORE the program begins — you can't know if you 
     title: "Module 4 — Building the Logframe",
     summary: "Convert your impact pathway into a formal 4×4 Logical Framework Matrix.",
     resources: [
+      {
+        id: "m4-slides",
+        type: "File",
+        title: "Slidedeck — Building the Logframe",
+        url: "/slides/module-4-logframe.pptx",
+        fileName: "Module 4 — Logframe.pptx",
+      },
       {
         id: "m4-what",
         type: "Note",
@@ -433,6 +461,13 @@ Inputs (WHO): high-school juniors/seniors, spiritually active, vetted; 100–120
     title: "Module 5 — Measuring & Validating Impact",
     summary: "Build a measurement plan with SMART indicators, baselines, targets, and assumption tracking.",
     resources: [
+      {
+        id: "m5-slides",
+        type: "File",
+        title: "Slidedeck — Measuring & Validating Impact",
+        url: "/slides/module-5-measuring-validating.pptx",
+        fileName: "Module 5 — Measuring & Validating Impact.pptx",
+      },
       {
         id: "m5-hierarchy",
         type: "Note",
