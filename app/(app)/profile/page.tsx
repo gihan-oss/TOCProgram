@@ -6,8 +6,34 @@ import { Card, Badge, Button, SectionTitle } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { getProfile, saveProfile, type MemberProfile } from "@/lib/store";
-import { uploadFile } from "@/lib/content";
 import { MEMBER_ROLE_TYPES, DEPARTMENTS, COMMITMENT_LEVELS, TENURE_OPTIONS } from "@/lib/mas";
+
+// Read an image file and downscale it to a small square-ish data URL, so the
+// avatar can be stored inline with the profile — no restricted storage bucket,
+// no upload permissions, works for every user. Keeps it a few KB.
+function imageToDataUrl(file: File, max = 320, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode failed"));
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("no canvas")); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "Youth Mentorship", "Data & Reporting", "Operations", "Tech & Web"];
 
@@ -51,11 +77,14 @@ export default function ProfilePage() {
     if (!f || !user) return;
     if (!f.type.startsWith("image/")) { toast("Please choose an image file.", "error"); return; }
     setUploading(true);
-    const res = await uploadFile(f);
-    setUploading(false);
-    if (res.error) { toast(res.error, "error"); return; }
-    setAvatar(res.url || res.dataUrl || "");
-    toast("Picture added — remember to save.");
+    try {
+      setAvatar(await imageToDataUrl(f));
+      toast("Picture added — remember to Save.");
+    } catch {
+      toast("Couldn't read that image — try another one.", "error");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function save() {
