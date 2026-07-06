@@ -225,3 +225,58 @@ drop policy if exists "toc self insert" on public.toc;
 create policy "toc self insert" on public.toc for insert with check (auth.jwt() ->> 'email' = email);
 drop policy if exists "toc self update" on public.toc;
 create policy "toc self update" on public.toc for update using (auth.jwt() ->> 'email' = email);
+
+-- ===========================================================================
+-- Community chat — one room per client (organization)
+-- ===========================================================================
+-- Learners talk within their own client's room; different client orgs never
+-- see each other's messages. Staff can read every room (moderation) and post.
+
+-- The current user's client (their room key), from the members allowlist.
+-- SECURITY DEFINER so it can read `members` regardless of that table's policies.
+create or replace function public.my_client() returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce(
+    (select m.client from public.members m
+     where lower(m.email) = lower(auth.jwt() ->> 'email') limit 1),
+    ''
+  );
+$$;
+grant execute on function public.my_client() to authenticated;
+
+create table if not exists public.messages (
+  id         uuid primary key default gen_random_uuid(),
+  client     text not null default '',
+  email      text not null,
+  name       text not null default '',
+  body       text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists messages_client_idx on public.messages (client, created_at);
+alter table public.messages enable row level security;
+
+-- Read: your own client's room; staff can read every room.
+drop policy if exists "messages read" on public.messages;
+create policy "messages read" on public.messages for select
+  using (public.is_staff() or (client <> '' and client = public.my_client()));
+
+-- Insert: you may only post AS yourself, and only INTO a room you belong to
+-- (staff may post into any client's room).
+drop policy if exists "messages insert" on public.messages;
+create policy "messages insert" on public.messages for insert with check (
+  lower(email) = lower(auth.jwt() ->> 'email')
+  and (public.is_staff() or (client <> '' and client = public.my_client()))
+);
+-- No update/delete policies → messages are immutable to clients; staff moderate
+-- via the SQL editor / service role.
+
+-- Realtime: broadcast inserts so chat updates live. Idempotent add.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    execute 'alter publication supabase_realtime add table public.messages';
+  end if;
+end $$;

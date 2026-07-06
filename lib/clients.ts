@@ -16,6 +16,13 @@ export interface Client {
   status: ClientStatus;
   contact?: string;
   notes?: string;
+  logoUrl?: string; // client's own logo, shown beside the Amal & Company lockup
+}
+
+// The client whose logo co-brands the portal: the first Active client, else the
+// first client of any status. Used by the header/login co-brand lockup.
+export function primaryClient(list: Client[]): Client | undefined {
+  return list.find((c) => c.status === "Active") ?? list[0];
 }
 
 export const CLIENT_CATEGORIES = ["Faith-based", "Nonprofit", "Education", "Government", "Healthcare", "Community", "Other"];

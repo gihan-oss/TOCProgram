@@ -12,6 +12,7 @@ import { useApp } from "./providers";
 import { useAuth } from "./auth";
 import { useToast } from "./toast";
 import { Logo } from "./logo";
+import { CoBrand } from "./co-brand";
 import { NotificationsBell } from "./notifications";
 import { Navigator } from "./navigator";
 import { loadModules, loadDone, moduleComplete } from "@/lib/content";
@@ -149,6 +150,9 @@ export function Shell({ children }: { children: ReactNode }) {
           <button className="rounded-lg p-2 hover:bg-secondary lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
             <Icons.Menu className="h-5 w-5" />
           </button>
+
+          {/* Co-brand lockup: Amal & Company (constant) + the client's logo */}
+          <CoBrand className="min-w-0" />
 
           <div className="ml-auto flex items-center gap-2">
             {isAdmin && (
