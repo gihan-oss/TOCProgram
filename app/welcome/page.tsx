@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth";
 import { homeFor } from "@/lib/nav";
 import { setOnboarded } from "@/lib/onboarding";
 import { saveProfile, getProfile, addNotification, sendEmail } from "@/lib/store";
+import { welcomeEmail } from "@/lib/email-templates";
 import { MAS, PORTAL_URL, MEMBER_ROLE_TYPES, DEPARTMENTS, COMMITMENT_LEVELS, TENURE_OPTIONS } from "@/lib/mas";
 
 const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "Youth Mentorship", "Data & Reporting", "Operations", "Tech & Web"];
@@ -75,12 +76,11 @@ export default function WelcomePage() {
         `Welcome to ${MAS.partner} 🎉`,
         department ? `You're set up in ${department}. Your next step is waiting on your home screen.` : "Your next step is waiting on your home screen.",
       );
-      // fire-and-forget welcome email (simulated until RESEND_API_KEY is set)
-      sendEmail(
-        user.email,
-        `Welcome to the ${MAS.partner} Impact Portal`,
-        `<p>Salaam ${firstName},</p><p>Your account is ready. You're registered${department ? ` in <b>${department}</b>` : ""}${roleType ? ` as a <b>${roleType}</b>` : ""}.</p><p>North Star: <i>${MAS.northStar}</i></p><p><a href="${PORTAL_URL}">Open the portal</a></p>`,
-      );
+      // fire-and-forget branded welcome email — sent once, whichever way they
+      // joined (admin invite, email sign-up, or Google). Simulated until an
+      // email key is set, so flows never break.
+      const { subject, html } = welcomeEmail({ name: user.name, email: user.email, roleType, department, portalUrl: PORTAL_URL });
+      sendEmail(user.email, subject, html);
     } finally {
       router.replace(homeFor(user.role));
     }
