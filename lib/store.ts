@@ -298,13 +298,13 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  opts?: { replyTo?: string },
+  opts?: { replyTo?: string; replyToName?: string; fromName?: string },
 ): Promise<{ ok: boolean; demo?: boolean; error?: string }> {
   try {
     const res = await fetch("/api/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject, html, replyTo: opts?.replyTo }),
+      body: JSON.stringify({ to, subject, html, replyTo: opts?.replyTo, replyToName: opts?.replyToName, fromName: opts?.fromName }),
     });
     return (await res.json()) as { ok: boolean; demo?: boolean; error?: string };
   } catch {
