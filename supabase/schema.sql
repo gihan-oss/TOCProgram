@@ -290,12 +290,14 @@ end $$;
 -- items). SECURITY DEFINER so learners get this curated view without opening
 -- the members/progress tables themselves.
 create or replace function public.org_people()
-returns table(email text, name text, member_role text, client text, done_count int, updated_at timestamptz)
+returns table(email text, name text, member_role text, client text, role_type text, department text, done_count int, updated_at timestamptz)
 language sql stable security definer set search_path = public as $$
   select m.email,
          coalesce(nullif(p.name, ''), m.name) as name,
          m.role as member_role,
          m.client,
+         coalesce(p.role_type, '') as role_type,
+         coalesce(p.department, '') as department,
          coalesce(array_length(cp.done, 1), 0) as done_count,
          cp.updated_at
   from public.members m

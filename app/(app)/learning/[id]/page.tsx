@@ -248,6 +248,11 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
 }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[r.type]] ?? Icons.File;
   const isMedia = r.type === "Video" || r.type === "PDF" || r.type === "File" || r.type === "Link";
+  // Worksheets are collapsible and start collapsed — click the title to open.
+  const collapsible = r.type === "Worksheet";
+  const [open, setOpen] = useState(!collapsible);
+  const wsFields = collapsible ? (r.fields ?? []) : [];
+  const wsFilled = wsFields.filter((f) => (answers[f.id] ?? "").trim()).length;
 
   return (
     <Card className="p-4">
@@ -255,10 +260,19 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
         <Icon className="mt-1 h-4 w-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
-              {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
-            </div>
+            {collapsible ? (
+              <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                <Icons.ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+                <span className="truncate text-sm font-medium">{r.title}</span>
+                {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+                {!open && wsFields.length > 0 && <span className="shrink-0 text-xs text-muted-foreground">{wsFilled}/{wsFields.length} answered</span>}
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
+                {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Badge tone="muted">{RESOURCE_LABEL[r.type]}</Badge>
               {canEdit && (
@@ -269,13 +283,13 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
             </div>
           </div>
 
-          {r.type === "Quiz" && r.questions ? (
+          {open && (r.type === "Quiz" && r.questions ? (
             <QuizGame questions={r.questions} best={best} onResult={onScore} />
           ) : r.type === "Worksheet" ? (
             <WorksheetPlayer r={r} answers={answers} done={done} onSave={onWorksheet} />
           ) : (
             <MediaBody r={r} />
-          )}
+          ))}
 
           {/* Passive items (video, PDF, file, link) are completed with a button,
               not a checkbox. Quizzes/worksheets complete via their own actions. */}
@@ -459,7 +473,6 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
   const toast = useToast();
   const fields = r.fields ?? [];
   const [vals, setVals] = useState<Record<string, string>>(answers);
-  const [open, setOpen] = useState(true); // worksheet is collapsible
 
   const required = fields.filter((f) => f.required);
   const filled = fields.filter((f) => (vals[f.id] ?? "").trim()).length;
@@ -512,16 +525,14 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
 
   return (
     <div className="mt-3 overflow-hidden rounded-xl border bg-card shadow-sm">
-      {/* sheet header — click to collapse / expand */}
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between gap-2 border-b border-dashed bg-secondary/40 px-4 py-2.5 text-left transition-colors hover:bg-secondary/60">
+      {/* sheet header */}
+      <div className="flex items-center justify-between gap-2 border-b border-dashed bg-secondary/40 px-4 py-2.5">
         <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-accent">
-          <Icons.ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
           <Icons.PencilRuler className="h-3.5 w-3.5" /> Worksheet · for your program
         </span>
-        <span className="text-xs font-medium text-muted-foreground">{filled}/{fields.length} answered{open ? "" : " · tap to open"}</span>
-      </button>
+        <span className="text-xs font-medium text-muted-foreground">{filled}/{fields.length} answered</span>
+      </div>
 
-      {open && (<>
       <div className="space-y-5 px-4 py-5 sm:px-6">
         {r.body && <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{r.body}</p>}
 
@@ -564,7 +575,6 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
           <Icons.Sparkles className="h-4 w-4" /> {done ? "Save changes" : "Submit worksheet"}
         </Button>
       </div>
-      </>)}
     </div>
   );
 }
