@@ -47,6 +47,13 @@ const DEMO_KEY = "toc-demo-auth";
 const nameFromEmail = (email: string) =>
   email.split("@")[0].split(/[.\-_]/).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
 
+// Supabase returns this when the email/password doesn't match an existing
+// account — which, for an approved invitee signing in the first time, just
+// means their account hasn't been created yet.
+function isInvalidCredentials(error: { message?: string; code?: string }): boolean {
+  return error.code === "invalid_credentials" || /invalid login credentials/i.test(error.message ?? "");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,7 +91,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!access.allowed) return { error: access.reason };
     if (supabase) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return error ? { error: error.message } : {};
+      if (!error) return {};
+      // First-time invited user: they're on the approved list but don't have a
+      // login yet, so signing in fails with "invalid credentials". Create the
+      // account for them on the spot (auto-approve) using the credentials they
+      // just entered — so the emailed password works on the very first sign-in,
+      // with no separate "Sign up" step.
+      if (isInvalidCredentials(error)) {
+        const { data, error: signUpErr } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name: nameFromEmail(email) } },
+        });
+        // A real, already-registered account → the password was simply wrong.
+        if (signUpErr) return { error: "Incorrect password. Please use the password from your invitation email." };
+        if (data.session) return {}; // auto-confirmed → signed in
+        // Email confirmation is still on for the project: try once more, else guide.
+        const retry = await supabase.auth.signInWithPassword({ email, password });
+        return retry.error ? { error: "Account created — check your email to confirm it, then sign in." } : {};
+      }
+      return { error: error.message };
     }
     if (!email || password.length < 6) return { error: "Enter an email and a password of at least 6 characters." };
     const u: AuthUser = { email, name: nameFromEmail(email), role: access.role };
