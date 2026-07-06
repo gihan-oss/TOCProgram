@@ -13,6 +13,10 @@ export const MAS = {
   contactEmail: "hello@amalandcompany.com",
 };
 
+// The portal's public address — used in every emailed link (invites, welcome).
+// Change this one line if the domain ever moves again.
+export const PORTAL_URL = "https://toc.amalandco.com";
+
 // The in-portal guide/mascot. People can open Nuri anywhere to ask a question;
 // later he can grow into a full navigator/assistant.
 export const NAVIGATOR = {

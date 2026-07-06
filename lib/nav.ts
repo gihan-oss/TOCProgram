@@ -45,6 +45,8 @@ export const NAV: NavItem[] = [
   { href: "/programs", label: "Programs (TOC)", icon: "FolderKanban", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "participant"] },
 
   // ---- Community (everyone) ----
+  { href: "/people", label: "People", icon: "Users", group: "Community", roles: ["participant", "admin", "facilitator", "coordinator", "executive"] },
+  { href: "/messages", label: "Messages", icon: "MessageCircle", group: "Community", roles: ["participant", "admin", "facilitator", "coordinator", "executive"] },
   { href: "/chat", label: "Community Chat", icon: "MessagesSquare", group: "Community", roles: ["participant", "admin", "facilitator", "coordinator", "executive"] },
 
   // ---- Help (everyone) ----

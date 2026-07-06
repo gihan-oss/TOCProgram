@@ -9,7 +9,7 @@ import { ADMIN_EMAILS, LEARNER_EMAILS } from "@/lib/access";
 import { addNotification, sendEmail, listMembers, saveMember, removeMember, type Member } from "@/lib/store";
 import { inviteEmail, genTempPassword } from "@/lib/email-templates";
 import { loadClients, type Client } from "@/lib/clients";
-import { MAS, CLIENT } from "@/lib/mas";
+import { MAS, CLIENT, PORTAL_URL } from "@/lib/mas";
 
 const nameFromEmail = (email: string) =>
   email.split("@")[0].split(/[.\-_]/).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
@@ -26,7 +26,7 @@ function mergeMembers(primary: Member[], rest: Member[]): Member[] {
   return [...primary, ...rest.filter((m) => !seen.has(m.email))];
 }
 
-const LOGIN_URL = "https://toc-program.vercel.app/login";
+const LOGIN_URL = `${PORTAL_URL}/login`;
 
 export default function AccessPage() {
   const [rows, setRows] = useState<Member[]>(seeds);
