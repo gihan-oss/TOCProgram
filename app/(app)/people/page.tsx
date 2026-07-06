@@ -66,7 +66,12 @@ export default function PeoplePage() {
             return (
               <Card key={p.email} className="p-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">{initials}</div>
+                  {p.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.avatar_url} alt={p.name || p.email} className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-border" />
+                  ) : (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">{initials}</div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">{p.name || p.email}</p>

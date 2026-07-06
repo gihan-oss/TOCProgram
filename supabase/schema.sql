@@ -79,6 +79,8 @@ create table if not exists public.profiles (
   onboarded   boolean not null default false,
   updated_at  timestamptz not null default now()
 );
+-- Profile picture (Supabase Storage URL, or a small data URL in demo mode).
+alter table public.profiles add column if not exists avatar_url text not null default '';
 alter table public.profiles enable row level security;
 
 drop policy if exists "read own profile" on public.profiles;
@@ -290,7 +292,7 @@ end $$;
 -- items). SECURITY DEFINER so learners get this curated view without opening
 -- the members/progress tables themselves.
 create or replace function public.org_people()
-returns table(email text, name text, member_role text, client text, role_type text, department text, done_count int, updated_at timestamptz)
+returns table(email text, name text, member_role text, client text, role_type text, department text, avatar_url text, done_count int, updated_at timestamptz)
 language sql stable security definer set search_path = public as $$
   select m.email,
          coalesce(nullif(p.name, ''), m.name) as name,
@@ -298,6 +300,7 @@ language sql stable security definer set search_path = public as $$
          m.client,
          coalesce(p.role_type, '') as role_type,
          coalesce(p.department, '') as department,
+         coalesce(p.avatar_url, '') as avatar_url,
          coalesce(array_length(cp.done, 1), 0) as done_count,
          cp.updated_at
   from public.members m

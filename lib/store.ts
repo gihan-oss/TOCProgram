@@ -18,6 +18,7 @@ export interface MemberProfile {
   tenure: string;
   skills: string[];
   onboarded: boolean;
+  avatar_url?: string; // profile picture (Supabase Storage URL or data URL)
   updated_at?: string;
 }
 
