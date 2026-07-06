@@ -10,7 +10,7 @@ import { useAuth } from "@/components/auth";
 import { homeFor } from "@/lib/nav";
 import { setOnboarded } from "@/lib/onboarding";
 import { saveProfile, addNotification, sendEmail } from "@/lib/store";
-import { MAS, MEMBER_ROLE_TYPES, DEPARTMENTS, COMMITMENT_LEVELS, TENURE_OPTIONS } from "@/lib/mas";
+import { MAS, PORTAL_URL, MEMBER_ROLE_TYPES, DEPARTMENTS, COMMITMENT_LEVELS, TENURE_OPTIONS } from "@/lib/mas";
 import type { Role } from "@/lib/types";
 
 const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "Youth Mentorship", "Data & Reporting", "Operations", "Tech & Web"];
@@ -113,7 +113,7 @@ export default function WelcomePage() {
       sendEmail(
         user.email,
         `Welcome to the ${MAS.partner} Impact Portal`,
-        `<p>Salaam ${firstName},</p><p>Your account is ready. You're registered${department ? ` in <b>${department}</b>` : ""}${roleType ? ` as a <b>${roleType}</b>` : ""}.</p><p>North Star: <i>${MAS.northStar}</i></p><p><a href="https://toc-program.vercel.app">Open the portal</a></p>`,
+        `<p>Salaam ${firstName},</p><p>Your account is ready. You're registered${department ? ` in <b>${department}</b>` : ""}${roleType ? ` as a <b>${roleType}</b>` : ""}.</p><p>North Star: <i>${MAS.northStar}</i></p><p><a href="${PORTAL_URL}">Open the portal</a></p>`,
       );
     } finally {
       router.replace(homeFor(user.role));
