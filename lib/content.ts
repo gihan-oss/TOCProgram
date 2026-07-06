@@ -225,6 +225,9 @@ const VIDEO_EXT = /\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i;
 const AUDIO_EXT = /\.(mp3|wav|m4a|aac|oga|flac)(\?|#|$)/i;
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|avif|bmp)(\?|#|$)/i;
 const PDF_EXT = /\.pdf(\?|#|$)/i;
+// Office documents (slides, docs, sheets) — previewable inline via the
+// Microsoft Office Online viewer, which needs a public http(s) URL.
+const OFFICE_EXT = /\.(pptx?|docx?|xlsx?)(\?|#|$)/i;
 
 // Convert a provider URL (YouTube / Vimeo / Google Drive / Loom) to an
 // embeddable iframe src. Returns null if it isn't a recognised provider.
@@ -241,6 +244,7 @@ export function providerEmbed(url: string): string | null {
   return null;
 }
 
+export const isOfficeUrl = (u?: string) => !!u && OFFICE_EXT.test(u) && /^(https?:|\/)/.test(u);
 export const isImageUrl = (u?: string) => !!u && (IMAGE_EXT.test(u) || u.startsWith("data:image/"));
 export const isVideoFileUrl = (u?: string) => !!u && (VIDEO_EXT.test(u) || u.startsWith("data:video/"));
 export const isAudioFileUrl = (u?: string) => !!u && (AUDIO_EXT.test(u) || u.startsWith("data:audio/"));

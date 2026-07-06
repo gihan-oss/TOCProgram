@@ -14,7 +14,7 @@ import { effectiveModules } from "@/lib/starter-course";
 import {
   loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile, moduleComplete,
   RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP,
-  providerEmbed, isImageUrl, isVideoFileUrl, isAudioFileUrl, isPdfUrl,
+  providerEmbed, isImageUrl, isVideoFileUrl, isAudioFileUrl, isPdfUrl, isOfficeUrl,
   type CourseModule, type Resource, type ResourceType, type QuizQuestion, type WorksheetField, type LearnerMeta,
 } from "@/lib/content";
 
@@ -352,6 +352,7 @@ function MediaBody({ r }: { r: Resource }) {
         </div>
       );
     }
+    if (isOfficeUrl(src)) return <OfficePreview src={src} title={r.title} fileName={r.fileName} />;
     return src ? <DownloadLink href={src} fileName={r.fileName} label="Open / download" /> : <NoSource />;
   }
 
@@ -368,6 +369,30 @@ function DownloadLink({ href, fileName, label }: { href: string; fileName?: stri
 
 function NoSource() {
   return <p className="mt-2 text-sm text-muted-foreground">No file or link added yet.</p>;
+}
+
+// Previews Office files (PowerPoint / Word / Excel — e.g. the module
+// slidedecks) INLINE via the Microsoft Office Online viewer, so learners read
+// them right on the page instead of downloading. The viewer needs a public
+// absolute URL, so we resolve a site-relative path against the current origin.
+function OfficePreview({ src, title, fileName }: { src: string; title: string; fileName?: string }) {
+  const [abs, setAbs] = useState<string | null>(null);
+  useEffect(() => {
+    setAbs(/^https?:\/\//i.test(src) ? src : `${window.location.origin}${src}`);
+  }, [src]);
+
+  if (!abs) {
+    return <div className="mt-3 flex h-24 items-center justify-center rounded-lg border"><Icons.Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  }
+  const viewer = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(abs)}`;
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="h-[70vh] max-h-[640px] w-full overflow-hidden rounded-lg border bg-muted">
+        <iframe src={viewer} className="h-full w-full" title={title} />
+      </div>
+      <DownloadLink href={abs} fileName={fileName} label="Open / download" />
+    </div>
+  );
 }
 
 // Renders written content as a readable article: section headings, bullet and
@@ -434,6 +459,7 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
   const toast = useToast();
   const fields = r.fields ?? [];
   const [vals, setVals] = useState<Record<string, string>>(answers);
+  const [open, setOpen] = useState(true); // worksheet is collapsible
 
   const required = fields.filter((f) => f.required);
   const filled = fields.filter((f) => (vals[f.id] ?? "").trim()).length;
@@ -486,14 +512,16 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
 
   return (
     <div className="mt-3 overflow-hidden rounded-xl border bg-card shadow-sm">
-      {/* sheet header */}
-      <div className="flex items-center justify-between gap-2 border-b border-dashed bg-secondary/40 px-4 py-2.5">
+      {/* sheet header — click to collapse / expand */}
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center justify-between gap-2 border-b border-dashed bg-secondary/40 px-4 py-2.5 text-left transition-colors hover:bg-secondary/60">
         <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-accent">
+          <Icons.ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
           <Icons.PencilRuler className="h-3.5 w-3.5" /> Worksheet · for your program
         </span>
-        <span className="text-xs font-medium text-muted-foreground">{filled}/{fields.length} answered</span>
-      </div>
+        <span className="text-xs font-medium text-muted-foreground">{filled}/{fields.length} answered{open ? "" : " · tap to open"}</span>
+      </button>
 
+      {open && (<>
       <div className="space-y-5 px-4 py-5 sm:px-6">
         {r.body && <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{r.body}</p>}
 
@@ -536,6 +564,7 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
           <Icons.Sparkles className="h-4 w-4" /> {done ? "Save changes" : "Submit worksheet"}
         </Button>
       </div>
+      </>)}
     </div>
   );
 }
