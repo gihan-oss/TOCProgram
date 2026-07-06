@@ -3,18 +3,19 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { resolveAccess, type Access } from "@/lib/access";
-import { listMembers } from "@/lib/store";
+import { checkMemberAccess } from "@/lib/store";
 import type { Role } from "@/lib/types";
 
 // Members-aware access: the static allowlist first, then anyone an admin has
-// invited (the members table). This is what lets invited accounts sign in.
+// invited. Invited members are looked up through the check_access RPC (the
+// members table itself is staff-only), so this works before sign-in without
+// exposing the member list. This is what lets invited accounts sign in.
 async function resolveWithMembers(email: string): Promise<Access> {
   const base = resolveAccess(email);
   if (base.allowed) return base;
   try {
-    const e = email.trim().toLowerCase();
-    const m = (await listMembers()).find((x) => x.email.trim().toLowerCase() === e);
-    if (m) return { allowed: true, role: m.role === "admin" ? "admin" : "participant" };
+    const m = await checkMemberAccess(email);
+    if (m?.allowed) return { allowed: true, role: m.role };
   } catch {}
   return base;
 }

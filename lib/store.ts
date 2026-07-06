@@ -157,6 +157,29 @@ export async function saveMember(member: Member): Promise<void> {
   } catch {}
 }
 
+// Pre-auth allowlist check. With Supabase it calls the `check_access` RPC —
+// the members table itself is staff-only (it holds temp passwords), so the
+// login screen learns only allowed/role and nothing else. In demo mode it
+// falls back to the locally stored members list.
+export interface MemberAccess { allowed: boolean; role: "admin" | "participant" }
+
+export async function checkMemberAccess(email: string): Promise<MemberAccess | null> {
+  const e = email.trim().toLowerCase();
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data, error } = await sb.rpc("check_access", { p_email: e });
+    if (!error) {
+      const row = (Array.isArray(data) ? data[0] : data) as { allowed?: boolean; member_role?: string } | null;
+      if (row?.allowed) return { allowed: true, role: row.member_role === "admin" ? "admin" : "participant" };
+      return null;
+    }
+    // RPC missing → schema.sql hasn't been re-run yet; fall through to the
+    // direct read below, which the old open policies still allow.
+  }
+  const m = (await listMembers()).find((x) => x.email.trim().toLowerCase() === e);
+  return m ? { allowed: true, role: m.role === "admin" ? "admin" : "participant" } : null;
+}
+
 export async function removeMember(email: string): Promise<void> {
   const e = email.toLowerCase();
   const sb = getSupabaseBrowserClient();

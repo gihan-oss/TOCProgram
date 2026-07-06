@@ -63,7 +63,13 @@ and the route gate in `components/auth-guard.tsx`.
 - **Profiles ("Know Our Members"):** onboarding captures role type, department,
   commitment, tenure and skills, saved via `lib/store.ts` — to **Supabase**
   (permanent) when configured, localStorage otherwise. Schema: `supabase/schema.sql`
-  (run once in the Supabase SQL Editor).
+  (run the whole file in the Supabase SQL Editor — safe to re-run, and re-running
+  applies the latest security policies).
+- **Security & multi-user testing:** row-level security keeps each learner's
+  data private (staff can read everything; the member allowlist — which holds
+  invite temp passwords — is staff-only, with the login screen using a safe
+  `check_access` RPC). Verify a live project with `npm run test:security`,
+  and see `TESTING.md` for the full multi-user test plan.
 - **Notifications:** in-app notification center (bell in the header), persisted
   the same way. Invites and onboarding generate notifications automatically.
 - **Email:** `/api/email` sends via **Brevo** (`BREVO_API_KEY`) — Resend
