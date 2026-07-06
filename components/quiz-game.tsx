@@ -29,6 +29,23 @@ const TILE = [
 
 type Phase = "intro" | "play" | "result";
 
+// Shuffle a question's options so the correct answer isn't always in the same
+// slot (authors often leave it first). Options are reordered and `answer` is
+// remapped to the new index — the correct choice is unchanged, just moved.
+// Reshuffled on every play, which also discourages memorising positions.
+function shuffleQuestion(q: QuizQuestion): QuizQuestion {
+  const order = q.options.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return {
+    ...q,
+    options: order.map((i) => q.options[i]),
+    answer: order.indexOf(q.answer),
+  };
+}
+
 export function QuizGame({ questions, best, onResult }: {
   questions: QuizQuestion[];
   best?: { correct: number; total: number };
@@ -36,6 +53,9 @@ export function QuizGame({ questions, best, onResult }: {
 }) {
   const total = questions.length;
   const [phase, setPhase] = useState<Phase>("intro");
+  // The live deck for this play-through: options shuffled per question. Set when
+  // a game starts; falls back to the raw questions before the first play.
+  const [deck, setDeck] = useState<QuizQuestion[]>(questions);
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [locked, setLocked] = useState(false);
@@ -53,7 +73,7 @@ export function QuizGame({ questions, best, onResult }: {
 
   useEffect(() => { setMutedState(isMuted()); }, []);
 
-  const q = questions[qIndex];
+  const q = deck[qIndex];
 
   // ---- answering (plain closure; held in a ref so the timer always calls the
   // latest version without re-subscribing the interval on every tick) ----
@@ -117,6 +137,7 @@ export function QuizGame({ questions, best, onResult }: {
   function start() {
     unlock();
     sfx.click();
+    setDeck(questions.map(shuffleQuestion));
     setPhase("play");
     setQIndex(0);
     setSelected(null);

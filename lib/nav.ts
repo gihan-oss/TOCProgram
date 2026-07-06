@@ -44,6 +44,9 @@ export const NAV: NavItem[] = [
   { href: "/strategy", label: "Strategy House", icon: "Building2", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "executive", "participant"] },
   { href: "/programs", label: "Programs (TOC)", icon: "FolderKanban", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "participant"] },
 
+  // ---- Community (everyone) ----
+  { href: "/chat", label: "Community Chat", icon: "MessagesSquare", group: "Community", roles: ["participant", "admin", "facilitator", "coordinator", "executive"] },
+
   // ---- Help (everyone) ----
   { href: "/knowledge", label: "Knowledge Base", icon: "BookOpen", group: "Help", roles: ["participant", "admin", "facilitator", "coordinator", "executive"] },
   { href: "/assistant", label: "AI Coach", icon: "Sparkles", group: "Help", roles: ["participant", "admin", "facilitator"] },

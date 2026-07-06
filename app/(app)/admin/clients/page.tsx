@@ -9,8 +9,9 @@ import {
   loadClients, saveClients, CLIENT_CATEGORIES, CLIENT_REGIONS, CLIENT_STATUSES, STATUS_TONE,
   type Client, type ClientStatus,
 } from "@/lib/clients";
+import { uploadFile } from "@/lib/content";
 
-const blankForm = () => ({ id: "", name: "", category: CLIENT_CATEGORIES[0], region: CLIENT_REGIONS[0], status: "Onboarding" as ClientStatus, contact: "", notes: "" });
+const blankForm = () => ({ id: "", name: "", category: CLIENT_CATEGORIES[0], region: CLIENT_REGIONS[0], status: "Onboarding" as ClientStatus, contact: "", notes: "", logoUrl: "" });
 
 export default function ClientsPage() {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ export default function ClientsPage() {
   const [filter, setFilter] = useState<string>("All");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(blankForm());
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => { (async () => { setClients(await loadClients()); setLoaded(true); })(); }, []);
 
@@ -47,6 +49,7 @@ export default function ClientsPage() {
       status: form.status,
       contact: form.contact?.trim() || undefined,
       notes: form.notes?.trim() || undefined,
+      logoUrl: form.logoUrl?.trim() || undefined,
     };
     await persist(exists ? clients.map((c) => (c.id === record.id ? record : c)) : [...clients, record]);
     toast(exists ? "Client updated" : "Client added");
@@ -56,6 +59,17 @@ export default function ClientsPage() {
   async function remove(id: string) {
     await persist(clients.filter((c) => c.id !== id));
     toast("Client removed");
+  }
+
+  async function onLogoFile(f: File | undefined) {
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast("Please choose an image file (PNG, JPG, SVG…).", "error"); return; }
+    setUploading(true);
+    const res = await uploadFile(f);
+    setUploading(false);
+    if (res.error) { toast(res.error, "error"); return; }
+    setForm((prev) => ({ ...prev, logoUrl: res.url || res.dataUrl || "" }));
+    toast("Logo uploaded");
   }
 
   // categories that actually appear (for the filter rail), plus "All"
@@ -106,6 +120,30 @@ export default function ClientsPage() {
                 <span className="mb-1 block text-xs font-medium text-muted-foreground">Notes (optional)</span>
                 <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="modal-input h-20" />
               </label>
+              <div className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">Client logo (optional)</span>
+                <p className="mb-2 text-xs text-muted-foreground">Shown across the portal beside the Amal &amp; Company logo. PNG, JPG or SVG — a transparent background works best.</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex h-14 w-32 items-center justify-center overflow-hidden rounded-lg border bg-background">
+                    {form.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={form.logoUrl} alt="Client logo preview" className="h-full w-auto max-w-full object-contain p-1.5" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No logo</span>
+                    )}
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary">
+                    {uploading ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Icons.Upload className="h-4 w-4" />}
+                    {form.logoUrl ? "Replace logo" : "Upload logo"}
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => onLogoFile(e.target.files?.[0])} disabled={uploading} />
+                  </label>
+                  {form.logoUrl && (
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, logoUrl: "" }))} className="inline-flex items-center gap-1 text-sm text-[hsl(var(--danger))] hover:underline">
+                      <Icons.X className="h-4 w-4" /> Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button size="sm" type="submit">{form.id ? "Save client" : "Add client"}</Button>
@@ -135,7 +173,12 @@ export default function ClientsPage() {
           {visible.map((c) => (
             <Card key={c.id} className="p-5">
               <div className="flex items-start gap-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent"><Icons.Building2 className="h-5 w-5" /></span>
+                {c.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={c.logoUrl} alt={`${c.name} logo`} className="h-11 w-11 shrink-0 rounded-xl border bg-background object-contain p-1" />
+                ) : (
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent"><Icons.Building2 className="h-5 w-5" /></span>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold">{c.name}</h3>

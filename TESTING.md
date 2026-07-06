@@ -82,6 +82,29 @@ Use two browsers (or one normal + one private window): **A** = learner A,
       and their own TOC programs.
 - [ ] Supabase → Table Editor → `toc` has one row per learner email.
 
+### Community chat (per-client rooms)
+- [ ] As A and B (same client): open **Community Chat**. A message A sends
+      appears for B **live**, without refreshing, and vice-versa.
+- [ ] Invite a learner under a *different* client and confirm they do **not**
+      see this room's messages (Supabase → Table Editor → `messages` shows a
+      `client` column; a query as that user returns only their own client's
+      rows — verify with the RLS in mind).
+- [ ] As admin/staff: the room picker lets you switch between client rooms and
+      read/post in each.
+- [ ] Supabase → Database → Replication shows `messages` in the
+      `supabase_realtime` publication (the schema does this automatically).
+
+### Branding / logos
+- [ ] The **Amal & Company** logo shows in the header on every LMS page.
+- [ ] As admin: **Admin → Clients → edit a client → Upload logo**. The client
+      logo then appears beside the Amal logo in the header, and on the client
+      card. Uploaded logos persist (Supabase Storage `course-files`, or a data
+      URL in demo mode).
+
+### Quiz answers
+- [ ] In any module quiz, the correct answer is **not** always the first tile —
+      options are shuffled each play. Replay a quiz; the correct option moves.
+
 ### Isolation & roles
 - [ ] As B: you cannot see A's worksheet answers, quiz scores or programs
       anywhere in the UI.
