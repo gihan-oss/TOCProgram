@@ -129,6 +129,17 @@ export default function LearnersPage() {
     return { total, onboarded, started, avg };
   }, [rows]);
 
+  // How many people are in each Area of Focus, and how many hold each role —
+  // "how many volunteers, how many in Islam to Muslims", at a glance.
+  const breakdowns = useMemo(() => {
+    const tally = (pick: (r: Row) => string) => {
+      const m = new Map<string, number>();
+      for (const r of rows) { const k = pick(r).trim(); if (k) m.set(k, (m.get(k) ?? 0) + 1); }
+      return [...m.entries()].sort((a, b) => b[1] - a[1]);
+    };
+    return { byDept: tally((r) => r.department), byRole: tally((r) => r.roleType) };
+  }, [rows]);
+
   return (
     <div>
       <div className="mb-1 flex items-center gap-2">
@@ -145,11 +156,19 @@ export default function LearnersPage() {
       )}
 
       <div className="mb-4 grid gap-3 sm:grid-cols-4">
-        <Card className="p-4"><Stat label="Learners" value={summary.total} /></Card>
+        <Card className="p-4"><Stat label="People" value={summary.total} /></Card>
         <Card className="p-4"><Stat label="Onboarded" value={summary.onboarded} hint={`${summary.total - summary.onboarded} pending`} /></Card>
         <Card className="p-4"><Stat label="Started learning" value={summary.started} /></Card>
         <Card className="p-4"><Stat label="Avg. completion" value={`${summary.avg}%`} /></Card>
       </div>
+
+      {/* Breakdowns: how many per Area of Focus, and per role */}
+      {(breakdowns.byDept.length > 0 || breakdowns.byRole.length > 0) && (
+        <div className="mb-5 grid gap-3 lg:grid-cols-2">
+          <Breakdown title="By Area of Focus" icon="LayoutGrid" items={breakdowns.byDept} total={summary.total} />
+          <Breakdown title="By role" icon="UserCheck" items={breakdowns.byRole} total={summary.total} />
+        </div>
+      )}
 
       <div className="mb-3 flex items-center gap-2">
         <div className="relative flex-1 sm:max-w-xs">
@@ -247,5 +266,33 @@ export default function LearnersPage() {
         Tip: learners' progress saves automatically as they go. Manage who can sign in under <Link href="/admin/access" className="text-accent hover:underline">People &amp; Access</Link>.
       </p>
     </div>
+  );
+}
+
+// A simple counted breakdown (e.g. how many people per Area of Focus / role).
+function Breakdown({ title, icon, items, total }: { title: string; icon: string; items: [string, number][]; total: number }) {
+  const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[icon] ?? Icons.List;
+  const max = items.reduce((m, [, n]) => Math.max(m, n), 0) || 1;
+  return (
+    <Card className="p-4">
+      <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold"><Cmp className="h-4 w-4 text-accent" /> {title}</p>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No data yet — this fills in as people complete their profile.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map(([name, n]) => (
+            <div key={name} className="flex items-center gap-3">
+              <span className="w-40 shrink-0 truncate text-sm" title={name}>{name}</span>
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round((n / max) * 100)}%` }} />
+              </div>
+              <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
+                {n}<span className="ml-1 text-xs font-normal text-muted-foreground">{total ? `${Math.round((n / total) * 100)}%` : ""}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }

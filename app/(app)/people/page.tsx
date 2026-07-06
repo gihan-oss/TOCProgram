@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth";
 import { loadModules } from "@/lib/content";
 import { effectiveModules } from "@/lib/starter-course";
 import { isChatAvailable, listOrgPeople, type OrgPerson } from "@/lib/chat";
+import { characterFor, characterTint, journeyRank } from "@/lib/characters";
 
 // The class directory: everyone in your organization, how far they've gotten
 // through the course, and a button to message them privately. Staff see all
@@ -62,21 +63,24 @@ export default function PeoplePage() {
           {sorted.map((p) => {
             const isMe = p.email.toLowerCase() === me;
             const pct = totalItems > 0 ? Math.min(100, Math.round((p.done_count / totalItems) * 100)) : 0;
-            const initials = (p.name || p.email).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0]!.toUpperCase()).join("");
+            const rank = journeyRank(pct);
             return (
-              <Card key={p.email} className="p-4">
+              <Card key={p.email} className="p-4 transition-shadow hover:shadow-md">
                 <div className="flex items-center gap-3.5">
                   {p.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.avatar_url} alt={p.name || p.email} className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-border" />
+                    <img src={p.avatar_url} alt={p.name || p.email} className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-border" />
                   ) : (
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">{initials}</div>
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-2xl ${characterTint(p.email)}`} title="Pick a photo in My Profile">
+                      {characterFor(p.email)}
+                    </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">{p.name || p.email}</p>
                       {isMe && <Badge tone="accent">You</Badge>}
                       {p.member_role === "admin" && <Badge tone="muted"><Icons.ShieldCheck className="h-3 w-3" /> Staff</Badge>}
+                      <Badge tone={pct >= 100 ? "success" : "muted"}>{rank.emoji} {rank.label}</Badge>
                     </div>
                     {(p.role_type || p.department) && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
@@ -84,8 +88,8 @@ export default function PeoplePage() {
                       </p>
                     )}
                     <div className="mt-1.5 flex items-center gap-2.5">
-                      <div className="h-2 w-full max-w-[220px] overflow-hidden rounded-full bg-muted">
-                        <div className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-[hsl(var(--success))]" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+                      <div className="h-2.5 w-full max-w-[220px] overflow-hidden rounded-full bg-muted">
+                        <div className={`h-full rounded-full transition-all duration-700 ${pct >= 100 ? "bg-[hsl(var(--success))]" : "bg-accent"}`} style={{ width: `${pct}%` }} />
                       </div>
                       <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">
                         {pct >= 100 ? <span className="inline-flex items-center gap-1 text-[hsl(var(--success))]"><Icons.Trophy className="h-3.5 w-3.5" /> Finished!</span> : `${pct}% · ${p.done_count} item${p.done_count !== 1 ? "s" : ""}`}
