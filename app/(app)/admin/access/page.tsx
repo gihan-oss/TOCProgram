@@ -111,6 +111,16 @@ export default function AccessPage() {
     await removeMember(target);
   }
 
+  // Promote a learner to Administrator, or demote an admin back to Learner.
+  async function changeRole(target: string, role: "admin" | "participant") {
+    const m = rows.find((x) => x.email === target);
+    if (!m || m.role === role) return;
+    const updated: Member = { ...m, role };
+    setRows((r) => r.map((x) => (x.email === target ? updated : x)));
+    await saveMember(updated);
+    toast(role === "admin" ? `${m.name || target} is now an Administrator` : `${m.name || target} is now a Learner`, "success");
+  }
+
   // filter rail: All + each client (with counts) + Unassigned (if any)
   const hasUnassigned = rows.some((r) => !r.client);
   const filterOptions = ["All", ...clientNames, ...(hasUnassigned ? ["Unassigned"] : [])];
@@ -190,9 +200,18 @@ export default function AccessPage() {
                     {r.client ? <Badge tone="accent"><Icons.Building2 className="h-3 w-3" /> {r.client}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge tone={r.role === "admin" ? "accent" : "muted"}>
-                      {r.role === "admin" ? <><Icons.ShieldCheck className="h-3 w-3" /> Administrator</> : <><Icons.GraduationCap className="h-3 w-3" /> Learner</>}
-                    </Badge>
+                    <div className="inline-flex items-center gap-1.5">
+                      {r.role === "admin" ? <Icons.ShieldCheck className="h-3.5 w-3.5 text-accent" /> : <Icons.GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />}
+                      <select
+                        value={r.role}
+                        onChange={(e) => changeRole(r.email, e.target.value as "admin" | "participant")}
+                        className={`rounded-lg border bg-background px-2 py-1 text-xs font-medium outline-none ${r.role === "admin" ? "text-accent" : ""}`}
+                        title="Change access level"
+                      >
+                        <option value="participant">Learner</option>
+                        <option value="admin">Administrator</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="px-4 py-3"><Badge tone={r.status === "Active" ? "success" : "warning"}>{r.status}</Badge></td>
                   <td className="px-4 py-3">

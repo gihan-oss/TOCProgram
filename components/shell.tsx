@@ -16,6 +16,7 @@ import { CoBrand } from "./co-brand";
 import { NotificationsBell } from "./notifications";
 import { Navigator } from "./navigator";
 import { loadModules, loadDone, moduleComplete } from "@/lib/content";
+import { getProfile } from "@/lib/store";
 import { effectiveModules } from "@/lib/starter-course";
 
 function Icon({ name, className }: { name: string; className?: string }) {
@@ -37,7 +38,16 @@ export function Shell({ children }: { children: ReactNode }) {
   const displayName = user?.name || CURRENT_USER.name;
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [avatar, setAvatar] = useState("");
   const toast = useToast();
+
+  // The signed-in user's own picture (for the header). Falls back to initials.
+  useEffect(() => {
+    if (!user) { setAvatar(""); return; }
+    let alive = true;
+    getProfile(user.email).then((p) => { if (alive) setAvatar(p?.avatar_url || ""); });
+    return () => { alive = false; };
+  }, [user?.email, pathname]);
 
   // ---- Build stage gating: locked for participants until all modules done ----
   const [buildUnlocked, setBuildUnlocked] = useState(false);
@@ -173,15 +183,20 @@ export function Shell({ children }: { children: ReactNode }) {
               {theme === "dark" ? <Icons.Sun className="h-4 w-4" /> : <Icons.Moon className="h-4 w-4" />}
             </button>
 
-            <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: `hsl(${CURRENT_USER.avatarColor})` }}>
-                {initials}
-              </div>
+            <Link href="/profile" className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1 hover:bg-secondary" title="My profile">
+              {avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatar} alt={displayName} className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: `hsl(${CURRENT_USER.avatarColor})` }}>
+                  {initials}
+                </div>
+              )}
               <div className="hidden leading-tight sm:block">
                 <p className="text-xs font-medium">{displayName}</p>
                 <p className="text-[10px] text-muted-foreground">{roleLabel}</p>
               </div>
-            </div>
+            </Link>
 
             <button onClick={() => signOut()} className="rounded-lg border bg-background p-2 hover:bg-secondary" aria-label="Sign out" title="Sign out">
               <Icons.LogOut className="h-4 w-4" />
