@@ -80,6 +80,8 @@ export interface OrgPerson {
   name: string;
   member_role: string;
   client: string;
+  role_type: string;   // their onboarding role, e.g. "Volunteer"
+  department: string;  // their area of focus / team
   done_count: number;
   updated_at?: string;
 }
@@ -91,7 +93,9 @@ export async function listOrgPeople(): Promise<OrgPerson[]> {
   if (!sb) return [];
   const { data, error } = await sb.rpc("org_people");
   if (error) { console.error("[chat] org_people failed", error.message); return []; }
-  return ((data as OrgPerson[] | null) ?? []).map((p) => ({ ...p, done_count: p.done_count ?? 0 }));
+  return ((data as OrgPerson[] | null) ?? []).map((p) => ({
+    ...p, role_type: p.role_type ?? "", department: p.department ?? "", done_count: p.done_count ?? 0,
+  }));
 }
 
 // ---------------- Direct messages (1:1, private) ----------------

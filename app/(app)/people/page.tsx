@@ -73,6 +73,11 @@ export default function PeoplePage() {
                       {isMe && <Badge tone="accent">You</Badge>}
                       {p.member_role === "admin" && <Badge tone="muted"><Icons.ShieldCheck className="h-3 w-3" /> Staff</Badge>}
                     </div>
+                    {(p.role_type || p.department) && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {[p.role_type, p.department].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                     <div className="mt-1.5 flex items-center gap-2.5">
                       <div className="h-2 w-full max-w-[220px] overflow-hidden rounded-full bg-muted">
                         <div className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-[hsl(var(--success))]" : "bg-accent"}`} style={{ width: `${pct}%` }} />
