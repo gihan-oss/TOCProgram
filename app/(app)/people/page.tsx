@@ -80,7 +80,7 @@ export default function PeoplePage() {
                       <p className="font-semibold">{p.name || p.email}</p>
                       {isMe && <Badge tone="accent">You</Badge>}
                       {p.member_role === "admin" && <Badge tone="muted"><Icons.ShieldCheck className="h-3 w-3" /> Staff</Badge>}
-                      <Badge tone={pct >= 100 ? "success" : "muted"}>{rank.emoji} {rank.label}</Badge>
+                      <Badge tone={pct >= 100 ? "accent" : "muted"}>{rank.emoji} {rank.label}</Badge>
                     </div>
                     {(p.role_type || p.department) && (
                       <p className="mt-0.5 text-xs text-muted-foreground">
@@ -89,10 +89,10 @@ export default function PeoplePage() {
                     )}
                     <div className="mt-1.5 flex items-center gap-2.5">
                       <div className="h-2.5 w-full max-w-[220px] overflow-hidden rounded-full bg-muted">
-                        <div className={`h-full rounded-full transition-all duration-700 ${pct >= 100 ? "bg-[hsl(var(--success))]" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+                        <div className={`h-full rounded-full transition-all duration-700 ${pct >= 100 ? "bg-primary" : "bg-accent"}`} style={{ width: `${pct}%` }} />
                       </div>
                       <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">
-                        {pct >= 100 ? <span className="inline-flex items-center gap-1 text-[hsl(var(--success))]"><Icons.Trophy className="h-3.5 w-3.5" /> Finished!</span> : `${pct}% · ${p.done_count} item${p.done_count !== 1 ? "s" : ""}`}
+                        {pct >= 100 ? <span className="inline-flex items-center gap-1 text-primary"><Icons.Trophy className="h-3.5 w-3.5" /> Finished!</span> : `${pct}% · ${p.done_count} item${p.done_count !== 1 ? "s" : ""}`}
                       </span>
                     </div>
                   </div>
