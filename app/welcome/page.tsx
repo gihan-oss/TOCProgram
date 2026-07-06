@@ -11,6 +11,7 @@ import { homeFor } from "@/lib/nav";
 import { setOnboarded } from "@/lib/onboarding";
 import { saveProfile, getProfile, addNotification, sendEmail } from "@/lib/store";
 import { welcomeEmail } from "@/lib/email-templates";
+import { loadClients, primaryClient } from "@/lib/clients";
 import { MAS, PORTAL_URL, MEMBER_ROLE_TYPES, DEPARTMENTS, COMMITMENT_LEVELS, TENURE_OPTIONS } from "@/lib/mas";
 
 const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "Youth Mentorship", "Data & Reporting", "Operations", "Tech & Web"];
@@ -20,6 +21,8 @@ export default function WelcomePage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
+  // The client whose logo co-brands the welcome email, beside Amal & Company.
+  const [coBrand, setCoBrand] = useState<{ logoUrl?: string; name?: string }>({});
 
   // "Know Our Members" profile
   const [roleType, setRoleType] = useState("");
@@ -51,6 +54,17 @@ export default function WelcomePage() {
     });
     return () => { active = false; };
   }, [user?.email]);
+
+  // Load the primary client's logo once, to co-brand the welcome email.
+  useEffect(() => {
+    let active = true;
+    loadClients().then((cs) => {
+      if (!active) return;
+      const c = primaryClient(cs);
+      if (c) setCoBrand({ logoUrl: c.logoUrl, name: c.name });
+    });
+    return () => { active = false; };
+  }, []);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center bg-background"><Icons.Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -89,7 +103,7 @@ export default function WelcomePage() {
       // fire-and-forget branded welcome email — sent once, whichever way they
       // joined (admin invite, email sign-up, or Google). Simulated until an
       // email key is set, so flows never break.
-      const { subject, html } = welcomeEmail({ name: user.name, email: user.email, roleType, department, portalUrl: PORTAL_URL });
+      const { subject, html } = welcomeEmail({ name: user.name, email: user.email, roleType, department, portalUrl: PORTAL_URL, clientLogoUrl: coBrand.logoUrl, clientName: coBrand.name });
       sendEmail(user.email, subject, html);
     } finally {
       router.replace(homeFor(user.role));
