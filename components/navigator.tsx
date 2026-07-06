@@ -39,9 +39,16 @@ export function Navigator() {
         `<p><b>New question via ${NAVIGATOR.name} (portal navigator)</b></p>` +
         `<p><b>Name:</b> ${name}</p><p><b>Email:</b> ${email}</p>` +
         `<p><b>Question:</b><br>${question.replace(/\n/g, "<br>")}</p>`;
-      // Email the team. Reply-to is the asker, so a reply goes straight back to
-      // them. Check the result — only report success if it actually sent.
-      const res = await sendEmail(MAS.contactEmail, `Portal question from ${name}`, html, { replyTo: email.trim() });
+      // Email the team so it reads as coming from the asker: their name is the
+      // sender display name and their address is the reply-to, so hitting Reply
+      // in the inbox goes straight back to them. (The actual send address must
+      // stay a verified sender — email providers reject spoofed From addresses.)
+      // Check the result — only report success if it actually sent.
+      const res = await sendEmail(MAS.contactEmail, `Portal question from ${name}`, html, {
+        replyTo: email.trim(),
+        replyToName: name.trim(),
+        fromName: `${name.trim()} (via ${NAVIGATOR.name})`,
+      });
       if (!res.ok) {
         toast(`Couldn't send just now — ${res.error ?? "please try again"}.`, "error");
         setBusy(false);
