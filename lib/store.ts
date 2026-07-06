@@ -294,12 +294,17 @@ export const isSupabaseConfigured = () => !!getSupabaseBrowserClient();
 
 // ---------------- Email ----------------
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; demo?: boolean; error?: string }> {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  opts?: { replyTo?: string },
+): Promise<{ ok: boolean; demo?: boolean; error?: string }> {
   try {
     const res = await fetch("/api/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject, html }),
+      body: JSON.stringify({ to, subject, html, replyTo: opts?.replyTo }),
     });
     return (await res.json()) as { ok: boolean; demo?: boolean; error?: string };
   } catch {

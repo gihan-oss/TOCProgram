@@ -51,6 +51,8 @@ export default function AccessPage() {
   }, []);
 
   const clientNames = clients.map((c) => c.name);
+  // The uploaded logo for a given client name — co-brands the invite email.
+  const clientLogo = (name?: string) => clients.find((c) => c.name === name)?.logoUrl;
 
   // Split a free-text field into unique, valid-looking emails — so an admin can
   // paste several at once (separated by commas, spaces, semicolons or newlines).
@@ -66,7 +68,7 @@ export default function AccessPage() {
     setRows((r) => mergeMembers([member], r));
     await saveMember(member);
     await addNotification(target, `You've been invited as ${label}`, `Welcome to the ${MAS.partner} Impact Portal${member.client ? ` — ${member.client}` : ""}.`);
-    const { subject, html } = inviteEmail({ name: member.name, email: target, password: member.temp_password, role, client: member.client, loginUrl: LOGIN_URL });
+    const { subject, html } = inviteEmail({ name: member.name, email: target, password: member.temp_password, role, client: member.client, clientLogoUrl: clientLogo(member.client), loginUrl: LOGIN_URL });
     const res = await sendEmail(target, subject, html);
     return { ok: res.ok, demo: !!res.demo, pwd: member.temp_password };
   }
@@ -101,7 +103,7 @@ export default function AccessPage() {
       await saveMember(updated);
       setRows((r) => r.map((x) => (x.email === m.email ? updated : x)));
     }
-    const { subject, html } = inviteEmail({ name: m.name, email: m.email, password: pwd, role: m.role, client: m.client, loginUrl: LOGIN_URL });
+    const { subject, html } = inviteEmail({ name: m.name, email: m.email, password: pwd, role: m.role, client: m.client, clientLogoUrl: clientLogo(m.client), loginUrl: LOGIN_URL });
     const res = await sendEmail(m.email, subject, html);
     toast(
       res.ok ? (res.demo ? `Email simulated. Temp password: ${pwd}` : "Credentials re-sent ✨") : `Failed: ${res.error ?? "unknown error"}`,
@@ -117,7 +119,7 @@ export default function AccessPage() {
     for (const m of invited) {
       let pwd = m.temp_password;
       if (!pwd) { pwd = genTempPassword(); const u = { ...m, temp_password: pwd }; await saveMember(u); setRows((r) => r.map((x) => (x.email === m.email ? u : x))); }
-      const { subject, html } = inviteEmail({ name: m.name, email: m.email, password: pwd, role: m.role, client: m.client, loginUrl: LOGIN_URL });
+      const { subject, html } = inviteEmail({ name: m.name, email: m.email, password: pwd, role: m.role, client: m.client, clientLogoUrl: clientLogo(m.client), loginUrl: LOGIN_URL });
       const res = await sendEmail(m.email, subject, html);
       if (res.ok) { sent++; if (res.demo) demo = true; }
     }

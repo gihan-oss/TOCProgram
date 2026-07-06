@@ -39,8 +39,14 @@ export function Navigator() {
         `<p><b>New question via ${NAVIGATOR.name} (portal navigator)</b></p>` +
         `<p><b>Name:</b> ${name}</p><p><b>Email:</b> ${email}</p>` +
         `<p><b>Question:</b><br>${question.replace(/\n/g, "<br>")}</p>`;
-      // Notify the team. Simulated until an email key is configured — never blocks.
-      await sendEmail(MAS.contactEmail, `Portal question from ${name}`, html);
+      // Email the team. Reply-to is the asker, so a reply goes straight back to
+      // them. Check the result — only report success if it actually sent.
+      const res = await sendEmail(MAS.contactEmail, `Portal question from ${name}`, html, { replyTo: email.trim() });
+      if (!res.ok) {
+        toast(`Couldn't send just now — ${res.error ?? "please try again"}.`, "error");
+        setBusy(false);
+        return;
+      }
       // Confirmation the asker can see inside the portal.
       if (user) {
         await addNotification(

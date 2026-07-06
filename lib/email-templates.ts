@@ -29,9 +29,23 @@ export function genTempPassword(): string {
 }
 
 // ---- shared building blocks ----------------------------------------------
-const logoBar = `<tr><td class="px" style="padding:22px 36px;border-bottom:1px solid ${BRAND.border};">
-  <img src="${PORTAL_URL}/logo.png" alt="${MAS.partner}" height="34" style="height:34px;">
-</td></tr>`;
+// The Amal & Company logo, with the client's own logo (or name) beside it when
+// a client has uploaded one — a co-brand lockup, same as the portal header.
+function logoBar(clientLogoUrl?: string, clientName?: string): string {
+  const amal = `<img src="${PORTAL_URL}/logo.png" alt="${MAS.partner}" height="34" style="height:34px;">`;
+  const hasClient = !!(clientLogoUrl || clientName);
+  const clientCell = clientLogoUrl
+    ? `<img src="${clientLogoUrl}" alt="${clientName ?? "Client"}" height="34" style="height:34px;max-width:170px;">`
+    : `<span style="font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:16px;color:${BRAND.navy};">${clientName ?? ""}</span>`;
+  const inner = hasClient
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="middle">${amal}</td>
+        <td valign="middle" style="padding:0 14px;"><div style="width:1px;height:26px;background:${BRAND.border};font-size:1px;line-height:1px;">&nbsp;</div></td>
+        <td valign="middle">${clientCell}</td>
+      </tr></table>`
+    : amal;
+  return `<tr><td class="px" style="padding:22px 36px;border-bottom:1px solid ${BRAND.border};">${inner}</td></tr>`;
+}
 
 function hero(eyebrow: string, title: string, sub: string): string {
   return `<tr><td class="px" style="padding:30px 36px 6px 36px;font-family:Arial,Helvetica,sans-serif;">
@@ -59,13 +73,13 @@ function step(n: string, title: string, body: string): string {
   </td></tr>`;
 }
 
-function shell(preheader: string, inner: string): string {
+function shell(preheader: string, inner: string, brand?: { clientLogoUrl?: string; clientName?: string }): string {
   return `<!doctype html><html lang="en"><head>${HEAD}<title>${MAS.partner}</title></head>
 <body style="margin:0;padding:0;background-color:${BRAND.bg};">
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${BRAND.bg};">${preheader}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${BRAND.bg};"><tr><td align="center" style="padding:28px 12px;">
     <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:${BRAND.card};border-radius:14px;overflow:hidden;border:1px solid ${BRAND.border};">
-      ${logoBar}
+      ${logoBar(brand?.clientLogoUrl, brand?.clientName)}
       ${inner}
       <tr><td class="px" style="padding:22px 36px 30px 36px;border-top:1px solid ${BRAND.border};font-family:Arial,Helvetica,sans-serif;">
         <div style="font-size:12px;color:${BRAND.soft};">${MAS.partner} · ${MAS.orgFull}</div>
@@ -85,8 +99,9 @@ export function inviteEmail(opts: {
   role: "admin" | "participant";
   loginUrl: string;
   client?: string;
+  clientLogoUrl?: string;
 }): { subject: string; html: string } {
-  const { name, email, password, role, loginUrl, client } = opts;
+  const { name, email, password, role, loginUrl, client, clientLogoUrl } = opts;
   const roleLabel = role === "admin" ? "Administrator" : "Learner";
   const greetName = name && name.trim() ? name.trim().split(" ")[0] : "there";
   const subject = `You're invited to the ${MAS.partner} Impact Portal`;
@@ -128,7 +143,7 @@ export function inviteEmail(opts: {
       </table>
     </td></tr>`;
 
-  return { subject, html: shell("Your Impact Portal account is ready — sign in and get started.", inner) };
+  return { subject, html: shell("Your Impact Portal account is ready — sign in and get started.", inner, { clientLogoUrl, clientName: client }) };
 }
 
 // ---- Welcome (once onboarding is done) ------------------------------------
@@ -138,8 +153,10 @@ export function welcomeEmail(opts: {
   roleType?: string;
   department?: string;
   portalUrl: string;
+  clientLogoUrl?: string;
+  clientName?: string;
 }): { subject: string; html: string } {
-  const { name, roleType, department, portalUrl } = opts;
+  const { name, roleType, department, portalUrl, clientLogoUrl, clientName } = opts;
   const greetName = name && name.trim() ? name.trim().split(" ")[0] : "there";
   const subject = `You're all set — welcome to the ${MAS.partner} Impact Portal`;
   const tag = [roleType, department].filter(Boolean).join(" · ");
@@ -157,5 +174,5 @@ export function welcomeEmail(opts: {
       ${button(portalUrl, "Open your dashboard →")}
     </td></tr>`;
 
-  return { subject, html: shell("You're all set — jump back into your dashboard whenever you're ready.", inner) };
+  return { subject, html: shell("You're all set — jump back into your dashboard whenever you're ready.", inner, { clientLogoUrl, clientName }) };
 }
