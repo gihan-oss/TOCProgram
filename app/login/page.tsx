@@ -10,11 +10,14 @@ import { useAuth } from "@/components/auth";
 import { IMAGES } from "@/lib/images";
 import { resolveAccess } from "@/lib/access";
 import { homeFor } from "@/lib/nav";
-import { hasOnboarded } from "@/lib/onboarding";
+import { resolveOnboarded } from "@/lib/onboarding";
 import { MAS } from "@/lib/mas";
 
-function destFor(email: string, role: ReturnType<typeof resolveAccess>["role"]) {
-  return hasOnboarded(email) ? homeFor(role) : "/welcome";
+// Where to land after sign-in: returning members go home; first-timers go to
+// the guided welcome. Checks the saved profile too, so someone who onboarded
+// on another device isn't asked twice.
+async function destFor(email: string, role: ReturnType<typeof resolveAccess>["role"]) {
+  return (await resolveOnboarded(email)) ? homeFor(role) : "/welcome";
 }
 
 export default function LoginPage() {
@@ -28,7 +31,10 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace(destFor(user.email, user.role));
+    if (loading || !user) return;
+    let active = true;
+    destFor(user.email, user.role).then((dest) => { if (active) router.replace(dest); });
+    return () => { active = false; };
   }, [loading, user, router]);
 
   async function submit(e: React.FormEvent) {
@@ -38,7 +44,7 @@ export default function LoginPage() {
     const res = mode === "signin" ? await signIn(email, password) : await signUp(name, email, password);
     setBusy(false);
     if (res.error) setError(res.error);
-    else router.replace(destFor(email, resolveAccess(email).role));
+    else router.replace(await destFor(email, resolveAccess(email).role));
   }
 
   return (
