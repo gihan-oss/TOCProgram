@@ -52,26 +52,45 @@ export default function AccessPage() {
 
   const clientNames = clients.map((c) => c.name);
 
-  async function invite(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.includes("@")) return;
-    const target = email.toLowerCase();
+  // Split a free-text field into unique, valid-looking emails — so an admin can
+  // paste several at once (separated by commas, spaces, semicolons or newlines).
+  function parseEmails(raw: string): string[] {
+    return Array.from(new Set(
+      raw.split(/[\s,;]+/).map((s) => s.trim().toLowerCase()).filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)),
+    ));
+  }
+
+  async function inviteOne(target: string): Promise<{ ok: boolean; demo: boolean; pwd: string }> {
     const label = role === "admin" ? "Administrator" : "Learner";
     const member: Member = { email: target, name: nameFromEmail(target), role, status: "Invited", temp_password: genTempPassword(), client: client || undefined };
     setRows((r) => mergeMembers([member], r));
-    setEmail("");
     await saveMember(member);
     await addNotification(target, `You've been invited as ${label}`, `Welcome to the ${MAS.partner} Impact Portal${member.client ? ` — ${member.client}` : ""}.`);
     const { subject, html } = inviteEmail({ name: member.name, email: target, password: member.temp_password, role, client: member.client, loginUrl: LOGIN_URL });
     const res = await sendEmail(target, subject, html);
-    toast(
-      res.ok
-        ? (res.demo
-            ? `Invite saved — email simulated. Temp password: ${member.temp_password}`
-            : `Invitation sent ✨ Temp password: ${member.temp_password}`)
-        : `Invite saved — email failed: ${res.error ?? "unknown error"}`,
-      res.ok ? "success" : "error",
-    );
+    return { ok: res.ok, demo: !!res.demo, pwd: member.temp_password };
+  }
+
+  async function invite(e: React.FormEvent) {
+    e.preventDefault();
+    const targets = parseEmails(email);
+    if (targets.length === 0) { toast("Enter at least one valid email address.", "error"); return; }
+    setEmail("");
+    setBusy(true);
+    if (targets.length === 1) {
+      const r = await inviteOne(targets[0]);
+      setBusy(false);
+      toast(
+        r.ok ? (r.demo ? `Invite saved — email simulated. Temp password: ${r.pwd}` : `Invitation sent ✨ Temp password: ${r.pwd}`) : "Invite saved — email failed.",
+        r.ok ? "success" : "error",
+      );
+      return;
+    }
+    // bulk: invite everyone, then summarise
+    let sent = 0, demo = false;
+    for (const t of targets) { const r = await inviteOne(t); if (r.ok) { sent++; if (r.demo) demo = true; } }
+    setBusy(false);
+    toast(`${sent}/${targets.length} invitation${targets.length !== 1 ? "s" : ""} ${demo ? "simulated" : "sent"} ✨`, sent > 0 ? "success" : "error");
   }
 
   async function resend(m: Member) {
@@ -141,7 +160,7 @@ export default function AccessPage() {
         <form onSubmit={invite} className="flex flex-wrap items-center gap-3">
           <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border bg-background px-3 py-2.5">
             <Icons.Mail className="h-4 w-4 text-muted-foreground" />
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@organization.org" className="w-full bg-transparent text-sm outline-none" />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@org.org — or paste several, separated by commas" className="w-full bg-transparent text-sm outline-none" />
           </div>
           <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2.5 text-sm">
             <Icons.Building2 className="h-4 w-4 text-muted-foreground" />

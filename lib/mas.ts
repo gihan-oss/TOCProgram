@@ -10,7 +10,7 @@ export const MAS = {
   northStar: "To move people and nurture lifelong, God-centered agents of change.",
   // Where questions asked through Nuri (the in-portal navigator) are sent.
   // Change this one line to route them to the right inbox.
-  contactEmail: "hello@amalandcompany.com",
+  contactEmail: "info@amalandcompany.com",
 };
 
 // The portal's public address — used in every emailed link (invites, welcome).
