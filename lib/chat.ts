@@ -72,3 +72,85 @@ export function subscribeMessages(client: string, onInsert: (m: ChatMessage) => 
     void sb.removeChannel(channel);
   };
 }
+
+// ---------------- People directory (org-mates + progress) ----------------
+
+export interface OrgPerson {
+  email: string;
+  name: string;
+  member_role: string;
+  client: string;
+  done_count: number;
+  updated_at?: string;
+}
+
+// Everyone the signed-in user may see: their own organization (staff see all),
+// with each person's completed-items count. Server-enforced via org_people().
+export async function listOrgPeople(): Promise<OrgPerson[]> {
+  const sb = getSupabaseBrowserClient();
+  if (!sb) return [];
+  const { data, error } = await sb.rpc("org_people");
+  if (error) { console.error("[chat] org_people failed", error.message); return []; }
+  return ((data as OrgPerson[] | null) ?? []).map((p) => ({ ...p, done_count: p.done_count ?? 0 }));
+}
+
+// ---------------- Direct messages (1:1, private) ----------------
+
+export interface DirectMessage {
+  id: string;
+  from_email: string;
+  to_email: string;
+  from_name: string;
+  body: string;
+  read: boolean;
+  created_at: string;
+}
+
+// All DMs the user is part of (both directions), oldest first.
+export async function listMyDms(me: string, limit = 500): Promise<DirectMessage[]> {
+  const sb = getSupabaseBrowserClient();
+  if (!sb) return [];
+  const e = me.toLowerCase();
+  const { data, error } = await sb
+    .from("dms")
+    .select("*")
+    .or(`from_email.eq.${e},to_email.eq.${e}`)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) { console.error("[chat] listMyDms failed", error.message); return []; }
+  return (data as DirectMessage[] | null) ?? [];
+}
+
+export async function sendDm(from: string, fromName: string, to: string, body: string): Promise<{ error?: string }> {
+  const sb = getSupabaseBrowserClient();
+  if (!sb) return { error: "Messaging needs the live database (Supabase)." };
+  const text = body.trim();
+  if (!text) return {};
+  const { error } = await sb.from("dms").insert({
+    from_email: from.toLowerCase(), to_email: to.toLowerCase(), from_name: fromName, body: text,
+  });
+  if (error) console.error("[chat] sendDm failed", error.message);
+  return error ? { error: error.message } : {};
+}
+
+export async function markDmsRead(me: string, from: string): Promise<void> {
+  const sb = getSupabaseBrowserClient();
+  if (!sb) return;
+  await sb.from("dms").update({ read: true })
+    .eq("to_email", me.toLowerCase()).eq("from_email", from.toLowerCase()).eq("read", false);
+}
+
+// Live incoming DMs for me. (Own sends are appended locally by the caller.)
+export function subscribeDms(me: string, onInsert: (m: DirectMessage) => void): () => void {
+  const sb = getSupabaseBrowserClient();
+  if (!sb) return () => {};
+  const channel = sb
+    .channel(`dms:${me.toLowerCase()}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "dms", filter: `to_email=eq.${me.toLowerCase()}` },
+      (payload) => onInsert(payload.new as DirectMessage),
+    )
+    .subscribe();
+  return () => { void sb.removeChannel(channel); };
+}

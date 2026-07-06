@@ -280,3 +280,63 @@ begin
     execute 'alter publication supabase_realtime add table public.messages';
   end if;
 end $$;
+
+-- ===========================================================================
+-- People directory + 1:1 direct messages
+-- ===========================================================================
+
+-- Who a signed-in user may SEE: everyone in their own client organization
+-- (staff see everyone), with name and learning progress (count of completed
+-- items). SECURITY DEFINER so learners get this curated view without opening
+-- the members/progress tables themselves.
+create or replace function public.org_people()
+returns table(email text, name text, member_role text, client text, done_count int, updated_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select m.email,
+         coalesce(nullif(p.name, ''), m.name) as name,
+         m.role as member_role,
+         m.client,
+         coalesce(array_length(cp.done, 1), 0) as done_count,
+         cp.updated_at
+  from public.members m
+  left join public.profiles p on lower(p.email) = lower(m.email)
+  left join public.course_progress cp on lower(cp.email) = lower(m.email)
+  where public.is_staff()
+     or (m.client <> '' and m.client = public.my_client());
+$$;
+grant execute on function public.org_people() to authenticated;
+
+-- Private one-to-one messages. Only the two people on a message can read it;
+-- you can only send AS yourself; the recipient can mark it read.
+create table if not exists public.dms (
+  id         uuid primary key default gen_random_uuid(),
+  from_email text not null,
+  to_email   text not null,
+  from_name  text not null default '',
+  body       text not null,
+  read       boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists dms_pair_idx on public.dms (from_email, to_email, created_at);
+create index if not exists dms_to_idx   on public.dms (to_email, created_at desc);
+alter table public.dms enable row level security;
+
+drop policy if exists "dms read own" on public.dms;
+create policy "dms read own" on public.dms for select
+  using (lower(auth.jwt() ->> 'email') in (lower(from_email), lower(to_email)));
+drop policy if exists "dms send as self" on public.dms;
+create policy "dms send as self" on public.dms for insert
+  with check (lower(auth.jwt() ->> 'email') = lower(from_email));
+drop policy if exists "dms mark read" on public.dms;
+create policy "dms mark read" on public.dms for update
+  using (lower(auth.jwt() ->> 'email') = lower(to_email));
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'dms'
+  ) then
+    execute 'alter publication supabase_realtime add table public.dms';
+  end if;
+end $$;
