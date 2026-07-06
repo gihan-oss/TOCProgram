@@ -37,6 +37,22 @@ export default function LoginPage() {
     return () => { active = false; };
   }, [loading, user, router]);
 
+  // Pre-fill email + password from the invite email's "Sign in" link
+  // (…/login?email=…&pw=…), so invited users don't have to type them.
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const e = q.get("email");
+      const pw = q.get("pw");
+      if (e) setEmail((v) => v || e);
+      if (pw) setPassword((v) => v || pw);
+      if ((e || pw) && window.history.replaceState) {
+        // Drop the credentials from the address bar once captured.
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch {}
+  }, []);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);

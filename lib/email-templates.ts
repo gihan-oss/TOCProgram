@@ -1,7 +1,10 @@
 // Cute, email-client-safe HTML templates for transactional mail.
 // Inline styles + table layout so it renders in Gmail, Outlook, Apple Mail, etc.
 
-import { MAS } from "./mas";
+import { MAS, PORTAL_URL } from "./mas";
+
+// Brand logo lockup for email headers (white logo on the coloured header).
+const logoImg = `<img src="${PORTAL_URL}/logo-white.png" alt="${MAS.partner}" height="30" style="height:30px;display:block;margin-bottom:14px;border:0;outline:none;text-decoration:none;">`;
 
 const BRAND = {
   primary: "#5b21b6", // purple
@@ -54,6 +57,9 @@ export function inviteEmail(opts: {
   const roleLabel = role === "admin" ? "Administrator" : "Learner";
   const greetName = name && name.trim() ? name.trim().split(" ")[0] : "there";
   const subject = `🌱 You're invited to the ${MAS.partner} Impact Portal`;
+  // The Sign-in link carries the email + temp password so they're pre-filled
+  // on the login screen — the invitee just clicks and signs in.
+  const signInHref = `${loginUrl}?email=${encodeURIComponent(email)}&pw=${encodeURIComponent(password)}`;
 
   const chip = (text: string, mono = false) =>
     `<span style="display:inline-block;background:${BRAND.chip};color:${BRAND.chipInk};padding:5px 10px;border-radius:8px;font-weight:700;${mono ? "font-family:'SFMono-Regular',Consolas,Menlo,monospace;letter-spacing:.02em;" : ""}">${text}</span>`;
@@ -69,8 +75,8 @@ export function inviteEmail(opts: {
 
         <!-- header -->
         <tr><td style="background:${BRAND.primary};background:linear-gradient(135deg,${BRAND.primary},${BRAND.accent});padding:34px 36px;">
-          <div style="font-size:34px;line-height:1;">🌱✨</div>
-          <div style="margin-top:12px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:800;">You're in, ${greetName}!</div>
+          ${logoImg}
+          <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:800;">You're in, ${greetName}!</div>
           <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;opacity:.9;font-size:14px;">Welcome to the ${MAS.partner} Impact Portal — invited as <b>${roleLabel}</b>${client ? ` for <b>${client}</b>` : ""}.</div>
         </td></tr>
 
@@ -85,7 +91,7 @@ export function inviteEmail(opts: {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#faf9ff;border:1px solid #ece9fb;border-radius:14px;padding:8px 18px;">
             ${numberedStep(1, "Your email", chip(email))}
             ${numberedStep(2, "Temporary password", chip(password, true))}
-            ${numberedStep(3, "Open the portal & sign in", `<a href="${loginUrl}" style="display:inline-block;margin-top:4px;background:${BRAND.primary};color:#ffffff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:10px;">Sign in →</a>`)}
+            ${numberedStep(3, "Open the portal & sign in", `<a href="${signInHref}" style="display:inline-block;margin-top:4px;background:${BRAND.primary};color:#ffffff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:10px;">Sign in →</a><div style="margin-top:6px;font-size:12px;color:${BRAND.soft};">Your email and password are filled in for you — just click Sign in.</div>`)}
           </table>
         </td></tr>
 
@@ -146,8 +152,8 @@ export function welcomeEmail(opts: {
 
         <!-- header -->
         <tr><td style="background:${BRAND.primary};background:linear-gradient(135deg,${BRAND.primary},${BRAND.accent});padding:34px 36px;">
-          <div style="font-size:34px;line-height:1;">🎉</div>
-          <div style="margin-top:12px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:800;">You're all set, ${greetName}!</div>
+          ${logoImg}
+          <div style="font-family:Arial,Helvetica,sans-serif;color:#ffffff;font-size:24px;font-weight:800;">You're all set, ${greetName}!</div>
           <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;opacity:.9;font-size:14px;">Your account is ready on the ${MAS.partner} Impact Portal.</div>
         </td></tr>
 
