@@ -188,31 +188,16 @@ export default function LearningPage() {
 
       {!canEdit && total > 0 && (
         <Card className="mb-4 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-sm font-bold text-accent">Lv {game.levelIndex + 1}</div>
-              <div>
-                <p className="font-semibold">{game.levelName}</p>
-                <p className="text-xs text-muted-foreground">{game.xp} XP{game.isMax ? " · max level reached 🎉" : ` · ${game.toNext} XP to next level`}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-medium text-muted-foreground">{game.earnedBadges}/{game.badges.length} badges</p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-sm font-bold text-accent">Lv {game.levelIndex + 1}</div>
+            <div>
+              <p className="font-semibold">{game.levelName}</p>
+              <p className="text-xs text-muted-foreground">{game.xp} XP{game.isMax ? " · max level reached 🎉" : ` · ${game.toNext} XP to next level`}</p>
             </div>
           </div>
           {!game.isMax && game.spanLevel > 0 && (
             <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${Math.round((game.intoLevel / game.spanLevel) * 100)}%` }} /></div>
           )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            {game.badges.map((b) => {
-              const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[b.icon] ?? Icons.Award;
-              return (
-                <div key={b.id} title={`${b.name} — ${b.desc}`} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${b.earned ? "animate-pop-in bg-accent/15 text-accent" : "bg-muted text-muted-foreground/70"}`}>
-                  {b.earned ? <Icon className="h-3.5 w-3.5" /> : <Icons.Lock className="h-3 w-3" />} {b.name}
-                </div>
-              );
-            })}
-          </div>
         </Card>
       )}
 

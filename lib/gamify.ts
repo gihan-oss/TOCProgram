@@ -1,7 +1,7 @@
-// Gamification engine. XP, levels and badges are derived from a learner's
-// progress snapshot (no separate bookkeeping to keep in sync). The tone is
-// encouraging, not competitive — points and badges reward mastery, there is no
-// public ranking. Tuned for MASGLA's adult, program-owner learners.
+// Gamification engine. XP and levels are derived from a learner's progress
+// snapshot (no separate bookkeeping to keep in sync). The tone is encouraging,
+// not competitive — points reward mastery, there is no public ranking. Tuned
+// for MASGLA's adult, program-owner learners.
 
 import { moduleComplete, QUIZ_PASS, type CourseModule, type LearnerMeta } from "./content";
 
@@ -24,18 +24,6 @@ const LEVELS = [
   { min: 1300, name: "Impact Strategist" },
 ];
 
-export interface BadgeDef { id: string; name: string; desc: string; icon: string; }
-export interface BadgeState extends BadgeDef { earned: boolean; }
-
-export const BADGES: BadgeDef[] = [
-  { id: "first-steps", name: "First Steps", desc: "Complete your very first item", icon: "Footprints" },
-  { id: "sharp-mind", name: "Sharp Mind", desc: "Pass a knowledge check", icon: "Brain" },
-  { id: "perfect-recall", name: "Perfect Recall", desc: "Score 100% on a quiz", icon: "Target" },
-  { id: "artifact-builder", name: "Artifact Builder", desc: "Complete a worksheet for your program", icon: "PencilRuler" },
-  { id: "halfway", name: "Halfway There", desc: "Reach 50% of the whole course", icon: "Flag" },
-  { id: "toc-architect", name: "TOC Architect", desc: "Complete every module", icon: "Trophy" },
-];
-
 export interface GameState {
   xp: number;
   levelIndex: number;
@@ -44,8 +32,6 @@ export interface GameState {
   spanLevel: number; // xp width of the current level (0 at max)
   toNext: number; // xp remaining to the next level (0 at max)
   isMax: boolean;
-  badges: BadgeState[];
-  earnedBadges: number;
 }
 
 export function computeXp(modules: CourseModule[], done: Set<string>, meta: LearnerMeta): number {
@@ -79,32 +65,5 @@ export function computeGameState(modules: CourseModule[], done: Set<string>, met
   const spanLevel = isMax ? 0 : next - base;
   const toNext = isMax ? 0 : next - xp;
 
-  // ---- badge evaluation from the snapshot ----
-  const allResources = modules.flatMap((m) => m.resources);
-  const totalItems = allResources.length;
-  const doneItems = allResources.filter((r) => done.has(r.id)).length;
-  const passedAnyQuiz = allResources.some((r) => {
-    const s = r.type === "Quiz" ? meta.scores[r.id] : undefined;
-    return s && s.total > 0 && s.correct / s.total >= QUIZ_PASS;
-  });
-  const perfectQuiz = allResources.some((r) => {
-    const s = r.type === "Quiz" ? meta.scores[r.id] : undefined;
-    return s && s.total > 0 && s.correct === s.total;
-  });
-  const worksheetDone = allResources.some((r) => r.type === "Worksheet" && done.has(r.id));
-  const modulesWithContent = modules.filter((m) => m.resources.length > 0);
-  const allModulesDone = modulesWithContent.length > 0 && modulesWithContent.every((m) => moduleComplete(m, done));
-  const halfway = totalItems > 0 && doneItems / totalItems >= 0.5;
-
-  const earned: Record<string, boolean> = {
-    "first-steps": doneItems > 0,
-    "sharp-mind": passedAnyQuiz,
-    "perfect-recall": perfectQuiz,
-    "artifact-builder": worksheetDone,
-    "halfway": halfway,
-    "toc-architect": allModulesDone,
-  };
-
-  const badges: BadgeState[] = BADGES.map((b) => ({ ...b, earned: !!earned[b.id] }));
-  return { xp, levelIndex, levelName: LEVELS[levelIndex].name, intoLevel, spanLevel, toNext, isMax, badges, earnedBadges: badges.filter((b) => b.earned).length };
+  return { xp, levelIndex, levelName: LEVELS[levelIndex].name, intoLevel, spanLevel, toNext, isMax };
 }
