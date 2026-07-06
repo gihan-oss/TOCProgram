@@ -73,9 +73,9 @@ export default function ProfilePage() {
       avatar_url: avatar,
       onboarded: existing?.onboarded ?? true,
     };
-    await saveProfile(profile);
+    const res = await saveProfile(profile);
     setSaving(false);
-    toast("Profile saved ✓");
+    toast(res.ok ? "Profile saved ✓" : `Couldn't save — ${res.error ?? "please try again"}`, res.ok ? "success" : "error");
   }
 
   if (!user) return null;

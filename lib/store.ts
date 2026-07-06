@@ -33,6 +33,7 @@ export interface AppNotification {
 
 const PKEY = (e: string) => `toc-profile:${e.toLowerCase()}`;
 const NKEY = (e: string) => `toc-notifications:${e.toLowerCase()}`;
+const AVKEY = (e: string) => `toc-avatar:${e.toLowerCase()}`;
 
 // ---------------- Profiles ----------------
 
@@ -40,7 +41,12 @@ export async function getProfile(email: string): Promise<MemberProfile | null> {
   const sb = getSupabaseBrowserClient();
   if (sb) {
     const { data } = await sb.from("profiles").select("*").eq("email", email.toLowerCase()).maybeSingle();
-    return (data as MemberProfile | null) ?? null;
+    const p = (data as MemberProfile | null) ?? null;
+    // Fall back to a locally-kept picture if the DB doesn't have avatar_url yet.
+    if (p && !p.avatar_url) {
+      try { const a = localStorage.getItem(AVKEY(email)); if (a) p.avatar_url = a; } catch {}
+    }
+    return p;
   }
   try {
     const raw = localStorage.getItem(PKEY(email));
@@ -50,16 +56,27 @@ export async function getProfile(email: string): Promise<MemberProfile | null> {
   }
 }
 
-export async function saveProfile(profile: MemberProfile): Promise<void> {
+export async function saveProfile(profile: MemberProfile): Promise<{ ok: boolean; error?: string }> {
   const row = { ...profile, email: profile.email.toLowerCase(), updated_at: new Date().toISOString() };
   const sb = getSupabaseBrowserClient();
   if (sb) {
-    await sb.from("profiles").upsert(row, { onConflict: "email" });
-    return;
+    // Keep the picture locally too, so it survives even if the profiles table
+    // doesn't have the avatar_url column yet (schema not re-run).
+    try { if (row.avatar_url) localStorage.setItem(AVKEY(row.email), row.avatar_url); } catch {}
+    let { error } = await sb.from("profiles").upsert(row, { onConflict: "email" });
+    // Unknown-column (avatar_url) → the schema update hasn't been applied. Save
+    // everything else so the profile still persists (picture stays local).
+    if (error && (error.code === "PGRST204" || /avatar_url/i.test(error.message))) {
+      const { avatar_url: _omit, ...rest } = row;
+      ({ error } = await sb.from("profiles").upsert(rest, { onConflict: "email" }));
+    }
+    if (error) { console.error("[store] saveProfile failed", error.message); return { ok: false, error: error.message }; }
+    return { ok: true };
   }
   try {
     localStorage.setItem(PKEY(profile.email), JSON.stringify(row));
   } catch {}
+  return { ok: true };
 }
 
 // ---------------- Notifications ----------------
