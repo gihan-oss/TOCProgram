@@ -32,6 +32,7 @@ interface AuthState {
   isDemo: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (name: string, email: string, password: string) => Promise<{ error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -133,6 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {};
   };
 
+  // Let a signed-in user replace their (temporary) password with their own.
+  const updatePassword: AuthState["updatePassword"] = async (newPassword) => {
+    if (!supabase) return {}; // demo mode — nothing to update
+    if (!newPassword || newPassword.length < 6) return { error: "Your password must be at least 6 characters." };
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return error ? { error: error.message } : {};
+  };
+
   const signOut: AuthState["signOut"] = async () => {
     if (supabase) await supabase.auth.signOut();
     else localStorage.removeItem(DEMO_KEY);
@@ -141,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ user, loading, isDemo: !isSupabaseConfigured, signIn, signUp, signOut }}>
+    <Ctx.Provider value={{ user, loading, isDemo: !isSupabaseConfigured, signIn, signUp, updatePassword, signOut }}>
       {children}
     </Ctx.Provider>
   );

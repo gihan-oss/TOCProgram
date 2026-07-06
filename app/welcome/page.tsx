@@ -16,7 +16,7 @@ import { MAS, PORTAL_URL, MEMBER_ROLE_TYPES, DEPARTMENTS, COMMITMENT_LEVELS, TEN
 const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "Youth Mentorship", "Data & Reporting", "Operations", "Tech & Web"];
 
 export default function WelcomePage() {
-  const { user, loading } = useAuth();
+  const { user, loading, updatePassword } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -27,6 +27,9 @@ export default function WelcomePage() {
   const [commitment, setCommitment] = useState("");
   const [tenure, setTenure] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
+  // Let them replace the temporary password with their own during onboarding.
+  const [newPassword, setNewPassword] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -59,6 +62,13 @@ export default function WelcomePage() {
   async function finish() {
     if (!user || busy) return;
     setBusy(true);
+    setPwError(null);
+    // Replace the temporary password with the one they chose (if any) — stop
+    // here on error so they can correct it before leaving the page.
+    if (newPassword.trim()) {
+      const res = await updatePassword(newPassword.trim());
+      if (res.error) { setPwError(res.error); setBusy(false); setStep(2); return; }
+    }
     try {
       await saveProfile({
         email: user.email,
@@ -194,9 +204,27 @@ export default function WelcomePage() {
                 ))}
               </div>
 
+              {/* Create your own password (replaces the temporary one from the invite) */}
+              <div className="mt-5 rounded-2xl border border-accent/30 bg-accent/5 p-4">
+                <label className="block">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold"><Icons.KeyRound className="h-4 w-4 text-accent" /> Create your password</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">Replace your temporary password with one you'll remember. At least 6 characters.</span>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => { setNewPassword(e.target.value); setPwError(null); }}
+                    placeholder="New password"
+                    autoComplete="new-password"
+                    className="modal-input mt-2"
+                  />
+                </label>
+                {pwError && <p className="mt-2 text-xs text-[hsl(var(--danger))]">{pwError}</p>}
+                {newPassword && newPassword.length < 6 && !pwError && <p className="mt-2 text-xs text-muted-foreground">A little longer — 6+ characters.</p>}
+              </div>
+
               <div className="mt-6 flex gap-3">
                 <Button variant="outline" size="md" onClick={() => setStep(1)}><Icons.ArrowLeft className="h-4 w-4" /> Back</Button>
-                <Button size="md" className="flex-1" disabled={!profileReady || busy} onClick={finish}>
+                <Button size="md" className="flex-1" disabled={!profileReady || busy || (!!newPassword && newPassword.length < 6)} onClick={finish}>
                   {busy ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <>{profileReady ? "Finish & enter the portal" : "Choose your role & department"} <Icons.ArrowRight className="h-4 w-4" /></>}
                 </Button>
               </div>
