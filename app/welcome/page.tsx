@@ -9,60 +9,10 @@ import { Typewriter } from "@/components/typewriter";
 import { useAuth } from "@/components/auth";
 import { homeFor } from "@/lib/nav";
 import { setOnboarded } from "@/lib/onboarding";
-import { saveProfile, addNotification, sendEmail } from "@/lib/store";
+import { saveProfile, getProfile, addNotification, sendEmail } from "@/lib/store";
 import { MAS, PORTAL_URL, MEMBER_ROLE_TYPES, DEPARTMENTS, COMMITMENT_LEVELS, TENURE_OPTIONS } from "@/lib/mas";
-import type { Role } from "@/lib/types";
 
 const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "Youth Mentorship", "Data & Reporting", "Operations", "Tech & Web"];
-
-const ROLE_TASKS: Record<Role, { intro: string; tasks: { icon: string; text: string }[]; cta: string }> = {
-  participant: {
-    intro: "Your learning opens up one module at a time. Finish one to unlock the next.",
-    tasks: [
-      { icon: "PlayCircle", text: "Watch videos and read the materials" },
-      { icon: "FileText", text: "Open the PDFs and files your facilitator shares" },
-      { icon: "ClipboardCheck", text: "Take short tests to check your understanding" },
-      { icon: "Unlock", text: "Unlock the next module as you complete each one" },
-    ],
-    cta: "Start learning",
-  },
-  facilitator: {
-    intro: "You'll guide members through implementation and keep programs accountable.",
-    tasks: [
-      { icon: "ClipboardCheck", text: "Review and approve submissions" },
-      { icon: "MessageSquare", text: "Give feedback on TOCs and logframes" },
-      { icon: "Activity", text: "Monitor cohort progress" },
-    ],
-    cta: "Go to my dashboard",
-  },
-  coordinator: {
-    intro: "You'll keep programs on track and progress visible.",
-    tasks: [
-      { icon: "ListChecks", text: "Track completion across members" },
-      { icon: "FolderOpen", text: "Monitor program artifacts" },
-      { icon: "Download", text: "Export reports for leadership" },
-    ],
-    cta: "Go to my dashboard",
-  },
-  admin: {
-    intro: "You build the course and manage who's in. Here's the loop:",
-    tasks: [
-      { icon: "BookMarked", text: "Create modules in the Course Builder" },
-      { icon: "Plus", text: "Add videos, PDFs, files, notes and tests" },
-      { icon: "UserPlus", text: "Invite admins and learners by email" },
-      { icon: "Eye", text: "Preview it with “View as participant”" },
-    ],
-    cta: "Open Admin Home",
-  },
-  executive: {
-    intro: "You'll see whether activity is converting into measurable impact.",
-    tasks: [
-      { icon: "TrendingUp", text: "Review impact dashboards" },
-      { icon: "Rocket", text: "Monitor implementation rates" },
-    ],
-    cta: "View dashboards",
-  },
-};
 
 export default function WelcomePage() {
   const { user, loading } = useAuth();
@@ -81,12 +31,28 @@ export default function WelcomePage() {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
+  // Pre-fill from the saved profile so a returning user never re-types their
+  // info — and can never accidentally overwrite it with blanks. They enter it
+  // once; every later visit shows what they already saved.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    getProfile(user.email).then((p) => {
+      if (!active || !p) return;
+      setRoleType((v) => v || p.role_type || "");
+      setDepartment((v) => v || p.department || "");
+      setCommitment((v) => v || p.commitment || "");
+      setTenure((v) => v || p.tenure || "");
+      setSkills((v) => (v.length ? v : p.skills ?? []));
+    });
+    return () => { active = false; };
+  }, [user?.email]);
+
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center bg-background"><Icons.Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
   const firstName = user.name.split(" ")[0];
-  const roleContent = ROLE_TASKS[user.role];
   const profileReady = roleType && department;
 
   async function finish() {
@@ -130,7 +96,7 @@ export default function WelcomePage() {
       <div className="relative z-10 flex items-center justify-between px-6 py-5">
         <Logo invert size="md" />
         <div className="flex items-center gap-1.5">
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2].map((i) => (
             <span key={i} className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-white" : i < step ? "w-4 bg-white/70" : "w-4 bg-white/30"}`} />
           ))}
         </div>
@@ -230,40 +196,8 @@ export default function WelcomePage() {
 
               <div className="mt-6 flex gap-3">
                 <Button variant="outline" size="md" onClick={() => setStep(1)}><Icons.ArrowLeft className="h-4 w-4" /> Back</Button>
-                <Button size="md" className="flex-1" disabled={!profileReady} onClick={() => setStep(3)}>
-                  {profileReady ? "Continue" : "Choose your role & department"} <Icons.ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3 — Role-specific next steps */}
-        {step === 3 && (
-          <div className="w-full max-w-xl">
-            <div className="animate-fade-up rounded-3xl bg-white p-7 text-foreground shadow-2xl sm:p-8">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[hsl(var(--success)/0.15)] px-3 py-1 text-xs font-semibold text-[hsl(var(--success))]">
-                <Icons.BadgeCheck className="h-3.5 w-3.5" /> {roleType || "Member"} · {department || "Your team"}
-              </span>
-              <h2 className="mt-3 text-2xl font-extrabold tracking-tight">Here's your path</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{roleContent.intro}</p>
-
-              <ul className="mt-5 space-y-2.5">
-                {roleContent.tasks.map((t, i) => {
-                  const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[t.icon] ?? Icons.Check;
-                  return (
-                    <li key={i} className="animate-fade-up flex items-center gap-3 rounded-xl border bg-card p-3" style={{ animationDelay: `${i * 90}ms` }}>
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent"><Cmp className="h-4 w-4" /></span>
-                      <span className="text-sm font-medium">{t.text}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <div className="mt-6 flex gap-3">
-                <Button variant="outline" size="md" onClick={() => setStep(2)}><Icons.ArrowLeft className="h-4 w-4" /> Back</Button>
-                <Button size="md" className="flex-1" onClick={finish} disabled={busy}>
-                  {busy ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <>{roleContent.cta} <Icons.ArrowRight className="h-4 w-4" /></>}
+                <Button size="md" className="flex-1" disabled={!profileReady || busy} onClick={finish}>
+                  {busy ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <>{profileReady ? "Finish & enter the portal" : "Choose your role & department"} <Icons.ArrowRight className="h-4 w-4" /></>}
                 </Button>
               </div>
             </div>
