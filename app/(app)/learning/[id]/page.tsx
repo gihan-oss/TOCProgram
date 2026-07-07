@@ -9,7 +9,7 @@ import { Confetti } from "@/components/confetti";
 import { QuizGame } from "@/components/quiz-game";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
-import { CLIENT } from "@/lib/mas";
+import { CLIENT, AREAS_OF_FOCUS } from "@/lib/mas";
 import { effectiveModules } from "@/lib/starter-course";
 import {
   loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile, moduleComplete,
@@ -538,6 +538,12 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
     if (i !== active) setActive(i);
   }
 
+  // For cascading dropdowns: the chosen Area of Focus (from the sheet's "area"
+  // field) drives which outcomes an "outcome" field offers.
+  const areaField = fields.find((f) => f.kind === "area");
+  const chosenArea = areaField ? (vals[areaField.id] ?? "") : "";
+  const outcomeOptions = AREAS_OF_FOCUS.find((a) => a.name === chosenArea)?.verbs ?? [];
+
   const required = fields.filter((f) => f.required);
   const filled = fields.filter((f) => (vals[f.id] ?? "").trim()).length;
   const pct = fields.length ? Math.round((filled / fields.length) * 100) : 0;
@@ -615,7 +621,40 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
               </div>
               <label className="mt-3 block text-base font-semibold leading-snug">{f.label}{f.required && <span className="text-[hsl(var(--danger))]"> *</span>}</label>
               {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
-              {f.long ? (
+              {f.kind === "area" ? (
+                // Pick one of the 6 Areas of Focus.
+                <select
+                  value={vals[f.id] ?? ""}
+                  onChange={(e) => {
+                    set(f.id, e.target.value);
+                    // Changing the area clears any outcome that no longer fits.
+                    const verbs: readonly string[] = AREAS_OF_FOCUS.find((a) => a.name === e.target.value)?.verbs ?? [];
+                    fields.filter((x) => x.kind === "outcome").forEach((x) => {
+                      if (!verbs.includes(vals[x.id] ?? "")) setVals((p) => ({ ...p, [x.id]: "" }));
+                    });
+                  }}
+                  className="mt-3 block w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
+                >
+                  <option value="">Choose an area of focus…</option>
+                  {AREAS_OF_FOCUS.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
+                </select>
+              ) : f.kind === "outcome" ? (
+                // Outcomes for the chosen Area of Focus (cascades from it).
+                chosenArea ? (
+                  <select
+                    value={vals[f.id] ?? ""}
+                    onChange={(e) => set(f.id, e.target.value)}
+                    className="mt-3 block w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
+                  >
+                    <option value="">Choose an outcome…</option>
+                    {outcomeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <p className="mt-3 rounded-lg border border-dashed bg-secondary/30 px-3 py-2.5 text-sm text-muted-foreground">
+                    Choose an area of focus first, then its outcomes appear here.
+                  </p>
+                )
+              ) : f.long ? (
                 <textarea
                   value={vals[f.id] ?? ""}
                   onChange={(e) => set(f.id, e.target.value)}
@@ -714,7 +753,7 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
       if (!body.trim()) { toast("Write some text first", "error"); return; }
       onAdd({ id, type, title, body });
     } else if (type === "Worksheet") {
-      const clean = fields.filter((f) => f.label.trim()).map((f) => ({ id: f.id, label: f.label.trim(), hint: f.hint?.trim() || undefined, long: f.long, required: f.required }));
+      const clean = fields.filter((f) => f.label.trim()).map((f) => ({ id: f.id, label: f.label.trim(), hint: f.hint?.trim() || undefined, long: f.long, required: f.required, kind: f.kind && f.kind !== "text" ? f.kind : undefined }));
       if (clean.length === 0) { toast("Add at least one prompt", "error"); return; }
       onAdd({ id, type, title, body: body.trim() || undefined, fields: clean });
     } else if (type === "Quiz") {
@@ -779,13 +818,29 @@ function AddContent({ onAdd }: { onAdd: (r: Resource) => void }) {
               <div key={f.id} className="space-y-2 rounded-md border p-2.5">
                 <input value={f.label} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, label: e.target.value } : x))} placeholder={`Prompt ${fi + 1} (e.g. "Draft your IF statement")`} className="modal-input" />
                 <input value={f.hint ?? ""} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, hint: e.target.value } : x))} placeholder="Hint (optional)" className="modal-input" />
-                <div className="flex flex-wrap items-center gap-4 text-xs">
-                  <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={!!f.long} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, long: e.target.checked } : x))} /> Long answer</label>
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <label className="inline-flex items-center gap-1.5">
+                    Answer:
+                    <select
+                      value={f.kind ?? "text"}
+                      onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, kind: e.target.value as WorksheetField["kind"] } : x))}
+                      className="rounded-md border bg-background px-1.5 py-1 text-xs outline-none"
+                      title="How the learner answers this prompt"
+                    >
+                      <option value="text">Written text</option>
+                      <option value="area">Area of Focus (dropdown)</option>
+                      <option value="outcome">Outcome — for the chosen area (dropdown)</option>
+                    </select>
+                  </label>
+                  {(f.kind ?? "text") === "text" && (
+                    <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={!!f.long} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, long: e.target.checked } : x))} /> Long answer</label>
+                  )}
                   <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={!!f.required} onChange={(e) => setFields((fs) => fs.map((x, i) => i === fi ? { ...x, required: e.target.checked } : x))} /> Required</label>
                   {fields.length > 1 && <button type="button" onClick={() => setFields((fs) => fs.filter((_, i) => i !== fi))} className="text-[hsl(var(--danger))] hover:underline">Remove</button>}
                 </div>
               </div>
             ))}
+            <p className="text-[11px] text-muted-foreground">Tip: add an <b>Area of Focus</b> prompt, then an <b>Outcome</b> prompt — the outcome choices follow whatever area the learner picks.</p>
             <button type="button" onClick={() => setFields((fs) => [...fs, { id: `wf-${Date.now()}-${fs.length}`, label: "", long: true, required: true }])} className="text-xs font-medium text-accent hover:underline">+ add prompt</button>
           </div>
         )}

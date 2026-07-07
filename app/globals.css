@@ -27,8 +27,11 @@
   --input: 275 30% 90%;
   --ring: 275 72% 60%;
 
-  --success: 142 71% 38%;
-  --warning: 38 92% 50%;
+  /* Kept in the portal's purple family — no clashing green/amber "traffic
+     light" colours. Red (--danger) stays red, but only for genuine
+     delete / error actions, never for status or progress. */
+  --success: 265 58% 48%;
+  --warning: 291 46% 58%;
   --danger: 0 72% 51%;
 
   --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -57,8 +60,8 @@
   --input: 273 20% 24%;
   --ring: 275 74% 70%;
 
-  --success: 142 64% 45%;
-  --warning: 38 92% 55%;
+  --success: 265 66% 70%;
+  --warning: 291 56% 70%;
   --danger: 0 72% 58%;
 }
 
