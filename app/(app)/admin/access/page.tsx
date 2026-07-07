@@ -228,9 +228,9 @@ export default function AccessPage() {
           <table className="w-full min-w-[680px] text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Client</th>
+                <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Access level</th>
+                <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -238,16 +238,14 @@ export default function AccessPage() {
             <tbody>
               {visible.map((r) => (
                 <tr key={r.email} className="border-b">
-                  <td className="px-4 py-3 font-medium">
-                    {r.email}
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{r.name || nameFromEmail(r.email)}</p>
+                    <p className="text-xs font-normal text-muted-foreground">{r.email}</p>
                     {r.status === "Invited" && r.temp_password && (
                       <div className="mt-0.5 text-xs font-normal text-muted-foreground">
                         temp password: <code className="rounded bg-muted px-1 font-mono">{r.temp_password}</code>
                       </div>
                     )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {r.client ? <Badge tone="accent"><Icons.Building2 className="h-3 w-3" /> {r.client}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="inline-flex items-center gap-1.5">
@@ -262,6 +260,9 @@ export default function AccessPage() {
                         <option value="admin">Administrator</option>
                       </select>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {r.client ? <Badge tone="accent"><Icons.Building2 className="h-3 w-3" /> {r.client}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
                   <td className="px-4 py-3"><Badge tone={r.status === "Active" ? "success" : "warning"}>{r.status}</Badge></td>
                   <td className="px-4 py-3">
