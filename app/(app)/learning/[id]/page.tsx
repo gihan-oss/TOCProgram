@@ -284,11 +284,8 @@ function ResourceCard({ r, canEdit, done, best, answers, canUp, canDown, onCompl
 }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[r.type]] ?? Icons.File;
   const isMedia = r.type === "Video" || r.type === "PDF" || r.type === "File" || r.type === "Link";
-  // Worksheets are collapsible and start collapsed — click the title to open.
-  const collapsible = r.type === "Worksheet";
-  const [open, setOpen] = useState(!collapsible);
-  const wsFields = collapsible ? (r.fields ?? []) : [];
-  const wsFilled = wsFields.filter((f) => (answers[f.id] ?? "").trim()).length;
+  // Everything shows expanded — worksheets are scrollable, so no collapsing.
+  const open = true;
 
   return (
     <Card className="p-4">
@@ -296,19 +293,10 @@ function ResourceCard({ r, canEdit, done, best, answers, canUp, canDown, onCompl
         <Icon className="mt-1 h-4 w-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            {collapsible ? (
-              <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                <Icons.ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
-                <span className="truncate text-sm font-medium">{r.title}</span>
-                {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
-                {!open && wsFields.length > 0 && <span className="shrink-0 text-xs text-muted-foreground">{wsFilled}/{wsFields.length} answered</span>}
-              </button>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
-                {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
+              {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+            </div>
             <div className="flex items-center gap-2">
               <Badge tone="muted">{RESOURCE_LABEL[r.type]}</Badge>
               {canEdit && (
@@ -542,7 +530,7 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
   // field) drives which outcomes an "outcome" field offers.
   const areaField = fields.find((f) => f.kind === "area");
   const chosenArea = areaField ? (vals[areaField.id] ?? "") : "";
-  const outcomeOptions = AREAS_OF_FOCUS.find((a) => a.name === chosenArea)?.verbs ?? [];
+  const outcomeOptions = AREAS_OF_FOCUS.find((a) => a.name === chosenArea)?.outcomes ?? [];
 
   const required = fields.filter((f) => f.required);
   const filled = fields.filter((f) => (vals[f.id] ?? "").trim()).length;
@@ -550,6 +538,17 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
   const canComplete = fields.length > 0 && required.every((f) => (vals[f.id] ?? "").trim()) && filled > 0;
 
   function set(id: string, v: string) { setVals((p) => ({ ...p, [id]: v })); }
+
+  // Auto-save: answers persist quietly a moment after the learner stops typing —
+  // no Save/Submit button to hunt for. Once the required prompts are filled it
+  // also marks the worksheet complete (for progress), which the parent handles.
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    const t = setTimeout(() => onSave(vals, canComplete), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vals, canComplete]);
 
   // Open a clean, Amal & Company–branded printable sheet. Filled answers print
   // as text; blank prompts print as ruled lines so it works as a handout too.
@@ -628,9 +627,9 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
                   onChange={(e) => {
                     set(f.id, e.target.value);
                     // Changing the area clears any outcome that no longer fits.
-                    const verbs: readonly string[] = AREAS_OF_FOCUS.find((a) => a.name === e.target.value)?.verbs ?? [];
+                    const outs: readonly string[] = AREAS_OF_FOCUS.find((a) => a.name === e.target.value)?.outcomes ?? [];
                     fields.filter((x) => x.kind === "outcome").forEach((x) => {
-                      if (!verbs.includes(vals[x.id] ?? "")) setVals((p) => ({ ...p, [x.id]: "" }));
+                      if (!outs.includes(vals[x.id] ?? "")) setVals((p) => ({ ...p, [x.id]: "" }));
                     });
                   }}
                   className="mt-3 block w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
@@ -697,17 +696,15 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
         </div>
       )}
 
-      {/* footer actions */}
+      {/* footer: progress + auto-save note + a single Print option */}
       <div className="flex flex-wrap items-center gap-3 border-t bg-secondary/30 px-4 py-3 sm:px-6">
         <div className="flex flex-1 items-center gap-2">
           <div className="h-2 w-full max-w-[160px] overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
-          {!canComplete && required.length > 0 && <span className="hidden text-xs text-muted-foreground sm:inline">Fill the required prompts</span>}
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Icons.Check className="h-3.5 w-3.5" /> {done ? "Saved" : "Saves automatically"}
+          </span>
         </div>
-        <Button size="sm" variant="outline" onClick={printWorksheet}><Icons.Printer className="h-4 w-4" /> Print</Button>
-        <Button size="sm" variant="outline" onClick={() => { onSave(vals, false); toast("Progress saved"); }}>Save progress</Button>
-        <Button size="sm" disabled={!canComplete} onClick={() => onSave(vals, true)}>
-          <Icons.Sparkles className="h-4 w-4" /> {done ? "Save changes" : "Submit worksheet"}
-        </Button>
+        <Button size="sm" onClick={printWorksheet}><Icons.Printer className="h-4 w-4" /> Print</Button>
       </div>
     </div>
   );

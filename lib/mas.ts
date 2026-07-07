@@ -48,18 +48,20 @@ export interface AreaOfFocus {
   id: string;
   name: string;
   verbs: [string, string, string];
+  outcomes: string[]; // the 2–3 outcome categories this area targets
   icon: string;
   tone: string;
 }
 
-// The 6 Areas of Focus (Strategy House pillars).
+// The 6 Areas of Focus (Strategy House pillars). Each targets 2–3 outcome
+// categories — used to cascade the Outcome dropdown from the chosen area.
 export const AREAS_OF_FOCUS: AreaOfFocus[] = [
-  { id: "islam-muslims", name: "Islam to Muslims", verbs: ["Develop", "Produce", "Distribute"], icon: "BookOpen", tone: "text-accent bg-accent/10" },
-  { id: "leadership", name: "Leadership Development", verbs: ["Train", "Equip", "Support"], icon: "Users", tone: "text-primary bg-primary/10" },
-  { id: "community", name: "Community Mobilization", verbs: ["Identify", "Organize", "Anchor"], icon: "Megaphone", tone: "text-[hsl(var(--success))] bg-[hsl(var(--success)/0.12)]" },
-  { id: "social-justice", name: "Social Justice", verbs: ["Train", "Advocate", "Develop"], icon: "Scale", tone: "text-[hsl(var(--warning))] bg-[hsl(var(--warning)/0.14)]" },
-  { id: "islam-nonmuslims", name: "Islam to Non-Muslims", verbs: ["Connect", "Develop", "Distribute"], icon: "Handshake", tone: "text-accent bg-accent/10" },
-  { id: "excellence", name: "Operate with Excellence", verbs: ["Foster", "Communicate", "Optimize"], icon: "Sparkles", tone: "text-primary bg-primary/10" },
+  { id: "islam-muslims", name: "Islam to Muslims", verbs: ["Develop", "Produce", "Distribute"], outcomes: ["Knowledge", "Behavioral"], icon: "BookOpen", tone: "text-accent bg-accent/10" },
+  { id: "leadership", name: "Leadership Development", verbs: ["Train", "Equip", "Support"], outcomes: ["Capacity", "Influence"], icon: "Users", tone: "text-primary bg-primary/10" },
+  { id: "community", name: "Community Mobilization", verbs: ["Identify", "Organize", "Anchor"], outcomes: ["Network", "Scale"], icon: "Megaphone", tone: "text-[hsl(var(--success))] bg-[hsl(var(--success)/0.12)]" },
+  { id: "social-justice", name: "Social Justice", verbs: ["Train", "Advocate", "Develop"], outcomes: ["Partnership", "Strategic Alignment"], icon: "Scale", tone: "text-[hsl(var(--warning))] bg-[hsl(var(--warning)/0.14)]" },
+  { id: "islam-nonmuslims", name: "Islam to Non-Muslims", verbs: ["Connect", "Develop", "Distribute"], outcomes: ["Positive Image", "Accepting Islam"], icon: "Handshake", tone: "text-accent bg-accent/10" },
+  { id: "excellence", name: "Operate with Excellence", verbs: ["Foster", "Communicate", "Optimize"], outcomes: ["Welcoming Culture", "Strategic Alignment", "Financial Sustainability"], icon: "Sparkles", tone: "text-primary bg-primary/10" },
 ];
 
 export interface WorkstreamTask {
