@@ -180,7 +180,7 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
                     canDown={idx >= 0 && idx < module.resources.length - 1}
                     onComplete={(v) => setComplete(b.r.id, v)}
                     onScore={(c, t, passed) => { recordScore(b.r.id, c, t); if (passed) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
-                    onWorksheet={(answers, complete) => { recordWorksheet(b.r.id, answers); if (complete) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
+                    onWorksheet={(answers, complete) => { recordWorksheet(b.r.id, answers); if (complete && !done.has(b.r.id)) celebrate(); setComplete(b.r.id, complete); }}
                     onRemove={() => removeResource(b.r.id)}
                     onMove={(dir) => moveResource(b.r.id, dir)}
                   />
@@ -717,6 +717,16 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
             <Icons.Check className="h-3.5 w-3.5" /> {done ? "Saved" : "Saves automatically"}
           </span>
         </div>
+        {filled > 0 && (
+          <Button size="sm" variant="outline" onClick={() => {
+            if (!window.confirm("Clear your answers and start this worksheet over?")) return;
+            setVals({});
+            goTo(0);
+            toast("Worksheet reset — start fresh");
+          }}>
+            <Icons.RotateCcw className="h-4 w-4" /> Redo
+          </Button>
+        )}
         <Button size="sm" onClick={printWorksheet}><Icons.Printer className="h-4 w-4" /> Print</Button>
       </div>
     </div>
