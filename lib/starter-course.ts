@@ -109,8 +109,8 @@ Underneath every program sit four cross-cutting outcomes — the kind of Muslim 
         body: "Map your own assigned program onto the framework. First pass — no editing.",
         fields: [
           { id: "program", label: "Program name", required: true },
-          { id: "area", label: "Area of Focus", hint: "Islam to Muslims / Leadership Development / Community Mobilization / Social Justice / Islam for non-Muslims / Operate with Excellence", required: true },
-          { id: "outcomeCat", label: "Outcome category you most directly target", hint: "e.g. KNOWLEDGE, BEHAVIORAL, CAPACITY, INFLUENCE, NETWORK, SCALE, PARTNERSHIP, POSITIVE IMAGE…" },
+          { id: "area", label: "Area of Focus", hint: "Pick the pillar your program belongs to.", kind: "area", required: true },
+          { id: "outcomeCat", label: "Outcome category you most directly target", hint: "These follow the area you picked above.", kind: "outcome" },
           { id: "tarbiya", label: "Which Tarbiyah outcome does it most serve?", hint: "Lifelong Learner / Bearer of the Message / Agent of Change / Exemplary Citizen" },
           { id: "inputs", label: "1. INPUTS — the WHO", long: true, required: true },
           { id: "activities", label: "2. ACTIVITIES — what you deliver", long: true, required: true },
@@ -223,7 +223,7 @@ After: "If we create intentional, faith-centered social environments for adults 
         body: "Write, self-rate, and revise the Q-Zero for your own program.",
         fields: [
           { id: "program", label: "Program name", required: true },
-          { id: "area", label: "Area of Focus", hint: "Islam to Muslims / Leadership Development / Community Mobilization / Social Justice / Islam for non-Muslims / Operate with Excellence" },
+          { id: "area", label: "Area of Focus", hint: "Pick the pillar your program belongs to.", kind: "area" },
           { id: "philosophy", label: "Step 1 — The philosophy (no event names, no logistics)", long: true, required: true },
           { id: "ifStmt", label: "Step 2 — Draft IF statement (IF we…)", long: true, required: true },
           { id: "thenStmt", label: "Step 3 — Draft THEN statement (a change in a person, not a delivery)", long: true, required: true },
