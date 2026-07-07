@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import * as Icons from "lucide-react";
@@ -87,6 +87,16 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
     await persist({ ...module!, resources: module!.resources.filter((r) => r.id !== rid) });
     toast("Removed");
   }
+  // Reorder an item within the module — admins can put the PDF first, move a
+  // worksheet up, etc. Swaps the item with its neighbour in the saved order.
+  async function moveResource(rid: string, dir: -1 | 1) {
+    const arr = [...module!.resources];
+    const i = arr.findIndex((r) => r.id === rid);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    await persist({ ...module!, resources: arr });
+  }
   function setComplete(rid: string, value: boolean) {
     setDone((prev) => {
       const next = new Set(prev);
@@ -150,22 +160,32 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
                 notes={b.notes}
                 doneSet={done}
                 canEdit={canEdit}
+                resources={module.resources}
                 onReadAll={() => completeMany(b.notes.map((n) => n.id))}
                 onRemove={removeResource}
+                onMove={moveResource}
               />
             ) : (
-              <ResourceCard
-                key={b.r.id}
-                r={b.r}
-                canEdit={canEdit}
-                done={done.has(b.r.id)}
-                best={meta.scores[b.r.id]}
-                answers={meta.worksheets[b.r.id] ?? {}}
-                onComplete={(v) => setComplete(b.r.id, v)}
-                onScore={(c, t, passed) => { recordScore(b.r.id, c, t); if (passed) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
-                onWorksheet={(answers, complete) => { recordWorksheet(b.r.id, answers); if (complete) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
-                onRemove={() => removeResource(b.r.id)}
-              />
+              (() => {
+                const idx = module.resources.findIndex((x) => x.id === b.r.id);
+                return (
+                  <ResourceCard
+                    key={b.r.id}
+                    r={b.r}
+                    canEdit={canEdit}
+                    done={done.has(b.r.id)}
+                    best={meta.scores[b.r.id]}
+                    answers={meta.worksheets[b.r.id] ?? {}}
+                    canUp={idx > 0}
+                    canDown={idx >= 0 && idx < module.resources.length - 1}
+                    onComplete={(v) => setComplete(b.r.id, v)}
+                    onScore={(c, t, passed) => { recordScore(b.r.id, c, t); if (passed) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
+                    onWorksheet={(answers, complete) => { recordWorksheet(b.r.id, answers); if (complete) { if (!done.has(b.r.id)) celebrate(); setComplete(b.r.id, true); } }}
+                    onRemove={() => removeResource(b.r.id)}
+                    onMove={(dir) => moveResource(b.r.id, dir)}
+                  />
+                );
+              })()
             ),
           )}
         </div>
@@ -196,30 +216,43 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
 }
 
 // ---------------- Reading: one flowing article ----------------
-function ArticleBlock({ notes, doneSet, canEdit, onReadAll, onRemove }: {
+function ArticleBlock({ notes, doneSet, canEdit, resources, onReadAll, onRemove, onMove }: {
   notes: Resource[];
   doneSet: Set<string>;
   canEdit: boolean;
+  resources: Resource[];
   onReadAll: () => void;
   onRemove: (id: string) => void;
+  onMove: (id: string, dir: -1 | 1) => void;
 }) {
   const allRead = notes.every((n) => doneSet.has(n.id));
   return (
     <Card className="px-6 py-7 sm:px-10 sm:py-9">
       <article className="mx-auto max-w-2xl">
-        {notes.map((n, i) => (
+        {notes.map((n, i) => {
+          const idx = resources.findIndex((x) => x.id === n.id);
+          return (
           <section key={n.id} className={i > 0 ? "mt-10" : ""}>
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{n.title}</h2>
               {canEdit && (
-                <button onClick={() => onRemove(n.id)} className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]" aria-label="Remove section">
-                  <Icons.Trash2 className="h-4 w-4" />
-                </button>
+                <div className="mt-1 flex items-center">
+                  <button onClick={() => onMove(n.id, -1)} disabled={idx <= 0} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Move up" title="Move up">
+                    <Icons.ArrowUp className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => onMove(n.id, 1)} disabled={idx < 0 || idx >= resources.length - 1} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Move down" title="Move down">
+                    <Icons.ArrowDown className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => onRemove(n.id)} className="rounded-md p-1 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]" aria-label="Remove section">
+                    <Icons.Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
             {n.body && <Prose text={n.body} />}
           </section>
-        ))}
+          );
+        })}
         {!canEdit && (
           <div className="mt-8 flex items-center gap-2 border-t pt-5">
             {allRead ? (
@@ -235,16 +268,19 @@ function ArticleBlock({ notes, doneSet, canEdit, onReadAll, onRemove }: {
 }
 
 // ---------------- Resource display ----------------
-function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, onWorksheet, onRemove }: {
+function ResourceCard({ r, canEdit, done, best, answers, canUp, canDown, onComplete, onScore, onWorksheet, onRemove, onMove }: {
   r: Resource;
   canEdit: boolean;
   done: boolean;
   best?: { correct: number; total: number };
   answers: Record<string, string>;
+  canUp: boolean;
+  canDown: boolean;
   onComplete: (v: boolean) => void;
   onScore: (correct: number, total: number, passed: boolean) => void;
   onWorksheet: (answers: Record<string, string>, complete: boolean) => void;
   onRemove: () => void;
+  onMove: (dir: -1 | 1) => void;
 }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[r.type]] ?? Icons.File;
   const isMedia = r.type === "Video" || r.type === "PDF" || r.type === "File" || r.type === "Link";
@@ -276,9 +312,17 @@ function ResourceCard({ r, canEdit, done, best, answers, onComplete, onScore, on
             <div className="flex items-center gap-2">
               <Badge tone="muted">{RESOURCE_LABEL[r.type]}</Badge>
               {canEdit && (
-                <button onClick={onRemove} className="rounded-md p-1 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]" aria-label="Remove">
-                  <Icons.Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center">
+                  <button onClick={() => onMove(-1)} disabled={!canUp} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Move up" title="Move up">
+                    <Icons.ArrowUp className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => onMove(1)} disabled={!canDown} className="rounded-md p-1 text-muted-foreground hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent" aria-label="Move down" title="Move down">
+                    <Icons.ArrowDown className="h-4 w-4" />
+                  </button>
+                  <button onClick={onRemove} className="rounded-md p-1 text-muted-foreground hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]" aria-label="Remove">
+                    <Icons.Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -474,6 +518,26 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
   const fields = r.fields ?? [];
   const [vals, setVals] = useState<Record<string, string>>(answers);
 
+  // Prompts are shown one at a time on a horizontal track you swipe/scroll
+  // through — so even a long worksheet feels short and easy, not a wall of text.
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const atStart = active <= 0;
+  const atEnd = active >= fields.length - 1;
+  function goTo(i: number) {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(fields.length - 1, i));
+    el.scrollTo({ left: clamped * el.clientWidth, behavior: "smooth" });
+    setActive(clamped);
+  }
+  function onScroll() {
+    const el = scrollerRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    if (i !== active) setActive(i);
+  }
+
   const required = fields.filter((f) => f.required);
   const filled = fields.filter((f) => (vals[f.id] ?? "").trim()).length;
   const pct = fields.length ? Math.round((filled / fields.length) * 100) : 0;
@@ -533,35 +597,66 @@ function WorksheetPlayer({ r, answers, done, onSave }: {
         <span className="text-xs font-medium text-muted-foreground">{filled}/{fields.length} answered</span>
       </div>
 
-      <div className="space-y-5 px-4 py-5 sm:px-6">
-        {r.body && <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{r.body}</p>}
+      {r.body && <p className="whitespace-pre-wrap border-b bg-secondary/20 px-4 py-3 text-sm leading-relaxed text-muted-foreground sm:px-6">{r.body}</p>}
 
+      {/* One prompt per slide — swipe or use the arrows to move left / right. */}
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {fields.map((f, i) => (
-          <div key={f.id} className="flex gap-3">
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/12 text-xs font-bold text-accent">{i + 1}</span>
-            <div className="min-w-0 flex-1">
-              <label className="block text-sm font-semibold">{f.label}{f.required && <span className="text-[hsl(var(--danger))]"> *</span>}</label>
-              {f.hint && <p className="mt-0.5 text-xs text-muted-foreground">{f.hint}</p>}
+          <div key={f.id} className="w-full shrink-0 snap-center px-4 py-6 sm:px-8">
+            <div className="mx-auto max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">{i + 1}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Prompt {i + 1} of {fields.length}</span>
+                {(vals[f.id] ?? "").trim() && <Icons.CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />}
+              </div>
+              <label className="mt-3 block text-base font-semibold leading-snug">{f.label}{f.required && <span className="text-[hsl(var(--danger))]"> *</span>}</label>
+              {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
               {f.long ? (
                 <textarea
                   value={vals[f.id] ?? ""}
                   onChange={(e) => set(f.id, e.target.value)}
-                  rows={4}
+                  rows={5}
                   placeholder="Write your answer…"
-                  className="worksheet-lines mt-2 block w-full resize-y rounded-lg border bg-background px-3 text-sm leading-[30px] outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
+                  className="worksheet-lines mt-3 block w-full resize-y rounded-lg border bg-background px-3 text-sm leading-[30px] outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
                 />
               ) : (
                 <input
                   value={vals[f.id] ?? ""}
                   onChange={(e) => set(f.id, e.target.value)}
                   placeholder="Write your answer…"
-                  className="mt-2 block w-full border-0 border-b-2 border-dashed border-input bg-transparent px-1 py-1.5 text-sm outline-none transition-colors focus:border-accent"
+                  className="mt-3 block w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
                 />
               )}
             </div>
           </div>
         ))}
       </div>
+
+      {/* pager: prev / dots / next */}
+      {fields.length > 1 && (
+        <div className="flex items-center justify-between gap-3 border-t bg-secondary/20 px-4 py-2.5 sm:px-6">
+          <button onClick={() => goTo(active - 1)} disabled={atStart} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-foreground/70 hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent">
+            <Icons.ChevronLeft className="h-4 w-4" /> Back
+          </button>
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            {fields.map((f, i) => (
+              <button
+                key={f.id}
+                onClick={() => goTo(i)}
+                aria-label={`Go to prompt ${i + 1}`}
+                className={`h-2 rounded-full transition-all ${i === active ? "w-5 bg-accent" : (vals[f.id] ?? "").trim() ? "w-2 bg-accent/50" : "w-2 bg-muted-foreground/30"}`}
+              />
+            ))}
+          </div>
+          <button onClick={() => goTo(active + 1)} disabled={atEnd} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-foreground/70 hover:bg-secondary disabled:opacity-30 disabled:hover:bg-transparent">
+            Next <Icons.ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* footer actions */}
       <div className="flex flex-wrap items-center gap-3 border-t bg-secondary/30 px-4 py-3 sm:px-6">
