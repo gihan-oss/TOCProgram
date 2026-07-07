@@ -7,10 +7,11 @@ const CHARACTERS = [
   "🐵", "🐰", "🐳", "🦋", "🐝", "🦖", "🐙", "🦩", "🐬", "🦔",
 ];
 
-// Soft, on-theme background tints paired with the characters.
+// Soft background tints paired with the characters — all in the portal's
+// purple family, so the directory stays on-brand (no clashing rainbow colours).
 const TINTS = [
-  "bg-[hsl(275_72%_60%/0.15)]", "bg-[hsl(199_89%_60%/0.15)]", "bg-[hsl(142_60%_45%/0.15)]",
-  "bg-[hsl(38_92%_55%/0.18)]", "bg-[hsl(315_70%_62%/0.15)]", "bg-[hsl(255_80%_66%/0.15)]",
+  "bg-[hsl(271_56%_45%/0.12)]", "bg-[hsl(275_72%_60%/0.14)]", "bg-[hsl(285_55%_58%/0.13)]",
+  "bg-[hsl(266_60%_52%/0.13)]", "bg-[hsl(276_40%_50%/0.12)]", "bg-[hsl(258_62%_60%/0.13)]",
 ];
 
 function hash(seed: string): number {

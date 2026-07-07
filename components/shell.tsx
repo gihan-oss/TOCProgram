@@ -39,18 +39,19 @@ export function Shell({ children }: { children: ReactNode }) {
   const initials = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [avatar, setAvatar] = useState("");
-  const [collapsedNav, setCollapsedNav] = useState<Record<string, boolean>>({});
+  const [openNav, setOpenNav] = useState<Record<string, boolean>>({});
   const toast = useToast();
 
-  // Remember which nav sections the user has collapsed, so the sidebar stays
-  // as tidy as they like it across visits.
+  // Nav sections start collapsed — the sidebar opens tidy and each person
+  // expands the sections they want. We remember which ones they've opened so
+  // their choice sticks across visits.
   useEffect(() => {
-    try { const raw = localStorage.getItem("toc-nav-collapsed"); if (raw) setCollapsedNav(JSON.parse(raw)); } catch {}
+    try { const raw = localStorage.getItem("toc-nav-open"); if (raw) setOpenNav(JSON.parse(raw)); } catch {}
   }, []);
   function toggleNavGroup(g: string) {
-    setCollapsedNav((prev) => {
+    setOpenNav((prev) => {
       const next = { ...prev, [g]: !prev[g] };
-      try { localStorage.setItem("toc-nav-collapsed", JSON.stringify(next)); } catch {}
+      try { localStorage.setItem("toc-nav-open", JSON.stringify(next)); } catch {}
       return next;
     });
   }
@@ -128,10 +129,10 @@ export function Shell({ children }: { children: ReactNode }) {
 
         <nav className="h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden px-3 py-4">
           {groups.map((group) => {
-            // The section you're currently in always stays open; others honour
-            // the user's collapse choice.
+            // Sections start collapsed. The one you're currently in stays open
+            // so you can see where you are; the rest open only when you click.
             const activeGroup = items.find((i) => pathname === i.href || (i.href !== "/dashboard" && pathname.startsWith(i.href)))?.group;
-            const collapsed = !!collapsedNav[group] && group !== activeGroup;
+            const collapsed = group !== activeGroup && !openNav[group];
             return (
             <div key={group} className="mb-3">
               <button

@@ -30,6 +30,7 @@ interface Row {
   tocNodes: number;
   lastActive: string | null;
   doneSet: Set<string>;
+  worksheets: Record<string, Record<string, string>>; // answers per worksheet resource id
 }
 
 function pct(a: number, b: number) { return b ? Math.round((a / b) * 100) : 0; }
@@ -75,7 +76,7 @@ export default function LearnersPage() {
         r = { email: e, name: "", role: "participant", department: "", roleType: "", onboarded: false,
           modulesDone: 0, modulesTotal: modules.length, itemsDone: 0, itemsTotal: allResources.length,
           worksheetsDone: 0, worksheetsTotal, quizzesPassed: 0, quizzesTotal, level: "—", xp: 0,
-          tocNodes: 0, lastActive: null, doneSet: new Set() };
+          tocNodes: 0, lastActive: null, doneSet: new Set(), worksheets: {} };
         byEmail.set(e, r);
       }
       return r;
@@ -101,6 +102,7 @@ export default function LearnersPage() {
       const done = new Set(p.done ?? []);
       const meta: LearnerMeta = p.meta ?? { scores: {}, worksheets: {} };
       r.doneSet = done;
+      r.worksheets = meta.worksheets ?? {};
       r.itemsDone = allResources.filter((res) => done.has(res.id)).length;
       r.modulesDone = modules.filter((m) => moduleComplete(m, done)).length;
       r.worksheetsDone = allResources.filter((res) => res.type === "Worksheet" && done.has(res.id)).length;
@@ -250,6 +252,47 @@ export default function LearnersPage() {
                               })}
                               {modules.length === 0 && <p className="text-xs text-muted-foreground">No modules published yet.</p>}
                             </div>
+
+                            {/* The learner's actual worksheet answers — saved to the database as they go. */}
+                            {allResources.some((res) => res.type === "Worksheet") && (
+                              <div className="mt-5">
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Worksheet responses</p>
+                                <div className="space-y-3">
+                                  {allResources.filter((res) => res.type === "Worksheet").map((ws) => {
+                                    const ans = r.worksheets[ws.id] ?? {};
+                                    const fields = ws.fields ?? [];
+                                    const answered = fields.filter((f) => (ans[f.id] ?? "").trim()).length;
+                                    return (
+                                      <div key={ws.id} className="rounded-lg border bg-card p-3">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                          <p className="text-sm font-semibold">{ws.title}</p>
+                                          <Badge tone={answered > 0 ? "accent" : "muted"}>{answered}/{fields.length} answered</Badge>
+                                        </div>
+                                        {answered === 0 ? (
+                                          <p className="text-xs text-muted-foreground">No answers yet.</p>
+                                        ) : (
+                                          <div className="space-y-2.5">
+                                            {fields.map((f) => {
+                                              const v = (ans[f.id] ?? "").trim();
+                                              return (
+                                                <div key={f.id}>
+                                                  <p className="text-xs font-medium text-muted-foreground">{f.label}</p>
+                                                  {v ? (
+                                                    <p className="mt-0.5 whitespace-pre-wrap rounded-md border bg-secondary/30 px-2.5 py-1.5 text-sm">{v}</p>
+                                                  ) : (
+                                                    <p className="mt-0.5 text-sm text-muted-foreground/60">—</p>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )}

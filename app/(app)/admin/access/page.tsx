@@ -54,28 +54,47 @@ export default function AccessPage() {
   // The uploaded logo for a given client name — co-brands the invite email.
   const clientLogo = (name?: string) => clients.find((c) => c.name === name)?.logoUrl;
 
-  // Split a free-text field into unique, valid-looking emails — so an admin can
-  // paste several at once (separated by commas, spaces, semicolons or newlines).
-  function parseEmails(raw: string): string[] {
-    return Array.from(new Set(
-      raw.split(/[\s,;]+/).map((s) => s.trim().toLowerCase()).filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)),
-    ));
+  // Parse a free-text field into unique invites — an admin can paste a mix of
+  // "Name, email" pairs (name first, then the email), "Name <email>", or bare
+  // emails, all separated by commas, semicolons or newlines. Names are optional;
+  // the person can fill in the rest of their details when they sign in.
+  function parseInvites(raw: string): { email: string; name?: string }[] {
+    const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+    const tokens = raw.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
+    const out: { email: string; name?: string }[] = [];
+    const seen = new Set<string>();
+    let pendingName = "";
+    const push = (rawEmail: string, name?: string) => {
+      const e = rawEmail.toLowerCase();
+      if (seen.has(e)) return;
+      seen.add(e);
+      out.push({ email: e, name: (name ?? "").trim() || undefined });
+    };
+    for (const t of tokens) {
+      // "Name <email>" or "Name (email)" in a single token
+      const m = t.match(/^(.*?)[<(]\s*([^\s<>()]+@[^\s<>()]+)\s*[>)]?$/);
+      if (m && isEmail(m[2])) { push(m[2], m[1] || pendingName); pendingName = ""; continue; }
+      if (isEmail(t)) { push(t, pendingName); pendingName = ""; continue; }
+      pendingName = t; // a name waiting for the email that follows it
+    }
+    return out;
   }
 
-  async function inviteOne(target: string): Promise<{ ok: boolean; demo: boolean; pwd: string }> {
+  async function inviteOne(target: { email: string; name?: string }): Promise<{ ok: boolean; demo: boolean; pwd: string }> {
     const label = role === "admin" ? "Administrator" : "Learner";
-    const member: Member = { email: target, name: nameFromEmail(target), role, status: "Invited", temp_password: genTempPassword(), client: client || undefined };
+    const name = target.name || nameFromEmail(target.email);
+    const member: Member = { email: target.email, name, role, status: "Invited", temp_password: genTempPassword(), client: client || undefined };
     setRows((r) => mergeMembers([member], r));
     await saveMember(member);
-    await addNotification(target, `You've been invited as ${label}`, `Welcome to the ${MAS.partner} Impact Portal${member.client ? ` — ${member.client}` : ""}.`);
-    const { subject, html } = inviteEmail({ name: member.name, email: target, password: member.temp_password, role, client: member.client, clientLogoUrl: clientLogo(member.client), loginUrl: LOGIN_URL });
-    const res = await sendEmail(target, subject, html);
+    await addNotification(target.email, `You've been invited as ${label}`, `Welcome to the ${MAS.partner} Impact Portal${member.client ? ` — ${member.client}` : ""}.`);
+    const { subject, html } = inviteEmail({ name: member.name, email: target.email, password: member.temp_password, role, client: member.client, clientLogoUrl: clientLogo(member.client), loginUrl: LOGIN_URL });
+    const res = await sendEmail(target.email, subject, html);
     return { ok: res.ok, demo: !!res.demo, pwd: member.temp_password };
   }
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
-    const targets = parseEmails(email);
+    const targets = parseInvites(email);
     if (targets.length === 0) { toast("Enter at least one valid email address.", "error"); return; }
     setEmail("");
     setBusy(true);
@@ -159,25 +178,35 @@ export default function AccessPage() {
       {/* Invite */}
       <Card className="mb-6 p-5">
         <p className="mb-3 font-semibold">Invite someone</p>
-        <form onSubmit={invite} className="flex flex-wrap items-center gap-3">
-          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border bg-background px-3 py-2.5">
-            <Icons.Mail className="h-4 w-4 text-muted-foreground" />
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@org.org — or paste several, separated by commas" className="w-full bg-transparent text-sm outline-none" />
+        <form onSubmit={invite} className="space-y-3">
+          <div className="flex items-start gap-2 rounded-xl border bg-background px-3 py-2.5">
+            <Icons.Mail className="mt-1.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <textarea
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              rows={email.includes("\n") || email.length > 48 ? 3 : 1}
+              placeholder="Aisha Khan, aisha@org.org, Omar Ali, omar@org.org …  (name then email, or just emails)"
+              className="w-full resize-y bg-transparent py-1 text-sm outline-none"
+            />
           </div>
-          <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2.5 text-sm">
-            <Icons.Building2 className="h-4 w-4 text-muted-foreground" />
-            <select value={client} onChange={(e) => setClient(e.target.value)} className="bg-transparent outline-none" aria-label="Client">
-              {clientNames.length === 0 && <option value={CLIENT.name}>{CLIENT.name}</option>}
-              {clientNames.map((n) => <option key={n} value={n}>{n}</option>)}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2.5 text-sm">
+              <Icons.Building2 className="h-4 w-4 text-muted-foreground" />
+              <select value={client} onChange={(e) => setClient(e.target.value)} className="bg-transparent outline-none" aria-label="Client">
+                {clientNames.length === 0 && <option value={CLIENT.name}>{CLIENT.name}</option>}
+                {clientNames.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+            <select value={role} onChange={(e) => setRole(e.target.value as Member["role"])} className="rounded-xl border bg-background px-3 py-2.5 text-sm outline-none">
+              <option value="participant">Learner</option>
+              <option value="admin">Administrator</option>
             </select>
-          </label>
-          <select value={role} onChange={(e) => setRole(e.target.value as Member["role"])} className="rounded-xl border bg-background px-3 py-2.5 text-sm outline-none">
-            <option value="participant">Learner</option>
-            <option value="admin">Administrator</option>
-          </select>
-          <Button type="submit" size="sm"><Icons.Send className="h-4 w-4" /> Send invite</Button>
+            <Button type="submit" size="sm" disabled={busy}>
+              {busy ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Icons.Send className="h-4 w-4" />} Send invite
+            </Button>
+          </div>
         </form>
-        <p className="mt-2 text-xs text-muted-foreground">Invitations are saved automatically and stay put across sign-out. Each person gets a welcome email with their login details. Manage clients in <Link href="/admin/clients" className="text-accent hover:underline">Clients</Link>.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Add a <b>name then their email</b> (e.g. <span className="font-mono">Aisha Khan, aisha@org.org</span>) — repeat for as many as you like, separated by commas or new lines. Names are optional; people can fill in the rest when they sign in. Each person gets a welcome email with their login details. Manage clients in <Link href="/admin/clients" className="text-accent hover:underline">Clients</Link>.</p>
       </Card>
 
       {/* filter rail + resend all */}
