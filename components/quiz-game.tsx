@@ -17,14 +17,17 @@ const TIME_LIMIT_MS = 20_000; // per question
 const TICK_MS = 100;
 const REVEAL_MS = 1500; // how long feedback shows before advancing
 
-// Signature game-show answer-tile colours + shapes (cycled for >4 options).
+// Answer-tile colours + shapes (cycled for >4 options). All in the portal's
+// purple family — distinct shades so the options stay easy to tell apart, but
+// no clashing red/blue/amber/green "game show" colours. The shapes carry the
+// distinction as much as the hue.
 const TILE = [
-  { bg: "bg-[#e21b3c]", ring: "ring-[#e21b3c]", icon: "Triangle" },
-  { bg: "bg-[#1368ce]", ring: "ring-[#1368ce]", icon: "Diamond" },
-  { bg: "bg-[#d89e00]", ring: "ring-[#d89e00]", icon: "Circle" },
-  { bg: "bg-[#26890c]", ring: "ring-[#26890c]", icon: "Square" },
-  { bg: "bg-[#9c27b0]", ring: "ring-[#9c27b0]", icon: "Star" },
-  { bg: "bg-[#0aa3a3]", ring: "ring-[#0aa3a3]", icon: "Hexagon" },
+  { bg: "bg-[hsl(271_56%_40%)]", ring: "ring-[hsl(271_56%_40%)]", icon: "Triangle" },
+  { bg: "bg-[hsl(286_46%_44%)]", ring: "ring-[hsl(286_46%_44%)]", icon: "Diamond" },
+  { bg: "bg-[hsl(252_46%_50%)]", ring: "ring-[hsl(252_46%_50%)]", icon: "Circle" },
+  { bg: "bg-[hsl(300_36%_42%)]", ring: "ring-[hsl(300_36%_42%)]", icon: "Square" },
+  { bg: "bg-[hsl(275_55%_50%)]", ring: "ring-[hsl(275_55%_50%)]", icon: "Star" },
+  { bg: "bg-[hsl(242_44%_52%)]", ring: "ring-[hsl(242_44%_52%)]", icon: "Hexagon" },
 ];
 
 type Phase = "intro" | "play" | "result";
@@ -232,7 +235,7 @@ export function QuizGame({ questions, best, onResult }: {
   // ---------------- play ----------------
   const frac = timeLeft / TIME_LIMIT_MS;
   const secs = Math.ceil(timeLeft / 1000);
-  const timerColor = frac > 0.5 ? "bg-[hsl(var(--success))]" : frac > 0.25 ? "bg-[hsl(var(--warning))]" : "bg-[hsl(var(--danger))]";
+  const timerColor = frac > 0.25 ? "bg-accent" : "bg-primary";
   const low = secs <= 5 && !locked;
 
   return (
@@ -270,7 +273,7 @@ export function QuizGame({ questions, best, onResult }: {
               <span key={i} className={`h-1.5 rounded-full transition-all ${i < qIndex ? "w-4 bg-accent" : i === qIndex ? "w-6 bg-accent" : "w-4 bg-muted"}`} />
             ))}
           </div>
-          <span className={`inline-flex items-center gap-1 text-sm font-bold tabular-nums ${low ? "animate-timer-flash text-[hsl(var(--danger))]" : "text-muted-foreground"}`}>
+          <span className={`inline-flex items-center gap-1 text-sm font-bold tabular-nums ${low ? "animate-timer-flash text-accent" : "text-muted-foreground"}`}>
             <Icons.Timer className="h-4 w-4" /> {secs}s
           </span>
         </div>
@@ -316,7 +319,7 @@ export function QuizGame({ questions, best, onResult }: {
                   {pop.streak >= 2 && <span className="text-xs font-bold text-accent">{pop.streak}🔥 streak</span>}
                 </span>
               ) : (
-                <span className="animate-pop-score text-xl font-extrabold text-[hsl(var(--danger))] drop-shadow">{selected === null ? "Time!" : "Missed"}</span>
+                <span className="animate-pop-score text-xl font-extrabold text-muted-foreground drop-shadow">{selected === null ? "Time!" : "Missed"}</span>
               )}
             </div>
           )}
