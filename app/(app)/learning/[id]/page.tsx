@@ -284,8 +284,12 @@ function ResourceCard({ r, canEdit, done, best, answers, canUp, canDown, onCompl
 }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[RESOURCE_ICON[r.type]] ?? Icons.File;
   const isMedia = r.type === "Video" || r.type === "PDF" || r.type === "File" || r.type === "Link";
-  // Everything shows expanded — worksheets are scrollable, so no collapsing.
-  const open = true;
+  // Worksheets are collapsible and START COLLAPSED — the learner clicks the
+  // title to open it; it never auto-expands.
+  const collapsible = r.type === "Worksheet";
+  const [open, setOpen] = useState(!collapsible);
+  const wsFields = collapsible ? (r.fields ?? []) : [];
+  const wsFilled = wsFields.filter((f) => (answers[f.id] ?? "").trim()).length;
 
   return (
     <Card className="p-4">
@@ -293,10 +297,19 @@ function ResourceCard({ r, canEdit, done, best, answers, canUp, canDown, onCompl
         <Icon className="mt-1 h-4 w-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
-              {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
-            </div>
+            {collapsible ? (
+              <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                <Icons.ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+                <span className="truncate text-sm font-medium">{r.title}</span>
+                {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+                {!open && wsFields.length > 0 && <span className="shrink-0 text-xs text-muted-foreground">{wsFilled}/{wsFields.length} answered</span>}
+              </button>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={r.type === "Note" ? "text-base font-semibold tracking-tight" : "text-sm font-medium"}>{r.title}</p>
+                {done && <Badge tone="success"><Icons.Check className="h-3 w-3" /> Done</Badge>}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Badge tone="muted">{RESOURCE_LABEL[r.type]}</Badge>
               {canEdit && (
