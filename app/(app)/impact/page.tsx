@@ -20,12 +20,12 @@ export default function ImpactPage() {
 
   return (
     <div>
-      <SectionTitle sub="Output performance and outcome health, using traffic-light indicators">Impact Dashboard</SectionTitle>
+      <SectionTitle sub="Output performance and outcome health at a glance">Impact Dashboard</SectionTitle>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="On track (green)" value={counts.green} hint="Indicators ≥ 80% to target" tone="success" />
-        <Stat label="Needs attention (yellow)" value={counts.yellow} hint="50–79% to target" tone="warning" />
-        <Stat label="Off track (red)" value={counts.red} hint="Below 50% to target" tone="danger" />
+        <Stat label="On track" value={counts.green} hint="Indicators ≥ 80% to target" tone="success" />
+        <Stat label="Needs attention" value={counts.yellow} hint="50–79% to target" tone="warning" />
+        <Stat label="Off track" value={counts.red} hint="Below 50% to target" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -40,7 +40,7 @@ export default function ImpactPage() {
                 </div>
                 <div className="mt-1.5 flex items-center gap-2">
                   <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">{i.baseline}{i.unit}</span>
-                  <Progress value={progressOf(i)} tone={status(i) === "green" ? "success" : status(i) === "yellow" ? "warning" : "danger"} />
+                  <Progress value={progressOf(i)} tone={status(i) === "green" ? "success" : "warning"} />
                   <span className="w-8 text-xs tabular-nums text-muted-foreground">{i.target}{i.unit}</span>
                 </div>
               </div>
@@ -60,7 +60,7 @@ export default function ImpactPage() {
                     <p className="truncate text-sm font-medium">{i.name}</p>
                     <p className="text-xs text-muted-foreground">{i.frequency} · {i.meansOfVerification}</p>
                   </div>
-                  <Badge tone={s === "green" ? "success" : s === "yellow" ? "warning" : "danger"}>
+                  <Badge tone={s === "green" ? "success" : s === "yellow" ? "warning" : "muted"}>
                     {s === "green" ? "On track" : s === "yellow" ? "At risk" : "Off track"}
                   </Badge>
                 </div>
@@ -72,9 +72,9 @@ export default function ImpactPage() {
 
       <Card className="mt-6 p-5">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-sm"><TrafficDot status="green" /> <span className="font-medium">Green</span> — On Track</div>
-          <div className="flex items-center gap-2 text-sm"><TrafficDot status="yellow" /> <span className="font-medium">Yellow</span> — Needs Attention</div>
-          <div className="flex items-center gap-2 text-sm"><TrafficDot status="red" /> <span className="font-medium">Red</span> — Off Track</div>
+          <div className="flex items-center gap-2 text-sm"><TrafficDot status="green" /> <span className="font-medium">On Track</span> — ≥ 80% to target</div>
+          <div className="flex items-center gap-2 text-sm"><TrafficDot status="yellow" /> <span className="font-medium">Needs Attention</span> — 50–79%</div>
+          <div className="flex items-center gap-2 text-sm"><TrafficDot status="red" /> <span className="font-medium">Off Track</span> — below 50%</div>
         </div>
       </Card>
     </div>

@@ -162,8 +162,10 @@ export function Stat({ label, value, hint, tone }: { label: string; value: React
   );
 }
 
+// A status dot as a purple-intensity scale (strong → faint), so health reads
+// on-brand instead of as a red/amber/green traffic light.
 export function TrafficDot({ status, className }: { status: "green" | "yellow" | "red"; className?: string }) {
-  const map = { green: "bg-[hsl(var(--success))]", yellow: "bg-[hsl(var(--warning))]", red: "bg-[hsl(var(--danger))]" };
+  const map = { green: "bg-primary", yellow: "bg-accent", red: "bg-muted-foreground/40" };
   return <span className={cn("inline-block h-2.5 w-2.5 rounded-full", map[status], className)} />;
 }
 

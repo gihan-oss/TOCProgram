@@ -17,12 +17,19 @@ export interface QuizQuestion {
 
 // A worksheet is a set of prompts the learner fills in (for their own program)
 // right on the page. Answers are saved per-learner.
+// `kind` lets a prompt be a guided dropdown instead of free text:
+//   - "area"    → pick one of the 6 Areas of Focus
+//   - "outcome" → pick an outcome that belongs to the chosen Area of Focus
+//                 (the options cascade from the "area" answer in the same sheet)
+//   - "text"    → a normal written answer (default)
+export type WorksheetFieldKind = "text" | "area" | "outcome";
 export interface WorksheetField {
   id: string;
   label: string;
   hint?: string;
   long?: boolean; // multi-line answer
   required?: boolean;
+  kind?: WorksheetFieldKind;
 }
 
 export interface Resource {

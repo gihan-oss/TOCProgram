@@ -23,14 +23,14 @@ export default function Dashboard() {
         {role === "participant" ? (
           <>
             <Stat label="Modules completed" value={`${completedModules}/${MODULES.length}`} hint="Sequential unlocking active" />
-            <Stat label="Implementation maturity" value={`${maturity}`} hint="0–100 scale" tone={maturity >= 70 ? "success" : maturity >= 40 ? "warning" : "danger"} />
+            <Stat label="Implementation maturity" value={`${maturity}`} hint="0–100 scale" tone={maturity >= 70 ? "success" : "warning"} />
             <Stat label="Learning growth" value="+37 pts" hint="Pre 41 → Post 78" tone="success" />
             <Stat label="Open assumptions" value={ASSUMPTIONS.filter((a) => a.status !== "Valid").length} hint="1 failed · needs revision" tone="warning" />
           </>
         ) : role === "executive" ? (
           <>
             <Stat label="Implementation rate" value="63%" hint="Across 3 cohorts" tone="warning" />
-            <Stat label="Programs at risk" value="1" hint="Health Cohort below target" tone="danger" />
+            <Stat label="Programs at risk" value="1" hint="Health Cohort below target" tone="warning" />
             <Stat label="Avg learning growth" value="+41%" hint="Pre → Post improvement" tone="success" />
             <Stat label="Portfolio maturity" value="68" hint="Program maturity index" />
           </>
@@ -70,7 +70,7 @@ export default function Dashboard() {
 
         {/* Outcome health */}
         <Card>
-          <CardHeader title="Outcome health" subtitle="Traffic-light status" />
+          <CardHeader title="Outcome health" subtitle="Progress at a glance" />
           <div className="space-y-3 p-5">
             {INDICATORS.filter((i) => i.level === "outcome" || i.level === "goal").map((ind) => {
               const progress = Math.round(((ind.current - ind.baseline) / (ind.target - ind.baseline)) * 100);
@@ -83,7 +83,7 @@ export default function Dashboard() {
                     </span>
                     <span className="text-xs tabular-nums text-muted-foreground">{ind.current}{ind.unit} / {ind.target}{ind.unit}</span>
                   </div>
-                  <Progress className="mt-1.5" value={progress} tone={status === "green" ? "success" : status === "yellow" ? "warning" : "danger"} />
+                  <Progress className="mt-1.5" value={progress} tone={status === "green" ? "success" : "warning"} />
                 </div>
               );
             })}
