@@ -6,7 +6,7 @@ import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle, Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { ADMIN_EMAILS, LEARNER_EMAILS } from "@/lib/access";
-import { addNotification, sendEmail, listMembers, saveMember, removeMember, type Member } from "@/lib/store";
+import { addNotification, sendEmail, listMembers, listProfiles, saveMember, removeMember, type Member, type MemberProfile } from "@/lib/store";
 import { inviteEmail, genTempPassword } from "@/lib/email-templates";
 import { loadClients, type Client } from "@/lib/clients";
 import { MAS, CLIENT, PORTAL_URL } from "@/lib/mas";
@@ -31,16 +31,19 @@ const LOGIN_URL = `${PORTAL_URL}/login`;
 export default function AccessPage() {
   const [rows, setRows] = useState<Member[]>(seeds);
   const [clients, setClients] = useState<Client[]>([]);
+  const [profiles, setProfiles] = useState<MemberProfile[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "participant">("participant");
   const [client, setClient] = useState("");
   const [filter, setFilter] = useState("All");
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<Member | null>(null);
   const toast = useToast();
 
   useEffect(() => {
     let active = true;
     listMembers().then((saved) => { if (active) setRows(mergeMembers(saved, seeds)); });
+    listProfiles().then((ps) => { if (active) setProfiles(ps); });
     loadClients().then((cs) => {
       if (!active) return;
       setClients(cs);
@@ -49,6 +52,22 @@ export default function AccessPage() {
     });
     return () => { active = false; };
   }, []);
+
+  // Map each person to their profile, so we can tell whether they've actually
+  // opened the portal (signed in) and finished onboarding — not just "invited".
+  const profByEmail = new Map(profiles.map((p) => [p.email.toLowerCase(), p]));
+  function statusOf(m: Member): { label: string; tone: "success" | "accent" | "warning" | "muted"; icon: string; since?: string } {
+    const p = profByEmail.get(m.email.toLowerCase());
+    if (p?.onboarded) return { label: "Onboarded", tone: "success", icon: "CheckCircle2", since: p.updated_at };
+    if (p) return { label: "Opened portal", tone: "accent", icon: "LogIn", since: p.updated_at };
+    if (m.status === "Active") return { label: "Active", tone: "success", icon: "CheckCircle2" };
+    return { label: "Invited · pending", tone: "warning", icon: "Clock" };
+  }
+  const fmtSince = (s?: string) => {
+    if (!s) return "";
+    const d = new Date(s);
+    return isNaN(+d) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
 
   const clientNames = clients.map((c) => c.name);
   // The uploaded logo for a given client name — co-brands the invite email.
@@ -161,6 +180,14 @@ export default function AccessPage() {
     toast(role === "admin" ? `${m.name || target} is now an Administrator` : `${m.name || target} is now a Learner`, "success");
   }
 
+  // Save edits to a person (name, role, client) from the edit dialog.
+  async function saveEdit(updated: Member) {
+    setRows((r) => r.map((x) => (x.email === updated.email ? updated : x)));
+    setEditing(null);
+    await saveMember(updated);
+    toast("Saved", "success");
+  }
+
   // filter rail: All + each client (with counts) + Unassigned (if any)
   const hasUnassigned = rows.some((r) => !r.client);
   const filterOptions = ["All", ...clientNames, ...(hasUnassigned ? ["Unassigned"] : [])];
@@ -229,14 +256,18 @@ export default function AccessPage() {
             <thead>
               <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Access level</th>
                 <th className="px-4 py-3">Client</th>
-                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((r) => (
+              {visible.map((r) => {
+                const st = statusOf(r);
+                const StIcon = (Icons as unknown as Record<string, Icons.LucideIcon>)[st.icon] ?? Icons.Circle;
+                const since = fmtSince(st.since);
+                return (
                 <tr key={r.email} className="border-b">
                   <td className="px-4 py-3">
                     <p className="font-medium">{r.name || nameFromEmail(r.email)}</p>
@@ -246,6 +277,10 @@ export default function AccessPage() {
                         temp password: <code className="rounded bg-muted px-1 font-mono">{r.temp_password}</code>
                       </div>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={st.tone}><StIcon className="h-3 w-3" /> {st.label}</Badge>
+                    {since && <p className="mt-0.5 text-[11px] text-muted-foreground">last seen {since}</p>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="inline-flex items-center gap-1.5">
@@ -264,9 +299,11 @@ export default function AccessPage() {
                   <td className="px-4 py-3">
                     {r.client ? <Badge tone="accent"><Icons.Building2 className="h-3 w-3" /> {r.client}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
-                  <td className="px-4 py-3"><Badge tone={r.status === "Active" ? "success" : "warning"}>{r.status}</Badge></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setEditing(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-foreground/70 hover:bg-secondary" title="Edit person">
+                        <Icons.Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
                       {r.status === "Invited" && (
                         <button onClick={() => resend(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10" title="Resend credentials email">
                           <Icons.Send className="h-3.5 w-3.5" /> Resend
@@ -278,11 +315,86 @@ export default function AccessPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Card>
+
+      {editing && (
+        <EditPersonDialog
+          member={editing}
+          clientNames={clientNames}
+          onClose={() => setEditing(null)}
+          onSave={saveEdit}
+          onRemove={(em) => { setEditing(null); remove(em); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---- Edit person dialog -------------------------------------------------
+function EditPersonDialog({ member, clientNames, onClose, onSave, onRemove }: {
+  member: Member;
+  clientNames: string[];
+  onClose: () => void;
+  onSave: (m: Member) => void;
+  onRemove: (email: string) => void;
+}) {
+  const [name, setName] = useState(member.name ?? "");
+  const [role, setRole] = useState<Member["role"]>(member.role);
+  const [client, setClient] = useState(member.client ?? "");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <p className="font-semibold">Edit person</p>
+          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary" aria-label="Close"><Icons.X className="h-4 w-4" /></button>
+        </div>
+
+        <label className="mb-3 block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">Full name</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="modal-input" autoFocus />
+        </label>
+
+        <label className="mb-3 block">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">Email</span>
+          <input value={member.email} disabled className="modal-input opacity-60" />
+          <span className="mt-1 block text-[11px] text-muted-foreground">Email is the person's sign-in — it can't be changed here. Remove and re-invite to use a different address.</span>
+        </label>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">Access level</span>
+            <select value={role} onChange={(e) => setRole(e.target.value as Member["role"])} className="modal-input">
+              <option value="participant">Learner</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">Client</span>
+            <select value={client} onChange={(e) => setClient(e.target.value)} className="modal-input">
+              <option value="">— None —</option>
+              {clientNames.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <button onClick={() => onRemove(member.email)} className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger)/0.1)]">
+            <Icons.Trash2 className="h-4 w-4" /> Remove
+          </button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button size="sm" onClick={() => onSave({ ...member, name: name.trim() || member.name, role, client: client || undefined })}>
+              <Icons.Check className="h-4 w-4" /> Save
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
