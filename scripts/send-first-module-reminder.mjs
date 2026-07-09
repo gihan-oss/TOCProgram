@@ -44,6 +44,8 @@ const KEY = process.env.BREVO_API_KEY;
 const LIST_ID = Number(process.env.BREVO_LIST_ID || 2);
 const CHAPTER = (process.env.CHAPTER || "MAS GLA").trim();
 const LMS_URL = process.env.LMS_URL || "https://toc.amalandco.com/";
+// Logos/photos live in the portal's /public, so derive their base from LMS_URL.
+const ASSET_BASE = (() => { try { return new URL(LMS_URL).origin; } catch { return "https://toc.amalandco.com"; } })();
 
 function parseFrom(raw) {
   const m = String(raw || "").match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
@@ -54,7 +56,7 @@ const FROM = parseFrom(process.env.EMAIL_FROM || "Amal & Company Portal <noreply
 const REPLY_TO = { email: "programs@amalandcompany.com", name: "Amal & Company" };
 
 // ---- email content ----------------------------------------------------------
-const SUBJECT = "Your first module is ready — continue on the LMS 🎥";
+const SUBJECT = "Thank you for attending Module 1 — your video & assignment are ready";
 
 function greeting(firstName) {
   const name = (firstName || "").trim();
@@ -65,37 +67,46 @@ function greeting(firstName) {
 function html(firstName) {
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Continue Your First Module</title></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Thank you for attending Module 1</title></head>
 <body style="margin:0; padding:0; background-color:#f5f3ff; font-family:'Segoe UI', Helvetica, Arial, sans-serif; color:#1f2937;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f3ff; padding:24px 12px;">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(91,33,182,0.08);">
-        <tr><td style="background:linear-gradient(135deg,#6d28d9 0%,#8b5cf6 100%); padding:36px 40px;">
-          <p style="margin:0; color:#ede9fe; font-size:13px; letter-spacing:1.5px; text-transform:uppercase; font-weight:600;">Impact OS · Theory of Change Portal</p>
-          <h1 style="margin:10px 0 0; color:#ffffff; font-size:26px; line-height:1.3; font-weight:700;">Your first module is ready to complete</h1>
+        <tr><td background="${ASSET_BASE}/photo-gathering.jpg" valign="top" style="background-color:#6d28d9; background-image:linear-gradient(135deg, rgba(76,29,149,0.88) 0%, rgba(124,58,237,0.82) 55%, rgba(139,92,246,0.80) 100%), url('${ASSET_BASE}/photo-gathering.jpg'); background-size:cover; background-position:center; padding:44px 40px 52px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+            <td align="left" style="vertical-align:middle;">
+              <img src="${ASSET_BASE}/logo-white.png" alt="Amal &amp; Company" height="30" style="height:30px; width:auto; display:inline-block; vertical-align:middle;">
+              <span style="display:inline-block; width:1px; height:26px; background:rgba(255,255,255,0.40); margin:0 14px; vertical-align:middle;"></span>
+              <span style="display:inline-block; vertical-align:middle; color:#ffffff; font-size:18px; font-weight:800; letter-spacing:0.5px;">${CHAPTER}</span>
+            </td>
+          </tr></table>
+          <p style="margin:26px 0 0; color:#ede9fe; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; font-weight:600;">Theory of Change · Module 1</p>
+          <h1 style="margin:8px 0 0; color:#ffffff; font-size:27px; line-height:1.3; font-weight:700; text-shadow:0 1px 12px rgba(0,0,0,0.25);">Thank you for attending Module 1</h1>
         </td></tr>
-        <tr><td style="padding:36px 40px 8px;">
+        <tr><td style="padding:34px 40px 8px;">
           <p style="margin:0 0 18px; font-size:16px; line-height:1.6;">${greeting(firstName)}</p>
-          <p style="margin:0 0 18px; font-size:16px; line-height:1.6;">Great news — we've <strong>finished your first module</strong>, and it's now fully available in the Learning Management System. This is your reminder to jump back in and <strong>continue where you left off</strong>.</p>
+          <p style="margin:0 0 18px; font-size:16px; line-height:1.6;">Thank you for attending <strong>Module 1</strong> of the ${CHAPTER} <strong>Theory of Change</strong> program — it was a pleasure to have you with us.</p>
+          <p style="margin:0 0 20px; font-size:16px; line-height:1.6;">We've now <strong>completed Module 1</strong>, and the full session <strong>video is uploaded to the portal</strong> so you can watch — or rewatch — it anytime.</p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 24px; width:100%; background-color:#f5f3ff; border-radius:12px; border-left:4px solid #8b5cf6;">
-            <tr><td style="padding:18px 20px;">
-              <p style="margin:0; font-size:15px; line-height:1.6; color:#5b21b6;">🎥 <strong>The module video is now uploaded on the LMS.</strong> Watch it, then work through the quiz and assignment to mark the module complete.</p>
+            <tr><td style="padding:16px 20px;">
+              <p style="margin:0 0 10px; font-size:15px; line-height:1.6; color:#5b21b6;">🎥 <strong>Module 1 video</strong> — now available on the portal to watch.</p>
+              <p style="margin:0; font-size:15px; line-height:1.6; color:#5b21b6;">📝 <strong>Your assignment</strong> — please don't forget to complete your Module 1 assignment.</p>
             </td></tr>
           </table>
-          <p style="margin:0 0 26px; font-size:16px; line-height:1.6;">Completing this module unlocks the next step in your journey — from <em>Learning</em> to <em>Application</em> to <em>Implementation</em>.</p>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 30px;">
+          <p style="margin:0 0 26px; font-size:16px; line-height:1.6;">Everything is on the portal — sign in anytime to watch the video and submit your assignment.</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
             <tr><td align="center" style="border-radius:10px; background:linear-gradient(135deg,#6d28d9 0%,#8b5cf6 100%);">
-              <a href="${LMS_URL}" target="_blank" style="display:inline-block; padding:14px 34px; font-size:16px; font-weight:600; color:#ffffff; text-decoration:none;">Continue My First Module →</a>
+              <a href="${LMS_URL}" target="_blank" style="display:inline-block; padding:14px 34px; font-size:16px; font-weight:600; color:#ffffff; text-decoration:none;">Watch &amp; Complete My Assignment →</a>
             </td></tr>
           </table>
-          <p style="margin:0 0 6px; font-size:14px; line-height:1.6; color:#6b7280;">If the button doesn't work, log in to the LMS and open the <strong>Learning</strong> section.</p>
+          <p style="margin:0 0 6px; font-size:14px; line-height:1.6; color:#6b7280;">Or sign in directly at <a href="${LMS_URL}" style="color:#6d28d9;">the portal</a>.</p>
         </td></tr>
-        <tr><td style="padding:8px 40px 36px;">
-          <p style="margin:24px 0 4px; font-size:16px; line-height:1.6;">Warm regards,</p>
+        <tr><td style="padding:20px 40px 34px;">
+          <p style="margin:22px 0 4px; font-size:16px; line-height:1.6;">Warm regards,</p>
           <p style="margin:0; font-size:16px; line-height:1.6; font-weight:600; color:#5b21b6;">The Amal &amp; Company Team</p>
         </td></tr>
         <tr><td style="background-color:#faf5ff; padding:22px 40px; border-top:1px solid #ede9fe;">
-          <p style="margin:0; font-size:12px; line-height:1.6; color:#9ca3af;">You're receiving this because you're enrolled in the Impact OS Theory of Change program with Amal &amp; Company.</p>
+          <p style="margin:0; font-size:12px; line-height:1.6; color:#9ca3af;">You're receiving this as a participant in the ${CHAPTER} Theory of Change program, delivered by Amal &amp; Company.</p>
         </td></tr>
       </table>
     </td></tr>
