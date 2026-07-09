@@ -136,10 +136,15 @@ export async function markAllRead(email: string): Promise<void> {
 // The access allowlist. Persisted so invited people survive sign-out & reload
 // (Supabase when configured, otherwise localStorage on this browser).
 
+// "coordinator" is a read-only oversight access level (Program Coordinator):
+// they track everyone's progress across the portal but cannot edit content or
+// manage the member allowlist. Everyone else is a learner or a full admin.
+export type MemberRole = "admin" | "participant" | "coordinator";
+
 export interface Member {
   email: string;
   name: string;
-  role: "admin" | "participant";
+  role: MemberRole;
   status: "Active" | "Invited";
   temp_password: string;
   client?: string; // which client (organization) they belong to
@@ -179,7 +184,12 @@ export async function saveMember(member: Member): Promise<void> {
 // the members table itself is staff-only (it holds temp passwords), so the
 // login screen learns only allowed/role and nothing else. In demo mode it
 // falls back to the locally stored members list.
-export interface MemberAccess { allowed: boolean; role: "admin" | "participant" }
+export interface MemberAccess { allowed: boolean; role: MemberRole }
+
+// Normalise a stored role string to a known MemberRole (defaults to learner).
+function asMemberRole(r?: string | null): MemberRole {
+  return r === "admin" ? "admin" : r === "coordinator" ? "coordinator" : "participant";
+}
 
 export async function checkMemberAccess(email: string): Promise<MemberAccess | null> {
   const e = email.trim().toLowerCase();
@@ -188,14 +198,14 @@ export async function checkMemberAccess(email: string): Promise<MemberAccess | n
     const { data, error } = await sb.rpc("check_access", { p_email: e });
     if (!error) {
       const row = (Array.isArray(data) ? data[0] : data) as { allowed?: boolean; member_role?: string } | null;
-      if (row?.allowed) return { allowed: true, role: row.member_role === "admin" ? "admin" : "participant" };
+      if (row?.allowed) return { allowed: true, role: asMemberRole(row.member_role) };
       return null;
     }
     // RPC missing → schema.sql hasn't been re-run yet; fall through to the
     // direct read below, which the old open policies still allow.
   }
   const m = (await listMembers()).find((x) => x.email.trim().toLowerCase() === e);
-  return m ? { allowed: true, role: m.role === "admin" ? "admin" : "participant" } : null;
+  return m ? { allowed: true, role: asMemberRole(m.role) } : null;
 }
 
 export async function removeMember(email: string): Promise<void> {

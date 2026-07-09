@@ -14,6 +14,13 @@ import { MAS, CLIENT, PORTAL_URL } from "@/lib/mas";
 const nameFromEmail = (email: string) =>
   email.split("@")[0].split(/[.\-_]/).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
 
+// Human labels for the access levels an admin can assign.
+const ROLE_LABELS: Record<Member["role"], string> = {
+  participant: "Learner",
+  coordinator: "Program Coordinator",
+  admin: "Administrator",
+};
+
 // Built-in accounts that always exist; saved invitations are merged on top.
 const seeds: Member[] = [
   ...ADMIN_EMAILS.map((email) => ({ email, name: nameFromEmail(email), role: "admin" as const, status: "Active" as const, temp_password: "" })),
@@ -33,7 +40,7 @@ export default function AccessPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [profiles, setProfiles] = useState<MemberProfile[]>([]);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "participant">("participant");
+  const [role, setRole] = useState<Member["role"]>("participant");
   const [client, setClient] = useState("");
   const [filter, setFilter] = useState("All");
   const [busy, setBusy] = useState(false);
@@ -100,7 +107,7 @@ export default function AccessPage() {
   }
 
   async function inviteOne(target: { email: string; name?: string }): Promise<{ ok: boolean; demo: boolean; pwd: string }> {
-    const label = role === "admin" ? "Administrator" : "Learner";
+    const label = ROLE_LABELS[role];
     const name = target.name || nameFromEmail(target.email);
     const member: Member = { email: target.email, name, role, status: "Invited", temp_password: genTempPassword(), client: client || undefined };
     setRows((r) => mergeMembers([member], r));
@@ -171,13 +178,13 @@ export default function AccessPage() {
   }
 
   // Promote a learner to Administrator, or demote an admin back to Learner.
-  async function changeRole(target: string, role: "admin" | "participant") {
+  async function changeRole(target: string, role: Member["role"]) {
     const m = rows.find((x) => x.email === target);
     if (!m || m.role === role) return;
     const updated: Member = { ...m, role };
     setRows((r) => r.map((x) => (x.email === target ? updated : x)));
     await saveMember(updated);
-    toast(role === "admin" ? `${m.name || target} is now an Administrator` : `${m.name || target} is now a Learner`, "success");
+    toast(`${m.name || target} is now ${ROLE_LABELS[role]}`, "success");
   }
 
   // Save edits to a person (name, role, client) from the edit dialog.
@@ -226,6 +233,7 @@ export default function AccessPage() {
             </label>
             <select value={role} onChange={(e) => setRole(e.target.value as Member["role"])} className="rounded-xl border bg-background px-3 py-2.5 text-sm outline-none">
               <option value="participant">Learner</option>
+              <option value="coordinator">Program Coordinator</option>
               <option value="admin">Administrator</option>
             </select>
             <Button type="submit" size="sm" disabled={busy}>
@@ -284,14 +292,15 @@ export default function AccessPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="inline-flex items-center gap-1.5">
-                      {r.role === "admin" ? <Icons.ShieldCheck className="h-3.5 w-3.5 text-accent" /> : <Icons.GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />}
+                      {r.role === "admin" ? <Icons.ShieldCheck className="h-3.5 w-3.5 text-accent" /> : r.role === "coordinator" ? <Icons.UserCheck className="h-3.5 w-3.5 text-accent" /> : <Icons.GraduationCap className="h-3.5 w-3.5 text-muted-foreground" />}
                       <select
                         value={r.role}
-                        onChange={(e) => changeRole(r.email, e.target.value as "admin" | "participant")}
-                        className={`rounded-lg border bg-background px-2 py-1 text-xs font-medium outline-none ${r.role === "admin" ? "text-accent" : ""}`}
+                        onChange={(e) => changeRole(r.email, e.target.value as Member["role"])}
+                        className={`rounded-lg border bg-background px-2 py-1 text-xs font-medium outline-none ${r.role !== "participant" ? "text-accent" : ""}`}
                         title="Change access level"
                       >
                         <option value="participant">Learner</option>
+                        <option value="coordinator">Program Coordinator</option>
                         <option value="admin">Administrator</option>
                       </select>
                     </div>
@@ -371,6 +380,7 @@ function EditPersonDialog({ member, clientNames, onClose, onSave, onRemove }: {
             <span className="mb-1 block text-xs font-medium text-muted-foreground">Access level</span>
             <select value={role} onChange={(e) => setRole(e.target.value as Member["role"])} className="modal-input">
               <option value="participant">Learner</option>
+              <option value="coordinator">Program Coordinator</option>
               <option value="admin">Administrator</option>
             </select>
           </label>
