@@ -43,7 +43,7 @@ const SEND = process.argv.includes("--send");
 const KEY = process.env.BREVO_API_KEY;
 const LIST_ID = Number(process.env.BREVO_LIST_ID || 2);
 const CHAPTER = (process.env.CHAPTER || "MAS GLA").trim();
-const LMS_URL = process.env.LMS_URL || "https://tocprogram.vercel.app/learning";
+const LMS_URL = process.env.LMS_URL || "https://toc.amalandco.com/";
 
 function parseFrom(raw) {
   const m = String(raw || "").match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
