@@ -76,6 +76,13 @@ and the route gate in `components/auth-guard.tsx`.
   (`RESEND_API_KEY`) is also supported as a fallback. Without a key, emails are
   simulated so flows keep working. Admin invites and the onboarding welcome
   email use this.
+- **Reminder automation:** `npm run reminder:first-module` reads the members
+  straight from Brevo, filters to one chapter by their `JOB_TITLE` attribute
+  (default `MAS GLA`, override with `CHAPTER=`), and emails each a reminder to
+  finish Module 1 now that the video is uploaded on the LMS. It's a **dry run**
+  by default (prints who would be emailed, sends nothing); add `-- --send` to
+  actually send. Uses the same self-healing Brevo sender as `/api/email`. See
+  `scripts/send-first-module-reminder.mjs`.
 
 ## Design
 
