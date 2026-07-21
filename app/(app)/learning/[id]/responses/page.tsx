@@ -28,6 +28,7 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
   const [respondents, setRespondents] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [live, setLive] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [lastSync, setLastSync] = useState<number | null>(null);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
 
   const refresh = useCallback(async () => {
     if (!canView || worksheets.length === 0) return;
+    setRefreshing(true);
     const [progress, profiles, members] = await Promise.all([
       listLearnerProgress(),
       listProfiles(),
@@ -79,6 +81,7 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
     setRespondents(responded.size);
     setLastSync(Date.now());
     setLoaded(true);
+    setRefreshing(false);
   }, [canView, worksheets]);
 
   // Initial + polling refresh while "live" is on.
@@ -121,7 +124,9 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
             <span className={`h-2 w-2 rounded-full ${live ? "animate-pulse bg-white" : "bg-muted-foreground"}`} />
             {live ? "Live" : "Paused"}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => void refresh()}><Icons.RefreshCw className="h-4 w-4" /> Refresh</Button>
+          <Button size="sm" variant="outline" disabled={refreshing} onClick={() => void refresh()}>
+            <Icons.RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> {refreshing ? "Refreshing…" : "Refresh"}
+          </Button>
         </div>
       </div>
 
@@ -135,22 +140,38 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
         <div className="flex justify-center py-24"><Icons.Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : worksheets.length === 0 ? (
         <div className="mt-6"><EmptyHint>This module has no worksheet, so there are no responses to show.</EmptyHint></div>
+      ) : respondents === 0 ? (
+        // No fake/placeholder prompt cards — a single, honest empty state until
+        // real answers arrive.
+        <div className="mt-6 rounded-2xl border border-dashed p-10 text-center">
+          <Icons.Inbox className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-3 font-semibold">No responses yet</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Answers show up here live as people fill in the worksheet — from the module or the shared link.
+            This page updates on its own; you can also hit Refresh.
+          </p>
+        </div>
       ) : (
         <div className="mt-6 space-y-8">
-          {worksheets.map((ws) => (
-            <section key={ws.id}>
-              {worksheets.length > 1 && (
-                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                  <Icons.PencilRuler className="h-4 w-4 text-accent" /> {ws.title}
-                </h2>
-              )}
-              <div className="space-y-5">
-                {(ws.fields ?? []).map((f, i) => (
-                  <FieldResponses key={f.id} index={i} field={f} responses={answersByField[f.id] ?? []} />
-                ))}
-              </div>
-            </section>
-          ))}
+          {worksheets.map((ws) => {
+            // Only render prompts that actually have answers — no empty placeholders.
+            const answered = (ws.fields ?? []).filter((f) => (answersByField[f.id] ?? []).length > 0);
+            if (answered.length === 0) return null;
+            return (
+              <section key={ws.id}>
+                {worksheets.length > 1 && (
+                  <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                    <Icons.PencilRuler className="h-4 w-4 text-accent" /> {ws.title}
+                  </h2>
+                )}
+                <div className="space-y-5">
+                  {answered.map((f) => (
+                    <FieldResponses key={f.id} index={(ws.fields ?? []).indexOf(f)} field={f} responses={answersByField[f.id] ?? []} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       )}
 
