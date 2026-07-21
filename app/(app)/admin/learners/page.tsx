@@ -356,10 +356,19 @@ function KickoffSlide({ modules, rows, onClose }: { modules: CourseModule[]; row
     return { done, progress, notStarted };
   }, [module, rows]);
 
-  const cols: { key: string; label: string; icon: string; ring: string; chip: string; people: Row[] }[] = [
-    { key: "done", label: "Completed", icon: "CheckCircle2", ring: "border-[hsl(var(--success)/0.4)]", chip: "bg-[hsl(var(--success)/0.15)] text-[hsl(var(--success))]", people: groups.done },
-    { key: "prog", label: "In progress", icon: "Loader", ring: "border-[hsl(var(--warning)/0.4)]", chip: "bg-[hsl(var(--warning)/0.15)] text-[hsl(var(--warning))]", people: groups.progress },
-    { key: "not", label: "Not started", icon: "Circle", ring: "border-border", chip: "bg-secondary text-muted-foreground", people: groups.notStarted },
+  // Mentimeter-style: bars grow in from zero each time the slide changes.
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    setGrown(false);
+    const t = setTimeout(() => setGrown(true), 60);
+    return () => clearTimeout(t);
+  }, [idx]);
+
+  const total = rows.length || 1;
+  const bars: { key: string; label: string; color: string; people: Row[] }[] = [
+    { key: "done", label: "Completed", color: "hsl(var(--success))", people: groups.done },
+    { key: "prog", label: "In progress", color: "hsl(var(--warning))", people: groups.progress },
+    { key: "not", label: "Not started", color: "hsl(var(--muted-foreground))", people: groups.notStarted },
   ];
 
   return (
@@ -375,38 +384,41 @@ function KickoffSlide({ modules, rows, onClose }: { modules: CourseModule[]; row
         </div>
       </div>
 
-      {/* slide body */}
-      <div className="relative flex flex-1 flex-col overflow-hidden px-6 py-6 sm:px-12 sm:py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col">
-          <p className="text-sm font-semibold uppercase tracking-wider text-accent">Module {idx + 1}</p>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">{module.title}</h1>
-          <p className="mt-2 text-base text-muted-foreground">
-            Where everyone is before we begin — {groups.done.length} done · {groups.progress.length} in progress · {groups.notStarted.length} not started.
-          </p>
+      {/* slide body — big bold title, then bars that grow in (Mentimeter style) */}
+      <div className="relative flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-16 sm:py-12">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center">
+          <p className="text-base font-bold uppercase tracking-wider text-accent">Module {idx + 1} · {rows.length} {rows.length === 1 ? "participant" : "participants"}</p>
+          <h1 className="mt-2 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">{module.title}</h1>
 
-          <div className="mt-6 grid flex-1 gap-4 overflow-hidden sm:grid-cols-3">
-            {cols.map((c) => {
-              const Ico = (Icons as unknown as Record<string, Icons.LucideIcon>)[c.icon] ?? Icons.Circle;
+          <div className="mt-10 space-y-8">
+            {bars.map((b) => {
+              const count = b.people.length;
+              const pct = Math.round((count / total) * 100);
               return (
-                <div key={c.key} className={`flex min-h-0 flex-col rounded-2xl border-2 ${c.ring} bg-card p-4`}>
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-2 text-lg font-bold"><Ico className="h-5 w-5" /> {c.label}</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${c.chip}`}>{c.people.length}</span>
+                <div key={b.key}>
+                  <div className="mb-2 flex items-baseline justify-between gap-4">
+                    <span className="text-xl font-bold sm:text-2xl">{b.label}</span>
+                    <span className="shrink-0 text-2xl font-extrabold tabular-nums sm:text-3xl" style={{ color: b.color }}>
+                      {count}<span className="ml-2 text-lg font-semibold text-muted-foreground sm:text-xl">{pct}%</span>
+                    </span>
                   </div>
-                  <div className="flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto">
-                    {c.people.length === 0 ? (
-                      <span className="text-sm text-muted-foreground">—</span>
-                    ) : (
-                      c.people.map((p) => (
-                        <span key={p.email} className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-sm font-medium">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-[10px] font-bold text-accent">
-                            {(p.name || p.email).trim().charAt(0).toUpperCase()}
-                          </span>
+                  {/* the growing bar */}
+                  <div className="h-12 w-full overflow-hidden rounded-2xl bg-secondary sm:h-16">
+                    <div
+                      className="h-full rounded-2xl transition-[width] duration-[900ms] ease-out"
+                      style={{ width: grown ? `${Math.max(count > 0 ? 4 : 0, pct)}%` : "0%", backgroundColor: b.color }}
+                    />
+                  </div>
+                  {/* names sit under each bar so it's still a real heads-up */}
+                  {count > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {b.people.map((p) => (
+                        <span key={p.email} className="rounded-full border bg-card px-2.5 py-1 text-sm font-medium">
                           {p.name || p.email.split("@")[0]}
                         </span>
-                      ))
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
