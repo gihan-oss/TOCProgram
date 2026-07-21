@@ -514,10 +514,10 @@ function Prose({ text }: { text: string }) {
 }
 
 // ---------------- Share link (admins) ----------------
-// A public, Mentimeter-style link to this module's worksheet(s). Anyone with the
-// link enters their name + email and fills the sheet — their answers save to
-// that email's account, so when they later sign in and open the module the
-// answers are already there.
+// A public, Mentimeter-style link to this module's worksheet(s). Participants
+// pick their name from the enrolled roster and fill the sheet — their answers
+// save to that person's account, so when they later sign in and open the module
+// the answers are already there.
 function ShareWorksheetLink({ moduleId }: { moduleId: string }) {
   const toast = useToast();
   const [url, setUrl] = useState("");
@@ -541,7 +541,7 @@ function ShareWorksheetLink({ moduleId }: { moduleId: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Share this worksheet</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Anyone with this link enters their name &amp; email and fills the worksheet — no sign-in needed.
+            Participants open this link, pick their name from the enrolled list, and fill the worksheet — no sign-in needed.
             Their answers save to their account, so they&apos;re already there when they open this module.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
