@@ -231,9 +231,10 @@ language sql stable security definer set search_path = public as $$
 $$;
 grant execute on function public.public_roster() to anon, authenticated;
 
--- Merge worksheet answers into an enrolled member's progress from the public
--- link. p_token is the md5(email) from public_roster(); it's resolved back to
--- the member's email here (unknown token → rejected).
+-- Merge worksheet answers into a participant's progress from the public link.
+-- p_token is EITHER the md5(email) from public_roster() (enrolled name picked
+-- from the dropdown) OR a plain email typed by someone not on the roster — so
+-- the link works whether or not anyone is enrolled yet.
 --   p_worksheets: { "<resourceId>": { "<fieldId>": "answer", … }, … }
 --   p_done:       resource ids to mark complete (required prompts all filled)
 -- Only meta.worksheets and the done set are touched; quiz scores and answers
@@ -254,13 +255,19 @@ declare
   cur_done  text[];
   cur_ws    jsonb;
 begin
-  -- Resolve the opaque token to an enrolled member's email.
+  -- p_token is EITHER a roster token (md5 of an enrolled member's email) …
   select lower(m.email) into e
     from public.members m
     where md5(lower(m.email)) = p_token
     limit 1;
+  -- … OR a plain email typed by someone who isn't on the roster dropdown, so
+  -- the link still works even when no one is enrolled yet.
   if e is null then
-    raise exception 'unknown participant';
+    if p_token ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
+      e := lower(trim(p_token));
+    else
+      raise exception 'unknown participant';
+    end if;
   end if;
 
   select meta, done into cur_meta, cur_done

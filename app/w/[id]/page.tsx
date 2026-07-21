@@ -191,18 +191,33 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
   );
 }
 
-// The first screen: pick who you are from the enrolled roster.
+// The first screen: pick who you are from the enrolled roster, or — if you're
+// not on it (or no one is enrolled yet) — type your name + email. Either way the
+// worksheet can always be started and saved.
 function NameGate({ module, moduleIndex, roster, onStart }: {
   module: CourseModule;
   moduleIndex: number;
   roster: PublicParticipant[];
   onStart: (p: PublicParticipant) => void;
 }) {
+  // Default to typing when there's no roster to pick from.
+  const [typing, setTyping] = useState(roster.length === 0);
   const [key, setKey] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (typing) {
+      const n = name.trim();
+      const em = email.trim().toLowerCase();
+      if (!n) { setError("Please enter your name."); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { setError("Please enter a valid email address."); return; }
+      // The email itself is the save key when you're not on the roster.
+      onStart({ key: em, name: n });
+      return;
+    }
     const picked = roster.find((p) => p.key === key);
     if (!picked) { setError("Please choose your name from the list."); return; }
     onStart(picked);
@@ -215,17 +230,35 @@ function NameGate({ module, moduleIndex, roster, onStart }: {
       </p>
       <h1 className="mt-1 text-xl font-semibold tracking-tight">{module.title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Fill in this module&apos;s worksheet. Choose your name so your answers are saved to your account —
+        Fill in this module&apos;s worksheet. Tell us who you are so your answers are saved to your account —
         they&apos;ll be waiting for you when you sign in.
       </p>
 
-      {roster.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-          <Icons.Users className="mx-auto mb-2 h-6 w-6" />
-          No participants are enrolled in this course yet. Ask your facilitator to add you, then reopen this link.
-        </div>
-      ) : (
-        <form onSubmit={submit} className="mt-6 space-y-4">
+      <form onSubmit={submit} className="mt-6 space-y-4">
+        {typing ? (
+          <>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium">Your name</span>
+              <span className="relative block">
+                <Icons.User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input value={name} onChange={(e) => { setName(e.target.value); setError(null); }} placeholder="Hannah Maki" autoFocus className="auth-input" />
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium">Your email</span>
+              <span className="relative block">
+                <Icons.Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(null); }} placeholder="you@organization.org" className="auth-input" />
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">Use the same email you sign in to the portal with.</span>
+            </label>
+            {roster.length > 0 && (
+              <button type="button" onClick={() => { setTyping(false); setError(null); }} className="text-xs font-medium text-accent hover:underline">
+                ← Pick my name from the list instead
+              </button>
+            )}
+          </>
+        ) : (
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium">Your name</span>
             <span className="relative block">
@@ -240,16 +273,18 @@ function NameGate({ module, moduleIndex, roster, onStart }: {
               </select>
               <Icons.ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             </span>
-            <span className="mt-1 block text-xs text-muted-foreground">Don&apos;t see your name? Ask your facilitator to enrol you.</span>
+            <button type="button" onClick={() => { setTyping(true); setError(null); }} className="mt-1.5 text-xs font-medium text-accent hover:underline">
+              Don&apos;t see your name? Enter it manually
+            </button>
           </label>
+        )}
 
-          {error && <p className="rounded-lg bg-[hsl(var(--danger)/0.12)] px-3 py-2 text-sm text-[hsl(var(--danger))]">{error}</p>}
+        {error && <p className="rounded-lg bg-[hsl(var(--danger)/0.12)] px-3 py-2 text-sm text-[hsl(var(--danger))]">{error}</p>}
 
-          <Button type="submit" size="md" className="w-full" disabled={!key}>
-            Start worksheet <Icons.ArrowRight className="h-4 w-4" />
-          </Button>
-        </form>
-      )}
+        <Button type="submit" size="md" className="w-full" disabled={typing ? (!name.trim() || !email.trim()) : !key}>
+          Start worksheet <Icons.ArrowRight className="h-4 w-4" />
+        </Button>
+      </form>
     </div>
   );
 }

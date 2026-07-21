@@ -223,13 +223,30 @@ export async function savePublicWorksheet(
   const k = key.trim();
   if (!k) return { ok: false, error: "Choose your name first" };
 
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(k);
+
   const sb = getSupabaseBrowserClient();
   if (sb) {
-    const { error } = await sb.rpc("save_public_worksheet", {
+    // Current schema takes p_token (a roster token OR a plain email).
+    let { error } = await sb.rpc("save_public_worksheet", {
       p_token: k,
       p_worksheets: worksheets,
       p_done: doneIds,
     });
+    // Older deployed schema only had a p_email parameter, so PostgREST can't
+    // find the p_token overload (PGRST202 / "schema cache"). When the person
+    // typed an email (the manual fallback), retry the email signature so saving
+    // works WITHOUT re-running the SQL. (A roster token isn't an email, so the
+    // dropdown path still needs the updated function.)
+    const missing = (e: { code?: string; message?: string }) =>
+      e.code === "PGRST202" || /Could not find the function|schema cache/i.test(e.message ?? "");
+    if (error && isEmail && missing(error)) {
+      ({ error } = await sb.rpc("save_public_worksheet", {
+        p_email: k,
+        p_worksheets: worksheets,
+        p_done: doneIds,
+      }));
+    }
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   }
