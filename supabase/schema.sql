@@ -194,13 +194,19 @@ drop policy if exists "progress staff read" on public.course_progress;
 create policy "progress staff read" on public.course_progress for select using (public.is_tracker());
 
 -- ---- Public worksheet share link (Mentimeter-style) ----------------------
--- A shareable link (…/w/<moduleId>) lets anyone fill a module's worksheet
--- without signing in: they enter their name + email, and their answers are
--- saved to that email's course_progress so they appear when the person later
--- signs in and opens the module. Anonymous visitors can't read `course` or
--- write `course_progress` under the policies above, so these two SECURITY
--- DEFINER functions are the ONLY anon-facing surface — deliberately narrow:
--- read the course, and merge worksheet answers into one email's progress.
+-- A shareable link (…/w/<moduleId>) lets an enrolled participant fill a
+-- module's worksheet without signing in: they pick their NAME from a dropdown
+-- of enrolled members, and their answers are saved to that member's
+-- course_progress so they appear when the person later signs in and opens the
+-- module. Anonymous visitors can't read `course`/`members` or write
+-- `course_progress` under the policies above, so these SECURITY DEFINER
+-- functions are the ONLY anon-facing surface — deliberately narrow.
+--
+-- Identity: the roster hands the browser each member's NAME plus an opaque
+-- md5(email) TOKEN — never the email itself (no address harvesting). The save
+-- resolves that token back to the enrolled member's email server-side, so a
+-- visitor can only ever write to a real enrolled participant, never an
+-- arbitrary address.
 
 -- Read the shared course document as an anonymous visitor (the /w link needs
 -- the worksheet prompts to render). Returns just the modules JSON, nothing else.
@@ -211,26 +217,50 @@ language sql stable security definer set search_path = public as $$
 $$;
 grant execute on function public.public_course() to anon, authenticated;
 
--- Merge worksheet answers into a learner's progress from the public link.
+-- The enrolled-participant roster for the name dropdown: each member's display
+-- name (preferring their profile name) and an opaque md5(email) token. Emails
+-- are NEVER returned to the browser.
+create or replace function public.public_roster()
+returns table(token text, name text)
+language sql stable security definer set search_path = public as $$
+  select md5(lower(m.email)) as token,
+         coalesce(nullif(p.name, ''), nullif(m.name, ''), split_part(m.email, '@', 1)) as name
+  from public.members m
+  left join public.profiles p on lower(p.email) = lower(m.email)
+  order by 2;
+$$;
+grant execute on function public.public_roster() to anon, authenticated;
+
+-- Merge worksheet answers into an enrolled member's progress from the public
+-- link. p_token is the md5(email) from public_roster(); it's resolved back to
+-- the member's email here (unknown token → rejected).
 --   p_worksheets: { "<resourceId>": { "<fieldId>": "answer", … }, … }
 --   p_done:       resource ids to mark complete (required prompts all filled)
 -- Only meta.worksheets and the done set are touched; quiz scores and answers
 -- for OTHER worksheets are preserved, and nothing is ever removed.
+-- (Signature is (text, jsonb, text[]) — same as the previous email version — so
+-- the first param is dropped-and-recreated to rename it cleanly.)
+drop function if exists public.save_public_worksheet(text, jsonb, text[]);
 create or replace function public.save_public_worksheet(
-  p_email text,
+  p_token text,
   p_worksheets jsonb,
   p_done text[]
 )
 returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  e         text := lower(trim(p_email));
+  e         text;
   cur_meta  jsonb;
   cur_done  text[];
   cur_ws    jsonb;
 begin
-  if e = '' or e !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
-    raise exception 'a valid email is required';
+  -- Resolve the opaque token to an enrolled member's email.
+  select lower(m.email) into e
+    from public.members m
+    where md5(lower(m.email)) = p_token
+    limit 1;
+  if e is null then
+    raise exception 'unknown participant';
   end if;
 
   select meta, done into cur_meta, cur_done

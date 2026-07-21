@@ -9,17 +9,19 @@ import { WorksheetPlayer } from "@/components/worksheet-player";
 import { useToast } from "@/components/toast";
 import { CLIENT, MAS } from "@/lib/mas";
 import { effectiveModules } from "@/lib/starter-course";
-import { loadModulesPublic, savePublicWorksheet, type CourseModule, type Resource } from "@/lib/content";
+import {
+  loadModulesPublic, loadPublicRoster, savePublicWorksheet,
+  type CourseModule, type Resource, type PublicParticipant,
+} from "@/lib/content";
 
-// Remembers the person on this device so a returning visitor doesn't retype
-// their details (and so a facilitator sharing one screen can switch people).
+// Remembers who was last chosen on this device so a returning visitor doesn't
+// re-pick (and a facilitator on a shared screen can switch people quickly).
 const WHO_KEY = "toc-public-who";
-type Who = { name: string; email: string };
 
-function loadWho(): Who | null {
+function loadWho(): PublicParticipant | null {
   try {
     const raw = localStorage.getItem(WHO_KEY);
-    return raw ? (JSON.parse(raw) as Who) : null;
+    return raw ? (JSON.parse(raw) as PublicParticipant) : null;
   } catch {
     return null;
   }
@@ -30,8 +32,9 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
   const toast = useToast();
 
   const [modules, setModules] = useState<CourseModule[]>([]);
+  const [roster, setRoster] = useState<PublicParticipant[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [who, setWho] = useState<Who | null>(null);
+  const [who, setWho] = useState<PublicParticipant | null>(null);
 
   // Answers + completion the visitor has entered this session, per worksheet id.
   const [answers, setAnswers] = useState<Record<string, Record<string, string>>>({});
@@ -40,8 +43,12 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
 
   useEffect(() => {
     (async () => {
-      setModules(effectiveModules(await loadModulesPublic()));
-      setWho(loadWho());
+      const [mods, ppl] = await Promise.all([loadModulesPublic(), loadPublicRoster()]);
+      setModules(effectiveModules(mods));
+      setRoster(ppl);
+      // Restore the last-chosen person only if they're still on the roster.
+      const remembered = loadWho();
+      if (remembered && ppl.some((p) => p.key === remembered.key)) setWho(remembered);
       setLoaded(true);
     })();
   }, []);
@@ -53,9 +60,9 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
     [module],
   );
 
-  function setPerson(w: Who) {
-    try { localStorage.setItem(WHO_KEY, JSON.stringify(w)); } catch {}
-    setWho(w);
+  function setPerson(p: PublicParticipant) {
+    try { localStorage.setItem(WHO_KEY, JSON.stringify(p)); } catch {}
+    setWho(p);
     // A different person starts a fresh sheet on this device.
     setAnswers({});
     setDone(new Set());
@@ -71,7 +78,7 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
       return next;
     });
     setStatus("saving");
-    const res = await savePublicWorksheet(who.email, { [resourceId]: vals }, complete ? [resourceId] : []);
+    const res = await savePublicWorksheet(who.key, { [resourceId]: vals }, complete ? [resourceId] : []);
     setStatus(res.ok ? "saved" : "error");
     if (!res.ok) toast(res.error || "Couldn't save — check your connection", "error");
   }
@@ -106,12 +113,12 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  // ---- Name gate (Mentimeter-style) ----
+  // ---- Name gate (pick who you are) ----
   if (!who) {
     return frame(
       <div className="mx-auto max-w-md">
         <div className="mb-6 flex justify-center"><Logo size="md" /></div>
-        <NameGate module={module} moduleIndex={moduleIndex} onStart={setPerson} />
+        <NameGate module={module} moduleIndex={moduleIndex} roster={roster} onStart={setPerson} />
         <p className="mt-6 text-center text-xs text-muted-foreground">An Amal &amp; Company platform · {MAS.org}</p>
       </div>,
     );
@@ -142,8 +149,8 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
       <div className="mt-3 flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm">
         <Icons.Sparkles className="h-4 w-4 shrink-0 text-accent" />
         <span className="text-muted-foreground">
-          Fill this in as <span className="font-medium text-foreground">{who.name}</span>. It saves to
-          {" "}<span className="font-medium text-foreground">{who.email}</span> — sign in anytime to find it in Module {moduleIndex + 1}.
+          Filling this in as <span className="font-medium text-foreground">{who.name}</span>. It saves to your account —
+          sign in anytime to find it in Module {moduleIndex + 1}.
         </span>
       </div>
 
@@ -175,7 +182,7 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
         ) : status === "error" ? (
           <span className="text-[hsl(var(--danger))]"><Icons.AlertCircle className="mr-1 inline h-3.5 w-3.5" /> Not saved — check your connection</span>
         ) : status === "saved" ? (
-          <><Icons.CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))]" /> Saved to {who.email}</>
+          <><Icons.CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))]" /> Saved to your account</>
         ) : (
           <><Icons.ShieldCheck className="h-3.5 w-3.5" /> Your answers save automatically as you type</>
         )}
@@ -184,23 +191,21 @@ export default function PublicWorksheetPage({ params }: { params: Promise<{ id: 
   );
 }
 
-// The first screen: choose your name + email before filling the sheet.
-function NameGate({ module, moduleIndex, onStart }: {
+// The first screen: pick who you are from the enrolled roster.
+function NameGate({ module, moduleIndex, roster, onStart }: {
   module: CourseModule;
   moduleIndex: number;
-  onStart: (w: Who) => void;
+  roster: PublicParticipant[];
+  onStart: (p: PublicParticipant) => void;
 }) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const n = name.trim();
-    const em = email.trim().toLowerCase();
-    if (!n) { setError("Please enter your name."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { setError("Please enter a valid email address."); return; }
-    onStart({ name: n, email: em });
+    const picked = roster.find((p) => p.key === key);
+    if (!picked) { setError("Please choose your name from the list."); return; }
+    onStart(picked);
   }
 
   return (
@@ -210,33 +215,41 @@ function NameGate({ module, moduleIndex, onStart }: {
       </p>
       <h1 className="mt-1 text-xl font-semibold tracking-tight">{module.title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Fill in this module&apos;s worksheet. Add your name and email so your answers are saved to your account —
+        Fill in this module&apos;s worksheet. Choose your name so your answers are saved to your account —
         they&apos;ll be waiting for you when you sign in.
       </p>
 
-      <form onSubmit={submit} className="mt-6 space-y-4">
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Your name</span>
-          <span className="relative block">
-            <Icons.User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Hannah Maki" autoFocus className="auth-input" />
-          </span>
-        </label>
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Your email</span>
-          <span className="relative block">
-            <Icons.Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@organization.org" className="auth-input" />
-          </span>
-          <span className="mt-1 block text-xs text-muted-foreground">Use the same email you sign in to the portal with.</span>
-        </label>
+      {roster.length === 0 ? (
+        <div className="mt-6 rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <Icons.Users className="mx-auto mb-2 h-6 w-6" />
+          No participants are enrolled in this course yet. Ask your facilitator to add you, then reopen this link.
+        </div>
+      ) : (
+        <form onSubmit={submit} className="mt-6 space-y-4">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium">Your name</span>
+            <span className="relative block">
+              <Icons.User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={key}
+                onChange={(e) => { setKey(e.target.value); setError(null); }}
+                className="auth-input appearance-none pr-9"
+              >
+                <option value="">Choose your name…</option>
+                {roster.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
+              </select>
+              <Icons.ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </span>
+            <span className="mt-1 block text-xs text-muted-foreground">Don&apos;t see your name? Ask your facilitator to enrol you.</span>
+          </label>
 
-        {error && <p className="rounded-lg bg-[hsl(var(--danger)/0.12)] px-3 py-2 text-sm text-[hsl(var(--danger))]">{error}</p>}
+          {error && <p className="rounded-lg bg-[hsl(var(--danger)/0.12)] px-3 py-2 text-sm text-[hsl(var(--danger))]">{error}</p>}
 
-        <Button type="submit" size="md" className="w-full">
-          Start worksheet <Icons.ArrowRight className="h-4 w-4" />
-        </Button>
-      </form>
+          <Button type="submit" size="md" className="w-full" disabled={!key}>
+            Start worksheet <Icons.ArrowRight className="h-4 w-4" />
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

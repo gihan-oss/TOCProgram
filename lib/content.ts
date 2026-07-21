@@ -162,14 +162,19 @@ export async function saveMeta(email: string, meta: LearnerMeta) {
 }
 
 // ---------------- Public worksheet link (Mentimeter-style) ----------------
-// A shareable link lets anyone fill a module's worksheet without signing in.
-// They enter their name + email; answers are saved to that email's account so
-// they appear when the person later signs in and opens the module.
+// A shareable link lets an enrolled participant fill a module's worksheet
+// without signing in. They pick their NAME from a dropdown of enrolled members;
+// answers are saved to that member's account so they appear when the person
+// later signs in and opens the module.
 //
-// Anonymous visitors can't read `course` or write `course_progress` directly
-// (row-level security), so both go through SECURITY DEFINER RPCs granted to
-// `anon` (see supabase/schema.sql). Each call tolerates the RPC being absent
-// (schema not re-run yet) by falling back to the normal paths.
+// Anonymous visitors can't read `course`/`members` or write `course_progress`
+// directly (row-level security), so everything goes through SECURITY DEFINER
+// RPCs granted to `anon` (see supabase/schema.sql). Each participant is
+// identified by an opaque token (md5 of their email) — the email itself never
+// reaches the browser, and saves only ever target a real enrolled member.
+
+// One selectable participant: a display name + the opaque token used to save.
+export interface PublicParticipant { key: string; name: string }
 
 // Read the shared course as an anonymous visitor. Falls back to loadModules()
 // (which works when signed in, or in localStorage demo mode).
@@ -182,21 +187,46 @@ export async function loadModulesPublic(): Promise<CourseModule[]> {
   return loadModules();
 }
 
-// Save worksheet answers for a given email from the public link. `worksheets`
-// maps resourceId -> answers; `doneIds` are worksheet resource ids to mark
-// complete. Existing progress is merged (never wiped).
+// The enrolled-participant roster for the name dropdown. In Supabase mode each
+// `key` is an opaque md5(email) token; in demo mode it's the email itself
+// (read from the locally stored members allowlist to avoid a circular import).
+export async function loadPublicRoster(): Promise<PublicParticipant[]> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data, error } = await sb.rpc("public_roster");
+    if (error || !Array.isArray(data)) return [];
+    return (data as { token: string; name: string }[])
+      .map((r) => ({ key: r.token, name: r.name }))
+      .filter((r) => r.key && r.name);
+  }
+  try {
+    const raw = localStorage.getItem("toc-members");
+    const members = raw ? (JSON.parse(raw) as { email: string; name?: string }[]) : [];
+    return members
+      .map((m) => ({ key: m.email.toLowerCase(), name: m.name || m.email.split("@")[0] }))
+      .filter((m) => m.key)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch {
+    return [];
+  }
+}
+
+// Save worksheet answers for the chosen participant from the public link.
+// `key` is the roster token (Supabase) or email (demo); `worksheets` maps
+// resourceId -> answers; `doneIds` are worksheet ids to mark complete. Existing
+// progress is merged (never wiped).
 export async function savePublicWorksheet(
-  email: string,
+  key: string,
   worksheets: Record<string, Record<string, string>>,
   doneIds: string[],
 ): Promise<{ ok: boolean; error?: string }> {
-  const e = email.trim().toLowerCase();
-  if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return { ok: false, error: "Enter a valid email" };
+  const k = key.trim();
+  if (!k) return { ok: false, error: "Choose your name first" };
 
   const sb = getSupabaseBrowserClient();
   if (sb) {
     const { error } = await sb.rpc("save_public_worksheet", {
-      p_email: e,
+      p_token: k,
       p_worksheets: worksheets,
       p_done: doneIds,
     });
@@ -204,8 +234,10 @@ export async function savePublicWorksheet(
     return { ok: true };
   }
 
-  // Demo / localStorage mode — merge into the same keys the signed-in app reads.
+  // Demo / localStorage mode — the key is the email; merge into the same keys
+  // the signed-in app reads.
   try {
+    const e = k.toLowerCase();
     const meta = await loadMeta(e);
     const nextMeta: LearnerMeta = { ...meta, worksheets: { ...meta.worksheets, ...worksheets } };
     await saveMeta(e, nextMeta);
