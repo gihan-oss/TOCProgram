@@ -38,7 +38,8 @@ export const NAV: NavItem[] = [
   // ---- Insights / dashboards ----
   { href: "/dashboard", label: "Dashboard", icon: "Gauge", group: "Insights", roles: ["admin", "facilitator", "coordinator", "executive"] },
   { href: "/impact", label: "Impact", icon: "TrendingUp", group: "Insights", roles: ["admin", "facilitator", "coordinator", "executive"] },
-  { href: "/implementation", label: "Implementation", icon: "Rocket", group: "Insights", roles: ["admin", "facilitator", "executive"] },
+  { href: "/implementation", label: "Implementation", icon: "Rocket", group: "Insights", roles: ["admin", "facilitator", "coordinator", "executive"] },
+  { href: "/reports", label: "Reports", icon: "FileBarChart", group: "Insights", roles: ["admin", "facilitator", "coordinator", "executive"] },
 
   // ---- Strategy & Programs ----
   { href: "/strategy", label: "Strategy House", icon: "Building2", group: "Strategy", roles: ["admin", "facilitator", "coordinator", "executive", "participant"] },
@@ -85,6 +86,8 @@ export function homeFor(role: Role) {
   if (role === "admin") return "/admin";
   if (role === "participant") return "/journey";
   if (role === "executive") return "/dashboard";
-  if (role === "coordinator") return "/dashboard";
+  // The coordinator is an oversight/tracking role — land them right on the
+  // per-person progress table.
+  if (role === "coordinator") return "/admin/learners";
   return "/plan"; // facilitator → their cohort plan
 }

@@ -51,6 +51,19 @@ $$;
 grant execute on function public.check_access(text) to anon, authenticated;
 grant execute on function public.is_staff() to anon, authenticated;
 
+-- A read-only oversight role: Program Coordinators may VIEW everyone's progress
+-- (profiles, course progress, TOCs) to track who's working — but they are NOT
+-- staff, so they can never read the member allowlist (temp passwords), the
+-- client directory, or write to any table. is_staff() is a subset of is_tracker().
+create or replace function public.is_tracker() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_staff() or exists (
+    select 1 from public.members m
+    where lower(m.email) = lower(auth.jwt() ->> 'email') and m.role = 'coordinator'
+  );
+$$;
+grant execute on function public.is_tracker() to anon, authenticated;
+
 -- Remove the old open policies (earlier versions let ANYONE read the member
 -- list — including temp passwords — and write rows, i.e. self-grant admin).
 drop policy if exists "members read" on public.members;
@@ -94,7 +107,7 @@ create policy "update own profile" on public.profiles
   for update using (auth.jwt() ->> 'email' = email);
 -- Staff may READ all profiles (learners still own their writes).
 drop policy if exists "profiles staff read" on public.profiles;
-create policy "profiles staff read" on public.profiles for select using (public.is_staff());
+create policy "profiles staff read" on public.profiles for select using (public.is_tracker());
 
 -- ---- In-app notifications ------------------------------------------------
 create table if not exists public.notifications (
@@ -178,7 +191,7 @@ drop policy if exists "progress update own" on public.course_progress;
 create policy "progress update own" on public.course_progress for update using (auth.jwt() ->> 'email' = email);
 -- Staff may READ all progress (each learner still owns their writes).
 drop policy if exists "progress staff read" on public.course_progress;
-create policy "progress staff read" on public.course_progress for select using (public.is_staff());
+create policy "progress staff read" on public.course_progress for select using (public.is_tracker());
 
 -- ---- Client directory (shared & permanent, STAFF-ONLY) -------------------
 -- All clients live in one JSON document that admins read and edit. It holds
@@ -222,7 +235,7 @@ alter table public.toc enable row level security;
 drop policy if exists "toc self read" on public.toc;
 create policy "toc self read"   on public.toc for select using (auth.jwt() ->> 'email' = email);
 drop policy if exists "toc staff read" on public.toc;
-create policy "toc staff read"  on public.toc for select using (public.is_staff());
+create policy "toc staff read"  on public.toc for select using (public.is_tracker());
 drop policy if exists "toc self insert" on public.toc;
 create policy "toc self insert" on public.toc for insert with check (auth.jwt() ->> 'email' = email);
 drop policy if exists "toc self update" on public.toc;

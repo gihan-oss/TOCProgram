@@ -96,13 +96,13 @@ export function inviteEmail(opts: {
   name?: string;
   email: string;
   password: string;
-  role: "admin" | "participant";
+  role: "admin" | "participant" | "coordinator";
   loginUrl: string;
   client?: string;
   clientLogoUrl?: string;
 }): { subject: string; html: string } {
   const { name, email, password, role, loginUrl, client, clientLogoUrl } = opts;
-  const roleLabel = role === "admin" ? "Administrator" : "Learner";
+  const roleLabel = role === "admin" ? "Administrator" : role === "coordinator" ? "Program Coordinator" : "Learner";
   const greetName = name && name.trim() ? name.trim().split(" ")[0] : "there";
   const subject = `You're invited to the ${MAS.partner} Impact Portal`;
   // The Sign-in link carries the email + temp password so they're pre-filled.
@@ -139,7 +139,9 @@ export function inviteEmail(opts: {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         ${step("01", "Open your dashboard", "Click the button above (or paste the link into your browser). Bookmark it so it's easy to return to each week.")}
         ${step("02", "Sign in & set your password", "Use the email this was sent to. On your first visit you'll be prompted to set your own password — then you're in.")}
-        ${step("03", "Start your first module", "Begin with Module 1. Each module unlocks the next as you complete it.")}
+        ${role === "coordinator"
+          ? step("03", "Open your tracking dashboards", "Head to Learner Tracking and the dashboards to see who's progressing and who needs a nudge.")
+          : step("03", "Start your first module", "Begin with Module 1. Each module unlocks the next as you complete it.")}
       </table>
     </td></tr>`;
 
