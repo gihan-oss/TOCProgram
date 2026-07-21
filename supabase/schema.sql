@@ -180,6 +180,72 @@ create policy "progress update own" on public.course_progress for update using (
 drop policy if exists "progress staff read" on public.course_progress;
 create policy "progress staff read" on public.course_progress for select using (public.is_staff());
 
+-- ---- Public worksheet share link (Mentimeter-style) ----------------------
+-- A shareable link (…/w/<moduleId>) lets anyone fill a module's worksheet
+-- without signing in: they enter their name + email, and their answers are
+-- saved to that email's course_progress so they appear when the person later
+-- signs in and opens the module. Anonymous visitors can't read `course` or
+-- write `course_progress` under the policies above, so these two SECURITY
+-- DEFINER functions are the ONLY anon-facing surface — deliberately narrow:
+-- read the course, and merge worksheet answers into one email's progress.
+
+-- Read the shared course document as an anonymous visitor (the /w link needs
+-- the worksheet prompts to render). Returns just the modules JSON, nothing else.
+create or replace function public.public_course()
+returns jsonb
+language sql stable security definer set search_path = public as $$
+  select coalesce((select modules from public.course where id = 'default'), '[]'::jsonb);
+$$;
+grant execute on function public.public_course() to anon, authenticated;
+
+-- Merge worksheet answers into a learner's progress from the public link.
+--   p_worksheets: { "<resourceId>": { "<fieldId>": "answer", … }, … }
+--   p_done:       resource ids to mark complete (required prompts all filled)
+-- Only meta.worksheets and the done set are touched; quiz scores and answers
+-- for OTHER worksheets are preserved, and nothing is ever removed.
+create or replace function public.save_public_worksheet(
+  p_email text,
+  p_worksheets jsonb,
+  p_done text[]
+)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  e         text := lower(trim(p_email));
+  cur_meta  jsonb;
+  cur_done  text[];
+  cur_ws    jsonb;
+begin
+  if e = '' or e !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
+    raise exception 'a valid email is required';
+  end if;
+
+  select meta, done into cur_meta, cur_done
+    from public.course_progress where email = e;
+
+  cur_meta := coalesce(cur_meta, '{}'::jsonb);
+  cur_ws   := coalesce(cur_meta -> 'worksheets', '{}'::jsonb);
+  -- Shallow merge: replace each submitted worksheet's answer map, keep the rest.
+  cur_ws   := cur_ws || coalesce(p_worksheets, '{}'::jsonb);
+  cur_meta := jsonb_set(cur_meta, '{worksheets}', cur_ws, true);
+  if not (cur_meta ? 'scores') then
+    cur_meta := jsonb_set(cur_meta, '{scores}', '{}'::jsonb, true);
+  end if;
+
+  -- Union the completed ids into the existing done set (no duplicates).
+  cur_done := (
+    select coalesce(array_agg(distinct d), '{}')
+    from unnest(coalesce(cur_done, '{}') || coalesce(p_done, '{}')) as d
+  );
+
+  insert into public.course_progress (email, done, meta, updated_at)
+    values (e, cur_done, cur_meta, now())
+  on conflict (email) do update
+    set done = excluded.done, meta = excluded.meta, updated_at = now();
+end;
+$$;
+grant execute on function public.save_public_worksheet(text, jsonb, text[]) to anon, authenticated;
+
 -- ---- Client directory (shared & permanent, STAFF-ONLY) -------------------
 -- All clients live in one JSON document that admins read and edit. It holds
 -- contacts/notes about client organizations, so it is staff-only end to end.
