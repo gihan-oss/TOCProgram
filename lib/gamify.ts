@@ -41,7 +41,7 @@ export function computeXp(modules: CourseModule[], done: Set<string>, meta: Lear
       if (done.has(r.id)) xp += XP.resource;
       if (r.type === "Worksheet" && done.has(r.id)) xp += XP.worksheet;
       if (r.type === "Quiz") {
-        const s = meta.scores[r.id];
+        const s = (meta.scores ?? {})[r.id];
         if (s && s.total > 0 && s.correct / s.total >= QUIZ_PASS) {
           xp += XP.quizPass + s.correct * XP.perCorrect;
           if (s.correct === s.total) xp += XP.perfect;

@@ -103,13 +103,14 @@ export default function LearnersPage() {
       const r = ensure(p.email);
       const done = new Set(p.done ?? []);
       const meta: LearnerMeta = p.meta ?? { scores: {}, worksheets: {} };
+      const scores = meta.scores ?? {};
       r.doneSet = done;
       r.worksheets = meta.worksheets ?? {};
       r.itemsDone = allResources.filter((res) => done.has(res.id)).length;
       r.modulesDone = modules.filter((m) => moduleComplete(m, done)).length;
       r.worksheetsDone = allResources.filter((res) => res.type === "Worksheet" && done.has(res.id)).length;
       r.quizzesPassed = allResources.filter((res) => {
-        const s = res.type === "Quiz" ? meta.scores[res.id] : undefined;
+        const s = res.type === "Quiz" ? scores[res.id] : undefined;
         return s && s.total > 0 && s.correct / s.total >= QUIZ_PASS;
       }).length;
       const g = computeGameState(modules, done, meta);
