@@ -280,9 +280,15 @@ export default function AccessPage() {
                   <td className="px-4 py-3">
                     <p className="font-medium">{r.name || nameFromEmail(r.email)}</p>
                     <p className="text-xs font-normal text-muted-foreground">{r.email}</p>
-                    {r.status === "Invited" && r.temp_password && (
+                    {/* Only show the one-time temp password while the person is
+                        still genuinely pending (never opened the portal). Once
+                        they've signed in / onboarded they've set their own
+                        password (which is stored hashed and is NEVER visible to
+                        anyone), so we stop showing the stale temp one. */}
+                    {st.label === "Invited · pending" && r.temp_password && (
                       <div className="mt-0.5 text-xs font-normal text-muted-foreground">
                         temp password: <code className="rounded bg-muted px-1 font-mono">{r.temp_password}</code>
+                        <span className="ml-1 text-muted-foreground/70">(until they sign in)</span>
                       </div>
                     )}
                   </td>
