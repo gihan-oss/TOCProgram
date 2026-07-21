@@ -10,6 +10,7 @@ import { CLIENT } from "@/lib/mas";
 import { effectiveModules } from "@/lib/starter-course";
 import { loadModules, type CourseModule, type Resource, type WorksheetField } from "@/lib/content";
 import { listLearnerProgress, listProfiles, listMembers, isSupabaseConfigured } from "@/lib/store";
+import { ResponsesPresent, type PresentPrompt } from "@/components/responses-present";
 
 // How often the wall re-fetches, so new responses appear "live" during a
 // session. Polling (not realtime sockets) keeps it simple and reliable.
@@ -29,6 +30,7 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
   const [loaded, setLoaded] = useState(false);
   const [live, setLive] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [presenting, setPresenting] = useState(false);
   const [lastSync, setLastSync] = useState<number | null>(null);
 
   useEffect(() => {
@@ -40,6 +42,12 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
   const worksheets = useMemo<Resource[]>(
     () => (module ? module.resources.filter((r) => r.type === "Worksheet") : []),
     [module],
+  );
+  // Flat, ordered list of every prompt across the module's worksheets — one per
+  // slide in the Mentimeter-style present view.
+  const prompts = useMemo<PresentPrompt[]>(
+    () => worksheets.flatMap((ws) => (ws.fields ?? []).map((f) => ({ fieldId: f.id, label: f.label, kind: f.kind, wsTitle: ws.title }))),
+    [worksheets],
   );
 
   const refresh = useCallback(async () => {
@@ -120,6 +128,11 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {prompts.length > 0 && (
+            <Button size="sm" onClick={() => setPresenting(true)}>
+              <Icons.Presentation className="h-4 w-4" /> Present
+            </Button>
+          )}
           <Button size="sm" variant={live ? "primary" : "outline"} onClick={() => setLive((v) => !v)}>
             <span className={`h-2 w-2 rounded-full ${live ? "animate-pulse bg-white" : "bg-muted-foreground"}`} />
             {live ? "Live" : "Paused"}
@@ -129,6 +142,15 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
           </Button>
         </div>
       </div>
+
+      {presenting && (
+        <ResponsesPresent
+          moduleTitle={module?.title ?? "Responses"}
+          prompts={prompts}
+          answersByField={answersByField}
+          onClose={() => setPresenting(false)}
+        />
+      )}
 
       {!isSupabaseConfigured() && (
         <div className="mt-4 rounded-xl border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] px-4 py-3 text-sm text-muted-foreground">
