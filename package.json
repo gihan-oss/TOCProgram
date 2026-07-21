@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:security": "node scripts/security-check.mjs"
+    "test:security": "node scripts/security-check.mjs",
+    "reminder:first-module": "node scripts/send-first-module-reminder.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
