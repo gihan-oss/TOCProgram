@@ -3,12 +3,13 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as Icons from "lucide-react";
-import { Card, Badge, Progress, Stat, EmptyHint } from "@/components/ui";
+import { Card, Badge, Button, Progress, Stat, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
 import { listMembers, listProfiles, listLearnerProgress, listTocs, isSupabaseConfigured, type Member, type MemberProfile, type ProgressRow, type TocRow } from "@/lib/store";
 import { loadModules, moduleComplete, QUIZ_PASS, type CourseModule, type LearnerMeta } from "@/lib/content";
 import { effectiveModules } from "@/lib/starter-course";
 import { computeGameState } from "@/lib/gamify";
+import { CLIENT } from "@/lib/mas";
 
 interface Row {
   email: string;
@@ -50,6 +51,7 @@ export default function LearnersPage() {
   const [loaded, setLoaded] = useState(false);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [presenting, setPresenting] = useState(false);
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
@@ -144,11 +146,20 @@ export default function LearnersPage() {
 
   return (
     <div>
-      <div className="mb-1 flex items-center gap-2">
-        <Icons.Users className="h-5 w-5 text-accent" />
-        <h1 className="text-2xl font-semibold tracking-tight">Learner Tracking</h1>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icons.Users className="h-5 w-5 text-accent" />
+          <h1 className="text-2xl font-semibold tracking-tight">Learner Tracking</h1>
+        </div>
+        {modules.length > 0 && rows.length > 0 && (
+          <Button size="sm" onClick={() => setPresenting(true)}>
+            <Icons.Presentation className="h-4 w-4" /> Kickoff slide
+          </Button>
+        )}
       </div>
       <p className="mb-4 text-sm text-muted-foreground">Everyone in the portal and exactly where they are — sign-up, modules, worksheets, quizzes and their Theory of Change.</p>
+
+      {presenting && <KickoffSlide modules={modules} rows={rows} onClose={() => setPresenting(false)} />}
 
       {!configured && (
         <Card className="mb-4 flex items-start gap-2 border-[hsl(var(--warning)/0.4)] bg-[hsl(var(--warning)/0.08)] p-3 text-sm">
@@ -308,6 +319,115 @@ export default function LearnersPage() {
       <p className="mt-4 text-xs text-muted-foreground">
         Tip: learners' progress saves automatically as they go. Manage who can sign in under <Link href="/admin/access" className="text-accent hover:underline">People &amp; Access</Link>.
       </p>
+    </div>
+  );
+}
+
+// ---------------- Module kickoff slide ----------------
+// A full-screen, projector-friendly slide to open a session with: for the
+// chosen module it groups everyone into Done / In progress / Not started, so
+// the room gets an instant "where we all are" heads-up. Arrow keys (or the
+// on-screen arrows) flip between modules like slides; Esc closes.
+function KickoffSlide({ modules, rows, onClose }: { modules: CourseModule[]; rows: Row[]; onClose: () => void }) {
+  const [idx, setIdx] = useState(0);
+  const module = modules[idx];
+  const go = (d: number) => setIdx((i) => Math.max(0, Math.min(modules.length - 1, i + d)));
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); setIdx((i) => Math.min(modules.length - 1, i + 1)); }
+      else if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modules.length, onClose]);
+
+  const groups = useMemo(() => {
+    const done: Row[] = [], progress: Row[] = [], notStarted: Row[] = [];
+    for (const r of rows) {
+      const items = module.resources.length;
+      const complete = items > 0 && module.resources.every((res) => r.doneSet.has(res.id));
+      const some = module.resources.some((res) => r.doneSet.has(res.id));
+      if (complete) done.push(r);
+      else if (some) progress.push(r);
+      else notStarted.push(r);
+    }
+    return { done, progress, notStarted };
+  }, [module, rows]);
+
+  const cols: { key: string; label: string; icon: string; ring: string; chip: string; people: Row[] }[] = [
+    { key: "done", label: "Completed", icon: "CheckCircle2", ring: "border-[hsl(var(--success)/0.4)]", chip: "bg-[hsl(var(--success)/0.15)] text-[hsl(var(--success))]", people: groups.done },
+    { key: "prog", label: "In progress", icon: "Loader", ring: "border-[hsl(var(--warning)/0.4)]", chip: "bg-[hsl(var(--warning)/0.15)] text-[hsl(var(--warning))]", people: groups.progress },
+    { key: "not", label: "Not started", icon: "Circle", ring: "border-border", chip: "bg-secondary text-muted-foreground", people: groups.notStarted },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-background">
+      {/* top bar */}
+      <div className="flex items-center justify-between gap-3 border-b px-6 py-3">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{CLIENT.tocTitle} · Kickoff</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Slide {idx + 1} / {modules.length}</span>
+          <button onClick={onClose} className="ml-2 inline-flex items-center gap-1 rounded-lg border bg-card px-2.5 py-1.5 font-medium hover:bg-secondary" title="Close (Esc)">
+            <Icons.X className="h-4 w-4" /> Close
+          </button>
+        </div>
+      </div>
+
+      {/* slide body */}
+      <div className="relative flex flex-1 flex-col overflow-hidden px-6 py-6 sm:px-12 sm:py-10">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col">
+          <p className="text-sm font-semibold uppercase tracking-wider text-accent">Module {idx + 1}</p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">{module.title}</h1>
+          <p className="mt-2 text-base text-muted-foreground">
+            Where everyone is before we begin — {groups.done.length} done · {groups.progress.length} in progress · {groups.notStarted.length} not started.
+          </p>
+
+          <div className="mt-6 grid flex-1 gap-4 overflow-hidden sm:grid-cols-3">
+            {cols.map((c) => {
+              const Ico = (Icons as unknown as Record<string, Icons.LucideIcon>)[c.icon] ?? Icons.Circle;
+              return (
+                <div key={c.key} className={`flex min-h-0 flex-col rounded-2xl border-2 ${c.ring} bg-card p-4`}>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-2 text-lg font-bold"><Ico className="h-5 w-5" /> {c.label}</span>
+                    <span className={`rounded-full px-2.5 py-0.5 text-sm font-bold ${c.chip}`}>{c.people.length}</span>
+                  </div>
+                  <div className="flex min-h-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto">
+                    {c.people.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    ) : (
+                      c.people.map((p) => (
+                        <span key={p.email} className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-sm font-medium">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-[10px] font-bold text-accent">
+                            {(p.name || p.email).trim().charAt(0).toUpperCase()}
+                          </span>
+                          {p.name || p.email.split("@")[0]}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* bottom nav */}
+      <div className="flex items-center justify-between gap-3 border-t px-6 py-3">
+        <button onClick={() => go(-1)} disabled={idx === 0} className="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-1.5 text-sm font-medium hover:bg-secondary disabled:opacity-30 disabled:hover:bg-card">
+          <Icons.ChevronLeft className="h-4 w-4" /> Previous
+        </button>
+        <div className="flex items-center gap-1.5">
+          {modules.map((m, i) => (
+            <button key={m.id} onClick={() => setIdx(i)} aria-label={`Slide ${i + 1}`} className={`h-2 rounded-full transition-all ${i === idx ? "w-6 bg-accent" : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"}`} />
+          ))}
+        </div>
+        <button onClick={() => go(1)} disabled={idx === modules.length - 1} className="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-1.5 text-sm font-medium hover:bg-secondary disabled:opacity-30 disabled:hover:bg-card">
+          Next <Icons.ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
