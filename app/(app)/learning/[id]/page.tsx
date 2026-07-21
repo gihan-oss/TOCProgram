@@ -555,6 +555,9 @@ function ShareWorksheetLink({ moduleId }: { moduleId: string }) {
             <a href={url} target="_blank" rel="noopener noreferrer">
               <Button size="sm" variant="outline"><Icons.ExternalLink className="h-4 w-4" /> Open</Button>
             </a>
+            <Link href={`/learning/${moduleId}/responses`}>
+              <Button size="sm" variant="outline"><Icons.BarChart3 className="h-4 w-4" /> Live responses</Button>
+            </Link>
           </div>
         </div>
       </div>
