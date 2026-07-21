@@ -7,7 +7,7 @@
 import { getSupabaseBrowserClient } from "./supabase";
 import type { TocDoc, TocSet } from "./toc-templates";
 import { toTocSet } from "./toc-templates";
-import type { LearnerMeta } from "./content";
+import { normalizeMeta, type LearnerMeta } from "./content";
 
 export interface MemberProfile {
   email: string;
@@ -285,7 +285,9 @@ export async function listLearnerProgress(): Promise<ProgressRow[]> {
     return ((data as ProgressRow[] | null) ?? []).map((r) => ({
       ...r,
       done: r.done ?? [],
-      meta: (r.meta as LearnerMeta) ?? { scores: {}, worksheets: {} },
+      // A row created by saveDone leaves `meta` at its DB default `{}` (no
+      // scores/worksheets keys), so normalize — never trust the raw shape.
+      meta: normalizeMeta(r.meta),
     }));
   }
   return [];

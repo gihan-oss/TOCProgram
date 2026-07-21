@@ -131,7 +131,10 @@ export interface LearnerMeta {
 }
 const META_KEY = (email: string) => `toc-progress-meta:${email.toLowerCase()}`;
 const emptyMeta = (): LearnerMeta => ({ scores: {}, worksheets: {} });
-function normalizeMeta(m: unknown): LearnerMeta {
+// Coerce any stored meta into a complete LearnerMeta. Rows created by saveDone
+// leave the `meta` column at its DB default `{}` (no `scores`/`worksheets`
+// keys), so callers must never assume those keys exist — always normalize.
+export function normalizeMeta(m: unknown): LearnerMeta {
   const o = (m && typeof m === "object" ? m : {}) as Partial<LearnerMeta>;
   return { scores: o.scores ?? {}, worksheets: o.worksheets ?? {} };
 }
