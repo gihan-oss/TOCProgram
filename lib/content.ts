@@ -161,6 +161,65 @@ export async function saveMeta(email: string, meta: LearnerMeta) {
   } catch {}
 }
 
+// ---------------- Public worksheet link (Mentimeter-style) ----------------
+// A shareable link lets anyone fill a module's worksheet without signing in.
+// They enter their name + email; answers are saved to that email's account so
+// they appear when the person later signs in and opens the module.
+//
+// Anonymous visitors can't read `course` or write `course_progress` directly
+// (row-level security), so both go through SECURITY DEFINER RPCs granted to
+// `anon` (see supabase/schema.sql). Each call tolerates the RPC being absent
+// (schema not re-run yet) by falling back to the normal paths.
+
+// Read the shared course as an anonymous visitor. Falls back to loadModules()
+// (which works when signed in, or in localStorage demo mode).
+export async function loadModulesPublic(): Promise<CourseModule[]> {
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data, error } = await sb.rpc("public_course");
+    if (!error && Array.isArray(data)) return data as CourseModule[];
+  }
+  return loadModules();
+}
+
+// Save worksheet answers for a given email from the public link. `worksheets`
+// maps resourceId -> answers; `doneIds` are worksheet resource ids to mark
+// complete. Existing progress is merged (never wiped).
+export async function savePublicWorksheet(
+  email: string,
+  worksheets: Record<string, Record<string, string>>,
+  doneIds: string[],
+): Promise<{ ok: boolean; error?: string }> {
+  const e = email.trim().toLowerCase();
+  if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return { ok: false, error: "Enter a valid email" };
+
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { error } = await sb.rpc("save_public_worksheet", {
+      p_email: e,
+      p_worksheets: worksheets,
+      p_done: doneIds,
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+
+  // Demo / localStorage mode — merge into the same keys the signed-in app reads.
+  try {
+    const meta = await loadMeta(e);
+    const nextMeta: LearnerMeta = { ...meta, worksheets: { ...meta.worksheets, ...worksheets } };
+    await saveMeta(e, nextMeta);
+    if (doneIds.length) {
+      const done = await loadDone(e);
+      doneIds.forEach((id) => done.add(id));
+      await saveDone(e, done);
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Couldn't save on this device" };
+  }
+}
+
 // ---------------- File upload ----------------
 
 export async function uploadFile(file: File): Promise<{ url?: string; dataUrl?: string; fileName: string; error?: string }> {
