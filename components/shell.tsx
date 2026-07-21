@@ -196,11 +196,11 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             {isAdmin && (
               role === "participant" ? (
-                <button onClick={() => setRole("admin")} className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/15">
+                <button onClick={() => { setRole("admin"); router.push(homeFor("admin")); }} className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/15">
                   <Icons.Eye className="h-4 w-4" /> Exit preview
                 </button>
               ) : (
-                <button onClick={() => setRole("participant")} className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-secondary">
+                <button onClick={() => { setRole("participant"); router.push(homeFor("participant")); }} className="inline-flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-sm font-medium hover:bg-secondary">
                   <Icons.Eye className="h-4 w-4" /> View as participant
                 </button>
               )
@@ -236,7 +236,7 @@ export function Shell({ children }: { children: ReactNode }) {
         {isAdmin && role === "participant" && (
           <div className="flex items-center justify-center gap-2 border-b bg-accent/10 px-4 py-1.5 text-xs font-medium text-accent print:hidden">
             <Icons.Eye className="h-3.5 w-3.5" /> You're previewing the participant experience.
-            <button onClick={() => setRole("admin")} className="underline">Exit preview</button>
+            <button onClick={() => { setRole("admin"); router.push(homeFor("admin")); }} className="underline">Exit preview</button>
           </div>
         )}
 

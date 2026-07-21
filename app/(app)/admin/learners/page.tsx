@@ -3,12 +3,13 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as Icons from "lucide-react";
-import { Card, Badge, Progress, Stat, EmptyHint } from "@/components/ui";
+import { Card, Badge, Button, Progress, Stat, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
 import { listMembers, listProfiles, listLearnerProgress, listTocs, isSupabaseConfigured, type Member, type MemberProfile, type ProgressRow, type TocRow } from "@/lib/store";
 import { loadModules, moduleComplete, QUIZ_PASS, type CourseModule, type LearnerMeta } from "@/lib/content";
 import { effectiveModules } from "@/lib/starter-course";
 import { computeGameState } from "@/lib/gamify";
+import { CLIENT } from "@/lib/mas";
 
 interface Row {
   email: string;
@@ -50,6 +51,7 @@ export default function LearnersPage() {
   const [loaded, setLoaded] = useState(false);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [presenting, setPresenting] = useState(false);
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
@@ -144,11 +146,20 @@ export default function LearnersPage() {
 
   return (
     <div>
-      <div className="mb-1 flex items-center gap-2">
-        <Icons.Users className="h-5 w-5 text-accent" />
-        <h1 className="text-2xl font-semibold tracking-tight">Learner Tracking</h1>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icons.Users className="h-5 w-5 text-accent" />
+          <h1 className="text-2xl font-semibold tracking-tight">Learner Tracking</h1>
+        </div>
+        {modules.length > 0 && rows.length > 0 && (
+          <Button size="sm" onClick={() => setPresenting(true)}>
+            <Icons.Presentation className="h-4 w-4" /> Kickoff slide
+          </Button>
+        )}
       </div>
       <p className="mb-4 text-sm text-muted-foreground">Everyone in the portal and exactly where they are — sign-up, modules, worksheets, quizzes and their Theory of Change.</p>
+
+      {presenting && <KickoffSlide modules={modules} rows={rows} onClose={() => setPresenting(false)} />}
 
       {!configured && (
         <Card className="mb-4 flex items-start gap-2 border-[hsl(var(--warning)/0.4)] bg-[hsl(var(--warning)/0.08)] p-3 text-sm">
@@ -308,6 +319,127 @@ export default function LearnersPage() {
       <p className="mt-4 text-xs text-muted-foreground">
         Tip: learners' progress saves automatically as they go. Manage who can sign in under <Link href="/admin/access" className="text-accent hover:underline">People &amp; Access</Link>.
       </p>
+    </div>
+  );
+}
+
+// ---------------- Module kickoff slide ----------------
+// A full-screen, projector-friendly slide to open a session with: for the
+// chosen module it groups everyone into Done / In progress / Not started, so
+// the room gets an instant "where we all are" heads-up. Arrow keys (or the
+// on-screen arrows) flip between modules like slides; Esc closes.
+function KickoffSlide({ modules, rows, onClose }: { modules: CourseModule[]; rows: Row[]; onClose: () => void }) {
+  const [idx, setIdx] = useState(0);
+  const module = modules[idx];
+  const go = (d: number) => setIdx((i) => Math.max(0, Math.min(modules.length - 1, i + d)));
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); setIdx((i) => Math.min(modules.length - 1, i + 1)); }
+      else if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modules.length, onClose]);
+
+  const groups = useMemo(() => {
+    const done: Row[] = [], progress: Row[] = [], notStarted: Row[] = [];
+    for (const r of rows) {
+      const items = module.resources.length;
+      const complete = items > 0 && module.resources.every((res) => r.doneSet.has(res.id));
+      const some = module.resources.some((res) => r.doneSet.has(res.id));
+      if (complete) done.push(r);
+      else if (some) progress.push(r);
+      else notStarted.push(r);
+    }
+    return { done, progress, notStarted };
+  }, [module, rows]);
+
+  // Mentimeter-style: bars grow in from zero each time the slide changes.
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    setGrown(false);
+    const t = setTimeout(() => setGrown(true), 60);
+    return () => clearTimeout(t);
+  }, [idx]);
+
+  const total = rows.length || 1;
+  const bars: { key: string; label: string; color: string; people: Row[] }[] = [
+    { key: "done", label: "Completed", color: "hsl(var(--success))", people: groups.done },
+    { key: "prog", label: "In progress", color: "hsl(var(--warning))", people: groups.progress },
+    { key: "not", label: "Not started", color: "hsl(var(--muted-foreground))", people: groups.notStarted },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-background">
+      {/* top bar */}
+      <div className="flex items-center justify-between gap-3 border-b px-6 py-3">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{CLIENT.tocTitle} · Kickoff</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Slide {idx + 1} / {modules.length}</span>
+          <button onClick={onClose} className="ml-2 inline-flex items-center gap-1 rounded-lg border bg-card px-2.5 py-1.5 font-medium hover:bg-secondary" title="Close (Esc)">
+            <Icons.X className="h-4 w-4" /> Close
+          </button>
+        </div>
+      </div>
+
+      {/* slide body — big bold title, then bars that grow in (Mentimeter style) */}
+      <div className="relative flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-16 sm:py-12">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center">
+          <p className="text-base font-bold uppercase tracking-wider text-accent">Module {idx + 1} · {rows.length} {rows.length === 1 ? "participant" : "participants"}</p>
+          <h1 className="mt-2 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">{module.title}</h1>
+
+          <div className="mt-10 space-y-8">
+            {bars.map((b) => {
+              const count = b.people.length;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={b.key}>
+                  <div className="mb-2 flex items-baseline justify-between gap-4">
+                    <span className="text-xl font-bold sm:text-2xl">{b.label}</span>
+                    <span className="shrink-0 text-2xl font-extrabold tabular-nums sm:text-3xl" style={{ color: b.color }}>
+                      {count}<span className="ml-2 text-lg font-semibold text-muted-foreground sm:text-xl">{pct}%</span>
+                    </span>
+                  </div>
+                  {/* the growing bar */}
+                  <div className="h-12 w-full overflow-hidden rounded-2xl bg-secondary sm:h-16">
+                    <div
+                      className="h-full rounded-2xl transition-[width] duration-[900ms] ease-out"
+                      style={{ width: grown ? `${Math.max(count > 0 ? 4 : 0, pct)}%` : "0%", backgroundColor: b.color }}
+                    />
+                  </div>
+                  {/* names sit under each bar so it's still a real heads-up */}
+                  {count > 0 && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {b.people.map((p) => (
+                        <span key={p.email} className="rounded-full border bg-card px-2.5 py-1 text-sm font-medium">
+                          {p.name || p.email.split("@")[0]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* bottom nav */}
+      <div className="flex items-center justify-between gap-3 border-t px-6 py-3">
+        <button onClick={() => go(-1)} disabled={idx === 0} className="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-1.5 text-sm font-medium hover:bg-secondary disabled:opacity-30 disabled:hover:bg-card">
+          <Icons.ChevronLeft className="h-4 w-4" /> Previous
+        </button>
+        <div className="flex items-center gap-1.5">
+          {modules.map((m, i) => (
+            <button key={m.id} onClick={() => setIdx(i)} aria-label={`Slide ${i + 1}`} className={`h-2 rounded-full transition-all ${i === idx ? "w-6 bg-accent" : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"}`} />
+          ))}
+        </div>
+        <button onClick={() => go(1)} disabled={idx === modules.length - 1} className="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-1.5 text-sm font-medium hover:bg-secondary disabled:opacity-30 disabled:hover:bg-card">
+          Next <Icons.ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
