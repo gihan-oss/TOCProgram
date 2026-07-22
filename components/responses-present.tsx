@@ -13,6 +13,11 @@ export interface PresentPrompt {
 }
 export interface Answered { name: string; value: string }
 
+// Rotating brand tints so results are colourful and new answers "pop", like
+// Mentimeter — all theme-aware HSL tokens.
+const TINTS = ["--accent", "--success", "--warning", "--primary"];
+const tintAt = (i: number) => TINTS[i % TINTS.length];
+
 // Full-screen, Mentimeter-style live view of worksheet responses: one prompt per
 // slide, choice prompts as growing bar charts and open-text prompts as a wall of
 // response cards. Answers update live because the parent keeps polling and
@@ -97,20 +102,21 @@ export function ResponsesPresent({ moduleTitle, prompts, answersByField, onClose
             ) : isChoice ? (
               // Mentimeter multiple-choice: growing bars per option.
               <div className="space-y-7">
-                {tally.map(([value, names]) => {
+                {tally.map(([value, names], bi) => {
                   const pct = Math.round((names.length / total) * 100);
+                  const color = `hsl(var(${tintAt(bi)}))`;
                   return (
                     <div key={value}>
                       <div className="mb-2 flex items-baseline justify-between gap-4">
                         <span className="text-lg font-bold sm:text-xl">{value}</span>
-                        <span className="shrink-0 text-xl font-extrabold tabular-nums text-accent sm:text-2xl">
+                        <span className="shrink-0 text-xl font-extrabold tabular-nums sm:text-2xl" style={{ color }}>
                           {names.length}<span className="ml-2 text-base font-semibold text-muted-foreground">{pct}%</span>
                         </span>
                       </div>
                       <div className="h-11 w-full overflow-hidden rounded-2xl bg-secondary sm:h-14">
                         <div
-                          className="h-full rounded-2xl bg-accent transition-[width] duration-[900ms] ease-out"
-                          style={{ width: grown ? `${Math.max(4, pct)}%` : "0%" }}
+                          className="h-full rounded-2xl transition-[width] duration-[900ms] ease-out"
+                          style={{ width: grown ? `${Math.max(4, pct)}%` : "0%", backgroundColor: color }}
                         />
                       </div>
                     </div>
@@ -120,17 +126,27 @@ export function ResponsesPresent({ moduleTitle, prompts, answersByField, onClose
             ) : (
               // Open text: a wall of response cards.
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {responses.map((r, i) => (
-                  <div key={`${r.name}-${i}`} className="rounded-2xl border bg-card p-4 shadow-sm">
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
-                        {r.name.trim().charAt(0).toUpperCase() || "?"}
-                      </span>
-                      <span className="text-xs font-medium text-muted-foreground">{r.name}</span>
+                {responses.map((r, i) => {
+                  const tint = tintAt(i);
+                  const color = `hsl(var(${tint}))`;
+                  return (
+                    // New answers mount with a fresh key → they fade/pop in. The
+                    // coloured left border + tinted avatar make them lively.
+                    <div
+                      key={`${r.name}-${r.value}-${i}`}
+                      className="animate-fade-up rounded-2xl border-l-4 bg-card p-4 shadow-sm"
+                      style={{ borderLeftColor: color, backgroundColor: `hsl(var(${tint})/0.06)` }}
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: color }}>
+                          {r.name.trim().charAt(0).toUpperCase() || "?"}
+                        </span>
+                        <span className="text-xs font-medium text-muted-foreground">{r.name}</span>
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-base leading-relaxed">{r.value}</p>
                     </div>
-                    <p className="whitespace-pre-wrap break-words text-base leading-relaxed">{r.value}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

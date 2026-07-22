@@ -21,6 +21,7 @@ export function WorksheetPlayer({ r, answers, done, onSave }: {
   const toast = useToast();
   const fields = r.fields ?? [];
   const [vals, setVals] = useState<Record<string, string>>(answers);
+  const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
 
   // Prompts are shown one at a time on a horizontal track you swipe/scroll
   // through — so even a long worksheet feels short and easy, not a wall of text.
@@ -185,6 +186,28 @@ export function WorksheetPlayer({ r, answers, done, onSave }: {
                   className="mt-3 block w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/20"
                 />
               )}
+
+              {/* Explicit Submit — sends this answer now and moves to the next
+                  prompt (so it feels like submitting each one, Mentimeter-style). */}
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={!(vals[f.id] ?? "").trim()}
+                  onClick={() => {
+                    onSave(vals, canComplete);
+                    setSubmittedIds((p) => new Set(p).add(f.id));
+                    if (i < fields.length - 1) { toast("Submitted ✓"); setTimeout(() => goTo(i + 1), 200); }
+                    else toast(canComplete ? "All submitted ✓" : "Submitted ✓");
+                  }}
+                >
+                  <Icons.Send className="h-4 w-4" /> {i < fields.length - 1 ? "Submit & next" : "Submit"}
+                </Button>
+                {submittedIds.has(f.id) && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--success))]">
+                    <Icons.CheckCircle2 className="h-3.5 w-3.5" /> Submitted
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         ))}
