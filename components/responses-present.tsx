@@ -63,8 +63,32 @@ export function ResponsesPresent({ moduleTitle, prompts, answersByField, onClose
     return [...counts.entries()].sort((a, b) => b[1].length - a[1].length);
   }, [responses]);
 
+  // "Diagnostics": group open-text answers that are effectively the same
+  // (case/spacing/trailing punctuation ignored). Similar answers cluster into a
+  // tall bar ("50% said X"); when everyone differs it's many 1-count bars →
+  // visibly scattered.
+  const norm = (s: string) => s.toLowerCase().trim().replace(/\s+/g, " ").replace(/[.,;:!?"'’]+$/, "");
+  const textTally = useMemo(() => {
+    const groups = new Map<string, { label: string; names: string[] }>();
+    for (const r of responses) {
+      const key = norm(r.value);
+      if (!key) continue;
+      const g = groups.get(key);
+      if (g) g.names.push(r.name);
+      else groups.set(key, { label: r.value.trim(), names: [r.name] });
+    }
+    return [...groups.values()].sort((a, b) => b.names.length - a.names.length).map((g) => [g.label, g.names] as [string, string[]]);
+  }, [responses]);
+
+  const [grouped, setGrouped] = useState(true);
+
   if (!prompt) return null;
   const total = responses.length;
+  // What to draw: choice prompts always bar; text prompts bar when "grouped",
+  // otherwise the card wall.
+  const barData: [string, string[]][] | null = isChoice ? tally : grouped ? textTally : null;
+  const scattered = !!barData && barData.length > 0 && barData.every(([, n]) => n.length === 1);
+  const topShare = barData && barData.length && total ? Math.round((barData[0][1].length / total) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
@@ -87,9 +111,14 @@ export function ResponsesPresent({ moduleTitle, prompts, answersByField, onClose
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-base font-bold uppercase tracking-wider text-accent">{prompt.wsTitle}</p>
-            <span className="shrink-0 text-sm font-semibold text-muted-foreground">
-              {total} {total === 1 ? "response" : "responses"}
-            </span>
+            <div className="flex shrink-0 items-center gap-3">
+              {!isChoice && total > 0 && (
+                <button onClick={() => setGrouped((g) => !g)} className="inline-flex items-center gap-1 rounded-lg border bg-card px-2.5 py-1 text-xs font-medium hover:bg-secondary" title="Group answers that are the same">
+                  <Icons.Layers className="h-3.5 w-3.5" /> {grouped ? "Grouped" : "All answers"}
+                </button>
+              )}
+              <span className="text-sm font-semibold text-muted-foreground">{total} {total === 1 ? "response" : "responses"}</span>
+            </div>
           </div>
           <h1 className="mt-2 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{prompt.label}</h1>
 
@@ -99,32 +128,43 @@ export function ResponsesPresent({ moduleTitle, prompts, answersByField, onClose
                 <Icons.Inbox className="h-10 w-10 text-muted-foreground" />
                 <p className="mt-3 text-lg font-medium text-muted-foreground">No responses yet — waiting for the room…</p>
               </div>
-            ) : isChoice ? (
-              // Mentimeter multiple-choice: growing bars per option.
-              <div className="space-y-7">
-                {tally.map(([value, names], bi) => {
-                  const pct = Math.round((names.length / total) * 100);
-                  const color = `hsl(var(${tintAt(bi)}))`;
-                  return (
-                    <div key={value}>
-                      <div className="mb-2 flex items-baseline justify-between gap-4">
-                        <span className="text-lg font-bold sm:text-xl">{value}</span>
-                        <span className="shrink-0 text-xl font-extrabold tabular-nums sm:text-2xl" style={{ color }}>
-                          {names.length}<span className="ml-2 text-base font-semibold text-muted-foreground">{pct}%</span>
-                        </span>
+            ) : barData ? (
+              // Bars: choice prompts always; open-text when "Grouped" is on.
+              // Similar answers stack into one tall bar (consensus); all-unique
+              // answers show as many 1-count bars (scattered).
+              <>
+                {!isChoice && (
+                  <p className="mb-6 text-sm text-muted-foreground">
+                    {scattered
+                      ? "Answers are scattered — everyone said something different."
+                      : `Most common answer: ${topShare}% of the room.`}
+                  </p>
+                )}
+                <div className="space-y-6">
+                  {barData.map(([value, names], bi) => {
+                    const pct = Math.round((names.length / total) * 100);
+                    const color = `hsl(var(${tintAt(bi)}))`;
+                    return (
+                      <div key={`${value}-${bi}`}>
+                        <div className="mb-2 flex items-baseline justify-between gap-4">
+                          <span className="min-w-0 break-words text-lg font-bold sm:text-xl">{value}</span>
+                          <span className="shrink-0 text-xl font-extrabold tabular-nums sm:text-2xl" style={{ color }}>
+                            {names.length}<span className="ml-2 text-base font-semibold text-muted-foreground">{pct}%</span>
+                          </span>
+                        </div>
+                        <div className="h-11 w-full overflow-hidden rounded-2xl bg-secondary sm:h-14">
+                          <div
+                            className="h-full rounded-2xl transition-[width] duration-[900ms] ease-out"
+                            style={{ width: grown ? `${Math.max(4, pct)}%` : "0%", backgroundColor: color }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-11 w-full overflow-hidden rounded-2xl bg-secondary sm:h-14">
-                        <div
-                          className="h-full rounded-2xl transition-[width] duration-[900ms] ease-out"
-                          style={{ width: grown ? `${Math.max(4, pct)}%` : "0%", backgroundColor: color }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              </>
             ) : (
-              // Open text: a wall of response cards.
+              // Open text, ungrouped: a wall of response cards.
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {responses.map((r, i) => {
                   const tint = tintAt(i);
