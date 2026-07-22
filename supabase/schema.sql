@@ -296,6 +296,48 @@ end;
 $$;
 grant execute on function public.save_public_worksheet(text, jsonb, text[]) to anon, authenticated;
 
+-- Reset (clear) everyone's answers for a set of worksheet resource ids — lets a
+-- facilitator wipe test/old responses and run the worksheet fresh with a new
+-- group. STAFF-ONLY (is_staff), so learners can't clear each other. Removes the
+-- given worksheet keys from every learner's meta.worksheets and drops those ids
+-- from their `done` set; other worksheets/quizzes are untouched. Returns the
+-- number of learner rows changed.
+create or replace function public.reset_worksheet_responses(p_resource_ids text[])
+returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  affected int;
+begin
+  if not public.is_staff() then
+    raise exception 'not authorized';
+  end if;
+  if p_resource_ids is null or array_length(p_resource_ids, 1) is null then
+    return 0;
+  end if;
+
+  with upd as (
+    update public.course_progress cp
+      set meta = jsonb_set(
+            coalesce(cp.meta, '{}'::jsonb),
+            '{worksheets}',
+            coalesce(cp.meta -> 'worksheets', '{}'::jsonb) - p_resource_ids,
+            true
+          ),
+          done = coalesce(
+            (select array_agg(d) from unnest(cp.done) d where not (d = any(p_resource_ids))),
+            '{}'
+          ),
+          updated_at = now()
+    where coalesce(cp.meta -> 'worksheets', '{}'::jsonb) ?| p_resource_ids
+       or cp.done && p_resource_ids
+    returning 1
+  )
+  select count(*) into affected from upd;
+  return affected;
+end;
+$$;
+grant execute on function public.reset_worksheet_responses(text[]) to authenticated;
+
 -- ---- Client directory (shared & permanent, STAFF-ONLY) -------------------
 -- All clients live in one JSON document that admins read and edit. It holds
 -- contacts/notes about client organizations, so it is staff-only end to end.

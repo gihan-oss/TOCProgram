@@ -8,9 +8,10 @@ import { Card, Button, Badge, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import { effectiveModules } from "@/lib/starter-course";
-import { loadModules, type CourseModule, type Resource, type WorksheetField } from "@/lib/content";
+import { loadModules, resetWorksheetResponses, type CourseModule, type Resource, type WorksheetField } from "@/lib/content";
 import { listLearnerProgress, listProfiles, listMembers, isSupabaseConfigured } from "@/lib/store";
 import { ResponsesPresent, type PresentPrompt } from "@/components/responses-present";
+import { useToast } from "@/components/toast";
 
 // How often the wall re-fetches, so new responses appear "live" during a
 // session. Polling (not realtime sockets) keeps it simple and reliable.
@@ -21,7 +22,9 @@ interface Answered { name: string; value: string }
 export default function ResponsesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { user } = useAuth();
+  const toast = useToast();
   const canView = user?.role === "admin" || user?.role === "facilitator";
+  const [resetting, setResetting] = useState(false);
 
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [nameByEmail, setNameByEmail] = useState<Record<string, string>>({});
@@ -101,6 +104,25 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
     return () => clearInterval(t);
   }, [refresh, live, worksheets.length, modules.length]);
 
+  // Clear ALL responses for this module's worksheet(s) — a fresh start for the
+  // next group. Destructive (deletes everyone's saved answers here), so confirm.
+  async function handleReset() {
+    const ids = worksheets.map((w) => w.id);
+    if (ids.length === 0) return;
+    if (!window.confirm("Clear ALL responses for this worksheet? This permanently deletes everyone's saved answers here — use it to start fresh with a new group. This can't be undone.")) return;
+    setResetting(true);
+    const res = await resetWorksheetResponses(ids);
+    setResetting(false);
+    if (res.ok) {
+      setAnswersByField({});
+      setRespondents(0);
+      toast(res.cleared != null ? `Cleared — ${res.cleared} ${res.cleared === 1 ? "response" : "responses"} removed` : "Responses cleared");
+      void refresh();
+    } else {
+      toast(res.error || "Couldn't reset responses", "error");
+    }
+  }
+
   if (modules.length > 0 && !module) return notFound();
 
   if (!canView) {
@@ -140,6 +162,11 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
           <Button size="sm" variant="outline" disabled={refreshing} onClick={() => void refresh()}>
             <Icons.RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> {refreshing ? "Refreshing…" : "Refresh"}
           </Button>
+          {respondents > 0 && (
+            <Button size="sm" variant="danger" disabled={resetting} onClick={() => void handleReset()}>
+              <Icons.Trash2 className="h-4 w-4" /> {resetting ? "Resetting…" : "Reset"}
+            </Button>
+          )}
         </div>
       </div>
 
