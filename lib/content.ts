@@ -272,6 +272,44 @@ export async function savePublicWorksheet(
   }
 }
 
+// Reset (clear) everyone's answers for the given worksheet resource ids — a
+// facilitator wiping test/old responses to run fresh. Staff-only; enforced by
+// the RPC. Returns how many learner rows were cleared, or an error.
+export async function resetWorksheetResponses(
+  resourceIds: string[],
+): Promise<{ ok: boolean; cleared?: number; error?: string }> {
+  const ids = resourceIds.filter(Boolean);
+  if (ids.length === 0) return { ok: true, cleared: 0 };
+  const sb = getSupabaseBrowserClient();
+  if (sb) {
+    const { data, error } = await sb.rpc("reset_worksheet_responses", { p_resource_ids: ids });
+    if (error) {
+      // RPC not deployed yet → guide the admin instead of failing silently.
+      if (error.code === "PGRST202" || /Could not find the function|schema cache/i.test(error.message)) {
+        return { ok: false, error: "Reset isn't set up yet — run supabase/schema.sql once to enable it." };
+      }
+      return { ok: false, error: error.message };
+    }
+    return { ok: true, cleared: typeof data === "number" ? data : undefined };
+  }
+  // Demo / localStorage mode: clear this browser's own saved answers.
+  try {
+    if (typeof window !== "undefined") {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("toc-progress-meta:")) {
+          const meta = normalizeMeta(JSON.parse(localStorage.getItem(k) || "null"));
+          ids.forEach((id) => delete meta.worksheets[id]);
+          localStorage.setItem(k, JSON.stringify(meta));
+        }
+      }
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Couldn't reset on this device" };
+  }
+}
+
 // ---------------- File upload ----------------
 
 export async function uploadFile(file: File): Promise<{ url?: string; dataUrl?: string; fileName: string; error?: string }> {
