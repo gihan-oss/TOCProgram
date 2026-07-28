@@ -40,17 +40,33 @@ export default function StrategyHouse() {
 
       {/* 6 Areas of Focus */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Six Areas of Focus</h2>
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Six Areas of Focus</h2>
+        <p className="mb-3 text-xs text-muted-foreground">Each pillar defines what it delivers, the outcome categories it targets, and the MAS GLA programs that live under it.</p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {AREAS_OF_FOCUS.map((a) => {
             const Cmp = (Icons as unknown as Record<string, Icons.LucideIcon>)[a.icon] ?? Icons.Square;
             return (
-              <Card key={a.id} className="p-5">
+              <Card key={a.id} className="flex flex-col p-5">
                 <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${a.tone}`}><Cmp className="h-5 w-5" /></div>
                 <h3 className="mt-3 font-semibold">{a.name}</h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{a.def}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {a.verbs.map((v) => <span key={v} className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">{v}</span>)}
                 </div>
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Targets</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {a.outcomes.map((o) => <span key={o} className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${a.tone}`}>{o}</span>)}
+                  </div>
+                </div>
+                {a.programs.length > 0 && (
+                  <div className="mt-3 border-t pt-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Example programs</p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {a.programs.map((p) => <span key={p} className="rounded-md border bg-secondary/40 px-2 py-0.5 text-[11px] font-medium">{p}</span>)}
+                    </div>
+                  </div>
+                )}
               </Card>
             );
           })}
