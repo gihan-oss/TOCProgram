@@ -5,10 +5,12 @@ import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, Button, Progress, Stat, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
+import { useToast } from "@/components/toast";
 import { listMembers, listProfiles, listLearnerProgress, listTocs, isSupabaseConfigured, type Member, type MemberProfile, type ProgressRow, type TocRow } from "@/lib/store";
 import { loadModules, moduleComplete, QUIZ_PASS, type CourseModule, type LearnerMeta } from "@/lib/content";
 import { effectiveModules } from "@/lib/starter-course";
 import { computeGameState } from "@/lib/gamify";
+import { compilePersonPacket, printPersonPacket } from "@/lib/worksheet-report";
 import { CLIENT } from "@/lib/mas";
 
 interface Row {
@@ -43,6 +45,7 @@ function fmtDate(s: string | null) {
 
 export default function LearnersPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [profiles, setProfiles] = useState<MemberProfile[]>([]);
@@ -268,7 +271,22 @@ export default function LearnersPage() {
                             {/* The learner's actual worksheet answers — saved to the database as they go. */}
                             {allResources.some((res) => res.type === "Worksheet") && (
                               <div className="mt-5">
-                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Worksheet responses</p>
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Worksheet responses</p>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      printPersonPacket(
+                                        { name: r.name, email: r.email },
+                                        compilePersonPacket(modules, r.worksheets),
+                                        () => toast("Allow pop-ups to print the packet", "error"),
+                                      )
+                                    }
+                                  >
+                                    <Icons.Printer className="h-4 w-4" /> Print worksheets
+                                  </Button>
+                                </div>
                                 <div className="space-y-3">
                                   {allResources.filter((res) => res.type === "Worksheet").map((ws) => {
                                     const ans = r.worksheets[ws.id] ?? {};
