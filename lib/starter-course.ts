@@ -279,13 +279,15 @@ Tarbiyah outcomes this session serves: Bearer of the Message + Agent of Change.`
       {
         id: "m3-levels",
         type: "Note",
-        title: "The five levels & their common mistakes",
+        title: "The five levels — and where frameworks differ",
         body:
-`• INPUTS (the WHO) — your audience: who they are before the program starts. Mistake: listing resources (budget, staff, venue) instead of people.
-• ACTIVITIES — what your team delivers. Mistake: confusing activities with outputs.
-• OUTPUTS — countable results (Baseline · Metric · Target). Mistake: writing outcomes here — "300 youth felt more connected" is an outcome, not an output.
-• OUTCOMES — what changes in a person in 6–18 months. Mistake: being vague — "youth will grow spiritually" is a wish, not an outcome.
-• IMPACT — community transformation over 3–5 years. Mistake: claiming impact one program can't achieve alone — impact is a contribution.`,
+`These aren't always "errors" — often they're just a different framework. What matters is staying consistent within the pathway you're building here.
+
+• INPUTS (the WHO) — in this pathway, your audience: who they are before the program starts. Heads up: many logic models use "Inputs" for resources (budget, staff, venue) — that's a valid framework too. Here we keep resources separate and reserve Inputs for the people.
+• ACTIVITIES — what your team delivers. Watch for: blurring activities into outputs.
+• OUTPUTS — countable results (Baseline · Metric · Target). Watch for: writing outcomes here — "300 youth felt more connected" is an outcome, not an output.
+• OUTCOMES — what changes in a person in 6–18 months. Watch for: staying vague — "youth will grow spiritually" is a wish until you make it observable.
+• IMPACT — community transformation over 3–5 years. Watch for: claiming impact one program can't achieve alone — impact is a contribution.`,
       },
       {
         id: "m3-bmt",
@@ -308,7 +310,9 @@ Remember: set your baseline BEFORE the program begins — you can't know if you 
 • PARTICIPANT — readiness, motivation, circumstances of the people you serve. e.g. families allow overnight camp attendance.
 • ENVIRONMENTAL — external conditions: masjid partnerships, campus climate, regional context. e.g. masjid facilities stay accessible.
 • ORGANIZATIONAL — MASGLA's own capacity: staff, volunteers, coordination. e.g. trained naqeebs are consistently available.
-• CAUSAL — whether the causal claim itself is true. e.g. physical discipline in a halal environment actually transfers to emotional maturity outside the gym.`,
+• CAUSAL — whether the causal claim itself is true. e.g. physical discipline in a halal environment actually transfers to emotional maturity outside the gym.
+
+These four types are a lens, not a checklist. The real goal is to build the muscle of spotting assumptions everywhere — at every arrow, keep asking "what has to be true for this to hold?" Don't stop at the types or examples above; the assumptions that decide your program's fate are often ones only you can name.`,
       },
       {
         id: "m3-ws",
