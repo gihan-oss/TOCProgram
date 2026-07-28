@@ -79,6 +79,9 @@ export function navFor(role: Role) {
 // Admins can reach any route; their menu is just curated.
 export function canAccess(role: Role, pathname: string) {
   if (role === "admin") return true;
+  // Coordinators are an oversight role without the Course Builder, but they can
+  // still open a module's Live Responses wall (reached from Learner Tracking).
+  if (role === "coordinator" && /^\/learning\/[^/]+\/responses\/?$/.test(pathname)) return true;
   const allowed = navFor(role).map((n) => n.href);
   return allowed.some((href) => pathname === href || pathname.startsWith(href + "/"));
 }

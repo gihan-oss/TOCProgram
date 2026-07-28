@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import * as Icons from "lucide-react";
-import { Card, Button, Badge, Stat, EmptyHint } from "@/components/ui";
+import { Card, Button, Badge, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
 import { useToast } from "@/components/toast";
 import { Markdown } from "@/components/markdown";
@@ -24,7 +24,7 @@ export default function GroupAnalysisPage() {
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [rows, setRows] = useState<PersonRow[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [hideEmpty, setHideEmpty] = useState(true);
+  const [openWs, setOpenWs] = useState<Set<string>>(new Set());
 
   const [synthesis, setSynthesis] = useState<string>("");
   const [demo, setDemo] = useState(false);
@@ -115,103 +115,94 @@ export default function GroupAnalysisPage() {
         )}
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        Every participant&apos;s worksheet answers, compiled by prompt — plus an AI synthesis of the patterns across the whole cohort.
+        An AI read of the patterns across the whole cohort — with the raw answers a click away.
       </p>
 
       {!configured && (
-        <Card className="mb-4 flex items-start gap-2 border-[hsl(var(--warning)/0.4)] bg-[hsl(var(--warning)/0.08)] p-3 text-sm">
-          <Icons.Info className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-[hsl(var(--warning)/0.4)] bg-[hsl(var(--warning)/0.08)] px-3 py-2 text-xs">
+          <Icons.Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[hsl(var(--warning))]" />
           <span>Cross-participant data needs Supabase connected. Until then this shows only what&apos;s saved on this browser.</span>
-        </Card>
+        </div>
       )}
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-4">
-        <Card className="p-4"><Stat label="Participants" value={stats.participants} /></Card>
-        <Card className="p-4"><Stat label="Responded" value={stats.responded} hint={`${stats.participants - stats.responded} not yet`} /></Card>
-        <Card className="p-4"><Stat label="Total answers" value={stats.answers} /></Card>
-        <Card className="p-4"><Stat label="Worksheets covered" value={stats.worksheetsCovered} /></Card>
+      {/* Compact stat strip */}
+      <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border bg-card px-4 py-2.5 text-sm">
+        <span><b className="tabular-nums">{stats.responded}</b><span className="text-muted-foreground">/{stats.participants} responded</span></span>
+        <span className="h-3.5 w-px bg-border" />
+        <span><b className="tabular-nums">{stats.answers}</b> <span className="text-muted-foreground">answers</span></span>
+        <span className="h-3.5 w-px bg-border" />
+        <span><b className="tabular-nums">{stats.worksheetsCovered}</b> <span className="text-muted-foreground">worksheets</span></span>
       </div>
 
-      {/* AI synthesis */}
-      <Card className="mb-5 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* AI analysis — the hero */}
+      <Card className="mb-5 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-gradient-to-r from-accent/10 to-transparent px-4 py-2.5">
           <div className="flex items-center gap-2">
             <Icons.Sparkles className="h-4 w-4 text-accent" />
             <p className="text-sm font-semibold">AI group analysis</p>
-            {demo && <Badge tone="warning">Demo — API key not set</Badge>}
+            {demo && <Badge tone="warning">Demo</Badge>}
           </div>
           <Button size="sm" onClick={runAnalysis} disabled={running || !hasAnswers}>
-            {running ? <><Icons.Loader2 className="h-4 w-4 animate-spin" /> Analysing…</> : <><Icons.Sparkles className="h-4 w-4" /> {synthesis ? "Regenerate" : "Generate analysis"}</>}
+            {running ? <><Icons.Loader2 className="h-4 w-4 animate-spin" /> Analysing…</> : <><Icons.Sparkles className="h-4 w-4" /> {synthesis ? "Regenerate" : "Generate"}</>}
           </Button>
         </div>
-        {!hasAnswers ? (
-          <p className="mt-3 text-sm text-muted-foreground">No worksheet answers yet — once participants start filling theirs in, generate a synthesis of the group&apos;s patterns.</p>
-        ) : synthesis ? (
-          <div className="mt-3 rounded-xl border bg-secondary/20 px-4 py-3">
+        <div className="px-4 py-3">
+          {!hasAnswers ? (
+            <p className="text-sm text-muted-foreground">No answers yet — once participants fill their worksheets in, generate a synthesis of the group&apos;s patterns.</p>
+          ) : synthesis ? (
             <Markdown content={synthesis} />
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Reads every participant&apos;s answers and writes where the group is strong, common gaps, assumptions to pressure-test, and what to focus on next session.
-          </p>
-        )}
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              One click reads every answer and writes where the group is strong, the common gaps, assumptions to pressure-test, and what to focus on next session.
+            </p>
+          )}
+        </div>
       </Card>
 
-      {/* Compiled answers */}
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold">Answers by prompt</p>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" checked={hideEmpty} onChange={(e) => setHideEmpty(e.target.checked)} className="h-3.5 w-3.5" />
-          Hide prompts with no answers
-        </label>
-      </div>
-
+      {/* Compiled answers — collapsed by default so the page stays short */}
       {!loaded ? (
-        <div className="flex h-40 items-center justify-center"><Icons.Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
-      ) : !hasAnswers ? (
-        <EmptyHint>No worksheet responses yet. As participants fill in their worksheets, their answers show up here grouped by prompt.</EmptyHint>
-      ) : (
-        <div className="space-y-4">
-          {group.map((w) => {
-            const prompts = w.prompts.filter((p) => !hideEmpty || p.answers.length > 0);
-            if (prompts.length === 0) return null;
-            const wsAnswers = w.prompts.reduce((s, p) => s + p.answers.length, 0);
-            if (wsAnswers === 0) return null;
-            return (
-              <Card key={w.worksheetId} className="overflow-hidden">
-                <div className="flex items-center justify-between gap-2 border-b bg-secondary/40 px-4 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{w.worksheetTitle}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Module {w.moduleIndex + 1}</p>
-                  </div>
-                  <Badge tone="accent">{wsAnswers} {wsAnswers === 1 ? "answer" : "answers"}</Badge>
-                </div>
-                <div className="divide-y">
-                  {prompts.map((p) => (
-                    <div key={p.fieldId} className="px-4 py-3">
-                      <p className="mb-2 text-sm font-medium">
-                        {p.label}
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">{p.answers.length}</span>
-                      </p>
-                      {p.answers.length === 0 ? (
-                        <p className="text-xs italic text-muted-foreground/70">No answers yet.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {p.answers.map((a, i) => (
-                            <div key={i} className="rounded-lg border bg-card px-3 py-2 text-sm">
-                              <span className="font-semibold text-accent">{a.name}</span>
-                              <span className="mx-1.5 text-muted-foreground">·</span>
-                              <span className="whitespace-pre-wrap">{a.value}</span>
-                            </div>
-                          ))}
+        <div className="flex h-24 items-center justify-center"><Icons.Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
+      ) : !hasAnswers ? null : (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">The raw answers</p>
+          <div className="overflow-hidden rounded-xl border">
+            {group.map((w) => {
+              const answered = w.prompts.filter((p) => p.answers.length > 0);
+              const wsAnswers = answered.reduce((s, p) => s + p.answers.length, 0);
+              if (wsAnswers === 0) return null;
+              const isOpen = openWs.has(w.worksheetId);
+              return (
+                <div key={w.worksheetId} className="border-b last:border-0">
+                  <button
+                    onClick={() => setOpenWs((prev) => { const n = new Set(prev); n.has(w.worksheetId) ? n.delete(w.worksheetId) : n.add(w.worksheetId); return n; })}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-secondary/40"
+                  >
+                    <Icons.ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{w.worksheetTitle}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">M{w.moduleIndex + 1}</span>
+                    <Badge tone="accent">{wsAnswers}</Badge>
+                  </button>
+                  {isOpen && (
+                    <div className="divide-y border-t bg-secondary/10">
+                      {answered.map((p) => (
+                        <div key={p.fieldId} className="px-4 py-2.5">
+                          <p className="mb-1.5 text-xs font-semibold text-muted-foreground">{p.label} <span className="font-normal">· {p.answers.length}</span></p>
+                          <div className="space-y-1">
+                            {p.answers.map((a, i) => (
+                              <p key={i} className="text-sm leading-snug">
+                                <span className="font-semibold text-accent">{a.name}:</span>{" "}
+                                <span className="whitespace-pre-wrap text-foreground/90">{a.value}</span>
+                              </p>
+                            ))}
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </Card>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
