@@ -12,6 +12,7 @@ import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import { effectiveModules } from "@/lib/starter-course";
 import { WorksheetPlayer } from "@/components/worksheet-player";
+import { QrCode, downloadQrPng, downloadQrSvg } from "@/components/qr";
 import {
   loadModules, saveModules, loadDone, saveDone, loadMeta, saveMeta, uploadFile, moduleComplete,
   RESOURCE_TYPES, RESOURCE_ICON, RESOURCE_LABEL, RESOURCE_HELP,
@@ -521,6 +522,7 @@ function Prose({ text }: { text: string }) {
 function ShareWorksheetLink({ moduleId }: { moduleId: string }) {
   const toast = useToast();
   const [url, setUrl] = useState("");
+  const [showQr, setShowQr] = useState(false);
   useEffect(() => {
     setUrl(`${window.location.origin}/w/${moduleId}`);
   }, [moduleId]);
@@ -552,6 +554,9 @@ function ShareWorksheetLink({ moduleId }: { moduleId: string }) {
               className="min-w-0 flex-1 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground outline-none"
             />
             <Button size="sm" onClick={copy}><Icons.Copy className="h-4 w-4" /> Copy link</Button>
+            <Button size="sm" variant={showQr ? "primary" : "outline"} onClick={() => setShowQr((s) => !s)}>
+              <Icons.QrCode className="h-4 w-4" /> {showQr ? "Hide QR" : "QR code"}
+            </Button>
             <a href={url} target="_blank" rel="noopener noreferrer">
               <Button size="sm" variant="outline"><Icons.ExternalLink className="h-4 w-4" /> Open</Button>
             </a>
@@ -559,6 +564,28 @@ function ShareWorksheetLink({ moduleId }: { moduleId: string }) {
               <Button size="sm" variant="outline"><Icons.BarChart3 className="h-4 w-4" /> Live responses</Button>
             </Link>
           </div>
+
+          {showQr && url && (
+            <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border bg-background p-5 text-center sm:flex-row sm:items-center sm:gap-5 sm:text-left">
+              <div className="shrink-0 rounded-xl bg-white p-3 shadow-sm ring-1 ring-black/5">
+                <QrCode text={url} ecc="M" moduleSize={7} className="[&>svg]:h-40 [&>svg]:w-40" title="Scan to open the worksheet" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Scan to open the worksheet</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Project this on screen, or drop the image onto a slide or handout. It points at the same public link above.
+                </p>
+                <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+                  <Button size="sm" variant="outline" onClick={() => downloadQrPng(url, `worksheet-${moduleId}-qr.png`)}>
+                    <Icons.Download className="h-4 w-4" /> PNG
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadQrSvg(url, `worksheet-${moduleId}-qr.svg`)}>
+                    <Icons.Download className="h-4 w-4" /> SVG
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Card>
