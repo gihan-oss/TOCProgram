@@ -23,7 +23,7 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const { user } = useAuth();
   const toast = useToast();
-  const canView = user?.role === "admin" || user?.role === "facilitator";
+  const canView = user?.role === "admin" || user?.role === "facilitator" || user?.role === "coordinator";
   const [resetting, setResetting] = useState(false);
 
   const [modules, setModules] = useState<CourseModule[]>([]);
@@ -128,7 +128,7 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
   if (!canView) {
     return (
       <div className="mx-auto max-w-2xl">
-        <EmptyHint>Live responses are for facilitators and admins.</EmptyHint>
+        <EmptyHint>Live responses are for facilitators, coordinators and admins.</EmptyHint>
       </div>
     );
   }
@@ -162,7 +162,7 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
           <Button size="sm" variant="outline" disabled={refreshing} onClick={() => void refresh()}>
             <Icons.RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> {refreshing ? "Refreshing…" : "Refresh"}
           </Button>
-          {respondents > 0 && (
+          {respondents > 0 && user?.role !== "coordinator" && (
             <Button size="sm" variant="danger" disabled={resetting} onClick={() => void handleReset()}>
               <Icons.Trash2 className="h-4 w-4" /> {resetting ? "Resetting…" : "Reset"}
             </Button>

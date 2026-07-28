@@ -179,6 +179,29 @@ export default function LearnersPage() {
         <Card className="p-4"><Stat label="Avg. completion" value={`${summary.avg}%`} /></Card>
       </div>
 
+      {/* Open a module's live responses wall (the Mentimeter-style view). Lives
+          here so coordinators — who don't have the Course Builder — can reach it. */}
+      {modules.some((m) => m.resources.some((r) => r.type === "Worksheet")) && (
+        <Card className="mb-5 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <Icons.Radio className="h-3.5 w-3.5 text-accent" /> Live responses
+            </span>
+            {modules.map((m, i) =>
+              m.resources.some((r) => r.type === "Worksheet") ? (
+                <Link
+                  key={m.id}
+                  href={`/learning/${m.id}/responses`}
+                  className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs font-medium hover:bg-secondary"
+                >
+                  <Icons.Presentation className="h-3.5 w-3.5 text-accent" /> Module {i + 1}
+                </Link>
+              ) : null,
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Breakdowns: how many per Area of Focus, and per role */}
       {(breakdowns.byDept.length > 0 || breakdowns.byRole.length > 0) && (
         <div className="mb-5 grid gap-3 lg:grid-cols-2">
