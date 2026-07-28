@@ -47,21 +47,49 @@ export const METHODOLOGY = [
 export interface AreaOfFocus {
   id: string;
   name: string;
+  def: string;         // one-line definition of the pillar
   verbs: [string, string, string];
-  outcomes: string[]; // the 2–3 outcome categories this area targets
+  outcomes: string[];  // the 2–3 outcome categories this area targets
+  programs: string[];  // example MAS GLA programs that live under this pillar
   icon: string;
   tone: string;
 }
 
-// The 6 Areas of Focus (Strategy House pillars). Each targets 2–3 outcome
-// categories — used to cascade the Outcome dropdown from the chosen area.
+// The 6 Areas of Focus (Strategy House pillars). Each has a one-line definition,
+// the 2–3 outcome categories it targets (used to cascade the Outcome dropdown),
+// and example MASGLA programs. Definitions and programs come from the MAS GLA
+// Vision 2026 strategy report and the Module 1 "Six Areas of Focus" briefing.
 export const AREAS_OF_FOCUS: AreaOfFocus[] = [
-  { id: "islam-muslims", name: "Islam to Muslims", verbs: ["Develop", "Produce", "Distribute"], outcomes: ["Knowledge", "Behavioral"], icon: "BookOpen", tone: "text-accent bg-accent/10" },
-  { id: "leadership", name: "Leadership Development", verbs: ["Train", "Equip", "Support"], outcomes: ["Capacity", "Influence"], icon: "Users", tone: "text-primary bg-primary/10" },
-  { id: "community", name: "Community Mobilization", verbs: ["Identify", "Organize", "Anchor"], outcomes: ["Network", "Scale"], icon: "Megaphone", tone: "text-[hsl(var(--success))] bg-[hsl(var(--success)/0.12)]" },
-  { id: "social-justice", name: "Social Justice", verbs: ["Train", "Advocate", "Develop"], outcomes: ["Partnership", "Strategic Alignment"], icon: "Scale", tone: "text-[hsl(var(--warning))] bg-[hsl(var(--warning)/0.14)]" },
-  { id: "islam-nonmuslims", name: "Islam to Non-Muslims", verbs: ["Connect", "Develop", "Distribute"], outcomes: ["Positive Image", "Accepting Islam"], icon: "Handshake", tone: "text-accent bg-accent/10" },
-  { id: "excellence", name: "Operate with Excellence", verbs: ["Foster", "Communicate", "Optimize"], outcomes: ["Welcoming Culture", "Strategic Alignment", "Financial Sustainability"], icon: "Sparkles", tone: "text-primary bg-primary/10" },
+  { id: "islam-muslims", name: "Islam to Muslims",
+    def: "Develop, produce and distribute authentic Islamic knowledge and worship for the Muslim community.",
+    verbs: ["Develop", "Produce", "Distribute"], outcomes: ["Knowledge", "Behavioral"],
+    programs: ["Youth Camp", "Qiyam", "Usrah", "BJJ", "Quran / Arabic", "MAS Breakroom"],
+    icon: "BookOpen", tone: "text-accent bg-accent/10" },
+  { id: "leadership", name: "Leadership Development",
+    def: "Train, equip and support leaders — building the capacity and influence of agents of change.",
+    verbs: ["Train", "Equip", "Support"], outcomes: ["Capacity", "Influence"],
+    programs: ["Agents of Change", "Effective Muslim Activist", "TI Camp", "Men's / Women's Camp"],
+    icon: "Users", tone: "text-primary bg-primary/10" },
+  { id: "community", name: "Community Mobilization",
+    def: "Identify, organize and anchor the community — growing network and scale through shared platforms.",
+    verbs: ["Identify", "Organize", "Anchor"], outcomes: ["Network", "Scale"],
+    programs: ["Lighthouse YP Conference", "Islamic Knowledge Competition"],
+    icon: "Megaphone", tone: "text-[hsl(var(--success))] bg-[hsl(var(--success)/0.12)]" },
+  { id: "social-justice", name: "Social Justice",
+    def: "Train, advocate and develop coalitions — advancing justice through partnership and strategic alignment.",
+    verbs: ["Train", "Advocate", "Develop"], outcomes: ["Partnership", "Strategic Alignment"],
+    programs: ["Voices Unveiled", "PACE Advocacy"],
+    icon: "Scale", tone: "text-[hsl(var(--warning))] bg-[hsl(var(--warning)/0.14)]" },
+  { id: "islam-nonmuslims", name: "Islam to Non-Muslims",
+    def: "Connect with and serve the wider public — shaping a positive image of Islam and welcoming those accepting it.",
+    verbs: ["Connect", "Develop", "Distribute"], outcomes: ["Positive Image", "Accepting Islam"],
+    programs: ["Da'wah", "Interfaith", "Public Campaigns"],
+    icon: "Handshake", tone: "text-accent bg-accent/10" },
+  { id: "excellence", name: "Operate with Excellence",
+    def: "Foster, communicate and optimize operations — a welcoming culture, strategic alignment and financial sustainability.",
+    verbs: ["Foster", "Communicate", "Optimize"], outcomes: ["Welcoming Culture", "Strategic Alignment", "Financial Sustainability"],
+    programs: ["CRM 2.0", "Accrual Accounting", "Operational Breakdown"],
+    icon: "Sparkles", tone: "text-primary bg-primary/10" },
 ];
 
 export interface WorkstreamTask {
