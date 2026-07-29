@@ -86,6 +86,7 @@ export default function ModuleDetail({ params }: { params: Promise<{ id: string 
     await persist({ ...module!, resources: [...module!.resources, r] });
   }
   async function removeResource(rid: string) {
+    if (!window.confirm("Delete this resource? This cannot be undone.")) return;
     await persist({ ...module!, resources: module!.resources.filter((r) => r.id !== rid) });
     toast("Removed");
   }

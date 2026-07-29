@@ -1,0 +1,23 @@
+services:
+  # ---- The Portal (Next.js app) ---------------------------------------------
+  portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: toc-portal
+    container_name: toc-portal
+    restart: unless-stopped
+    environment:
+      # Optional server-only secrets:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+    ports:
+      - "3000:80"
+      # Uncomment to expose HTTPS (requires ssl/ volume below):
+      # - "3443:443"
+    # SSL certificates for HTTPS (optional).
+    # Place fullchain.pem and privkey.pem in ./ssl/ and uncomment the line below:
+    # volumes:
+    #   - ./ssl:/etc/nginx/ssl:ro

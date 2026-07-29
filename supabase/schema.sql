@@ -355,6 +355,120 @@ create policy "clients insert" on public.clients for insert with check (public.i
 drop policy if exists "clients update" on public.clients;
 create policy "clients update" on public.clients for update using (public.is_staff());
 
+-- ---- Programs (shared & permanent, staff-writable) ------------------------
+-- All programs live in one JSON document that staff can read and edit.
+-- Learners can read so the Programs page and TOC Builder work for everyone.
+create table if not exists public.programs (
+  id          text primary key default 'default',
+  data        jsonb not null default '[]',
+  updated_at  timestamptz not null default now()
+);
+alter table public.programs enable row level security;
+
+drop policy if exists "programs read" on public.programs;
+create policy "programs read"   on public.programs for select using (true);
+drop policy if exists "programs insert" on public.programs;
+create policy "programs insert" on public.programs for insert with check (public.is_staff());
+drop policy if exists "programs update" on public.programs;
+create policy "programs update" on public.programs for update using (public.is_staff());
+drop policy if exists "programs delete" on public.programs;
+create policy "programs delete" on public.programs for delete using (public.is_staff());
+
+-- ---- Program budget lines (per-program, staff-write, authenticated-read) ----
+create table if not exists public.program_budget_lines (
+  id          uuid primary key default gen_random_uuid(),
+  program_id  text not null,
+  category    text not null default '',
+  description text not null default '',
+  amount      numeric not null default 0,
+  created_at  timestamptz not null default now()
+);
+alter table public.program_budget_lines enable row level security;
+
+drop policy if exists "budget lines read" on public.program_budget_lines;
+create policy "budget lines read"   on public.program_budget_lines for select to authenticated using (true);
+drop policy if exists "budget lines insert" on public.program_budget_lines;
+create policy "budget lines insert" on public.program_budget_lines for insert with check (public.is_staff());
+drop policy if exists "budget lines update" on public.program_budget_lines;
+create policy "budget lines update" on public.program_budget_lines for update using (public.is_staff());
+drop policy if exists "budget lines delete" on public.program_budget_lines;
+create policy "budget lines delete" on public.program_budget_lines for delete using (public.is_staff());
+
+-- ---- Program financial entries (per-program, staff-write, authenticated-read) ----
+create table if not exists public.program_financials (
+  id          uuid primary key default gen_random_uuid(),
+  program_id  text not null,
+  type        text not null default 'expense',
+  amount      numeric not null default 0,
+  description text not null default '',
+  category    text not null default '',
+  date        date not null default current_date,
+  created_at  timestamptz not null default now()
+);
+alter table public.program_financials enable row level security;
+
+drop policy if exists "financials read" on public.program_financials;
+create policy "financials read"   on public.program_financials for select to authenticated using (true);
+drop policy if exists "financials insert" on public.program_financials;
+create policy "financials insert" on public.program_financials for insert with check (public.is_staff());
+drop policy if exists "financials update" on public.program_financials;
+create policy "financials update" on public.program_financials for update using (public.is_staff());
+drop policy if exists "financials delete" on public.program_financials;
+create policy "financials delete" on public.program_financials for delete using (public.is_staff());
+
+-- ---- Program tasks (per-program, staff-write, authenticated-read) ----------
+create table if not exists public.program_tasks (
+  id           uuid primary key default gen_random_uuid(),
+  program_id   text not null,
+  title        text not null default '',
+  description  text not null default '',
+  status       text not null default 'in_progress',
+  due_date     date,
+  assignee     text not null default '',
+  priority     text not null default 'medium',
+  completed_at timestamptz,
+  created_at   timestamptz not null default now()
+);
+alter table public.program_tasks enable row level security;
+
+drop policy if exists "tasks read" on public.program_tasks;
+create policy "tasks read"   on public.program_tasks for select to authenticated using (true);
+drop policy if exists "tasks insert" on public.program_tasks;
+create policy "tasks insert" on public.program_tasks for insert with check (public.is_staff());
+drop policy if exists "tasks update" on public.program_tasks;
+create policy "tasks update" on public.program_tasks for update using (public.is_staff());
+drop policy if exists "tasks delete" on public.program_tasks;
+create policy "tasks delete" on public.program_tasks for delete using (public.is_staff());
+
+-- ---- Program indicators (per-program, staff-write, authenticated-read) -----
+create table if not exists public.program_indicators (
+  id          uuid primary key default gen_random_uuid(),
+  program_id  text not null,
+  name        text not null default '',
+  description text not null default '',
+  type        text not null default 'Quantitative',
+  level       text not null default 'output',
+  unit        text not null default '',
+  baseline    numeric not null default 0,
+  target      numeric not null default 0,
+  current     numeric not null default 0,
+  target_date date,
+  frequency   text not null default '',
+  means_of_verification text not null default '',
+  measurements jsonb not null default '[]',
+  created_at  timestamptz not null default now()
+);
+alter table public.program_indicators enable row level security;
+
+drop policy if exists "indicators read" on public.program_indicators;
+create policy "indicators read"   on public.program_indicators for select to authenticated using (true);
+drop policy if exists "indicators insert" on public.program_indicators;
+create policy "indicators insert" on public.program_indicators for insert with check (public.is_staff());
+drop policy if exists "indicators update" on public.program_indicators;
+create policy "indicators update" on public.program_indicators for update using (public.is_staff());
+drop policy if exists "indicators delete" on public.program_indicators;
+create policy "indicators delete" on public.program_indicators for delete using (public.is_staff());
+
 -- Storage bucket for uploaded files (PDFs, slides, images…). Files are read
 -- publicly (the bucket is public); only STAFF may upload.
 insert into storage.buckets (id, name, public) values ('course-files', 'course-files', true)

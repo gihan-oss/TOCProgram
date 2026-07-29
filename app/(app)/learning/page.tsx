@@ -70,6 +70,7 @@ export default function LearningPage() {
     toast("Module created — open it to add content");
   }
   async function removeModule(id: string) {
+    if (!window.confirm("Delete this module and all its content? This cannot be undone.")) return;
     await persist(modules.filter((m) => m.id !== id));
     toast("Module removed");
   }
