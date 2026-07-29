@@ -21,7 +21,7 @@ async function destFor(email: string, role: ReturnType<typeof resolveAccess>["ro
 }
 
 export default function LoginPage() {
-  const { signIn, signUp, isDemo, resetPassword } = useAuth();
+  const { user, loading, signIn, signUp, isDemo, resetPassword } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
   const [name, setName] = useState("");
@@ -30,11 +30,20 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Flips to true only after the user actively presses Sign in / Create account
+  // on THIS page. Because Supabase establishes the session asynchronously, we
+  // wait for the auth state to actually resolve (below) before navigating — this
+  // is what makes sign-in reliably land in the portal instead of spinning.
+  // Crucially it does NOT redirect someone who merely lands on /login with an
+  // existing session, so we don't reintroduce the silent auto-login.
+  const [entering, setEntering] = useState(false);
 
-  // Note: we deliberately do NOT auto-redirect an existing session from here.
-  // Landing on /login always shows the form; you only enter the portal by
-  // explicitly submitting (or navigating in once signed in). This prevents the
-  // page from silently signing someone in without a click.
+  useEffect(() => {
+    if (!entering || loading || !user) return;
+    let active = true;
+    destFor(user.email, user.role).then((dest) => { if (active) router.replace(dest); });
+    return () => { active = false; };
+  }, [entering, loading, user, router]);
 
   // Pre-fill email + password from the invite email's "Sign in" link
   // (…/login?email=…&pw=…), so invited users don't have to type them.
@@ -65,9 +74,16 @@ export default function LoginPage() {
       return;
     }
     const res = mode === "signin" ? await signIn(email, password) : await signUp(name, email, password);
-    setBusy(false);
-    if (res.error) setError(res.error);
-    else router.replace(await destFor(email, resolveAccess(email).role));
+    if (res.error) { setBusy(false); setError(res.error); return; }
+    // Success — let the effect above redirect once the session actually resolves.
+    setEntering(true);
+    // Safety net: if the session doesn't come through shortly (e.g. the project
+    // still requires email confirmation), stop the spinner so the user isn't stuck.
+    setTimeout(() => {
+      setBusy(false);
+      setEntering(false);
+      setInfo((cur) => cur ?? "You're signed in — if the portal doesn't open, refresh the page.");
+    }, 6000);
   }
 
   return (
