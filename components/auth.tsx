@@ -33,6 +33,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (name: string, email: string, password: string) => Promise<{ error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ error?: string }>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -142,6 +143,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? { error: error.message } : {};
   };
 
+  // Send a "forgot password" email. The link brings the user back to /reset,
+  // where they set a new password. Demo mode has no email service, so it's a
+  // no-op success. We don't reveal whether the address has an account.
+  const resetPassword: AuthState["resetPassword"] = async (email) => {
+    if (!supabase) return {}; // demo mode — nothing to send
+    if (!email) return { error: "Enter the email address for your account." };
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
+    return error ? { error: error.message } : {};
+  };
+
   const signOut: AuthState["signOut"] = async () => {
     if (supabase) await supabase.auth.signOut();
     else localStorage.removeItem(DEMO_KEY);
@@ -150,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ user, loading, isDemo: !isSupabaseConfigured, signIn, signUp, updatePassword, signOut }}>
+    <Ctx.Provider value={{ user, loading, isDemo: !isSupabaseConfigured, signIn, signUp, updatePassword, resetPassword, signOut }}>
       {children}
     </Ctx.Provider>
   );
