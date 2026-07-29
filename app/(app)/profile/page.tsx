@@ -41,12 +41,29 @@ const SKILLS = ["Teaching", "Event Planning", "Fundraising", "Media & Design", "
 // picture, and fill in (or fix) the role / department / commitment / tenure /
 // skills, even if they skipped it during onboarding. Saved to their profile.
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updatePassword, isDemo } = useAuth();
   const toast = useToast();
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // Change-password form
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwBusy, setPwBusy] = useState(false);
+
+  async function changePassword() {
+    if (pwBusy) return;
+    if (newPw.length < 6) { toast("Password must be at least 6 characters.", "error"); return; }
+    if (newPw !== confirmPw) { toast("Those passwords don't match.", "error"); return; }
+    setPwBusy(true);
+    const res = await updatePassword(newPw);
+    setPwBusy(false);
+    if (res.error) { toast(res.error, "error"); return; }
+    setNewPw(""); setConfirmPw("");
+    toast("Password updated ✓", "success");
+  }
 
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("");
@@ -203,6 +220,35 @@ export default function ProfilePage() {
           </div>
         </Card>
       )}
+
+      {/* Password & security */}
+      <Card className="mt-6 p-6">
+        <p className="flex items-center gap-2 font-semibold"><Icons.KeyRound className="h-4 w-4 text-accent" /> Password</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isDemo
+            ? "Password changes are available once the portal is connected to Supabase authentication."
+            : "Set a new password for your account. At least 6 characters."}
+        </p>
+        <div className="mt-4 grid max-w-md gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">New password</span>
+            <input type="password" autoComplete="new-password" value={newPw} disabled={isDemo}
+              onChange={(e) => setNewPw(e.target.value)} placeholder="••••••••" className="modal-input" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">Confirm new password</span>
+            <input type="password" autoComplete="new-password" value={confirmPw} disabled={isDemo}
+              onChange={(e) => setConfirmPw(e.target.value)} placeholder="••••••••" className="modal-input" />
+          </label>
+          {newPw && newPw.length < 6 && <p className="text-xs text-muted-foreground">A little longer — 6+ characters.</p>}
+          {confirmPw && newPw !== confirmPw && <p className="text-xs text-[hsl(var(--danger))]">Passwords don't match.</p>}
+          <div>
+            <Button size="md" onClick={changePassword} disabled={isDemo || pwBusy || newPw.length < 6 || newPw !== confirmPw}>
+              {pwBusy ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : <Icons.Check className="h-4 w-4" />} Update password
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

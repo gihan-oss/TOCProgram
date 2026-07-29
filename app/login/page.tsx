@@ -21,21 +21,20 @@ async function destFor(email: string, role: ReturnType<typeof resolveAccess>["ro
 }
 
 export default function LoginPage() {
-  const { user, loading, signIn, signUp, isDemo } = useAuth();
+  const { signIn, signUp, isDemo, resetPassword } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (loading || !user) return;
-    let active = true;
-    destFor(user.email, user.role).then((dest) => { if (active) router.replace(dest); });
-    return () => { active = false; };
-  }, [loading, user, router]);
+  // Note: we deliberately do NOT auto-redirect an existing session from here.
+  // Landing on /login always shows the form; you only enter the portal by
+  // explicitly submitting (or navigating in once signed in). This prevents the
+  // page from silently signing someone in without a click.
 
   // Pre-fill email + password from the invite email's "Sign in" link
   // (…/login?email=…&pw=…), so invited users don't have to type them.
@@ -57,6 +56,14 @@ export default function LoginPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setInfo(null);
+    if (mode === "reset") {
+      const res = await resetPassword(email);
+      setBusy(false);
+      if (res.error) setError(res.error);
+      else setInfo("If that email has an account, a password-reset link is on its way. Check your inbox (and spam).");
+      return;
+    }
     const res = mode === "signin" ? await signIn(email, password) : await signUp(name, email, password);
     setBusy(false);
     if (res.error) setError(res.error);
@@ -102,9 +109,9 @@ export default function LoginPage() {
             <Logo subtitle="Impact Portal" size="md" />
           </div>
 
-          <h2 className="text-2xl font-bold tracking-tight">{mode === "signin" ? "Welcome back" : "Create your account"}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{mode === "signin" ? "Welcome back" : mode === "signup" ? "Create your account" : "Reset your password"}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin" ? `Sign in to continue to the ${MAS.org} portal.` : `Create your account to join the ${MAS.org} portal.`}
+            {mode === "signin" ? `Sign in to continue to the ${MAS.org} portal.` : mode === "signup" ? `Create your account to join the ${MAS.org} portal.` : "Enter your account email and we'll send you a link to set a new password."}
           </p>
 
           {isDemo && (
@@ -125,23 +132,41 @@ export default function LoginPage() {
             <Field icon="Mail" label="Email">
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@organization.org" className="auth-input" />
             </Field>
-            <Field icon="Lock" label="Password">
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="auth-input" />
-            </Field>
+            {mode !== "reset" && (
+              <Field icon="Lock" label="Password">
+                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="auth-input" />
+              </Field>
+            )}
+
+            {mode === "signin" && (
+              <div className="-mt-1 text-right">
+                <button type="button" onClick={() => { setMode("reset"); setError(null); setInfo(null); }} className="text-xs font-medium text-accent hover:underline">
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             {error && <p className="rounded-lg bg-[hsl(var(--danger)/0.12)] px-3 py-2 text-sm text-[hsl(var(--danger))]">{error}</p>}
+            {info && <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">{info}</p>}
 
             <Button type="submit" size="md" className="w-full" disabled={busy}>
-              {busy ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : mode === "signin" ? "Sign in" : "Create account"}
+              {busy ? <Icons.Loader2 className="h-4 w-4 animate-spin" /> : mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
               {!busy && <Icons.ArrowRight className="h-4 w-4" />}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
-            <button onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }} className="font-semibold text-accent hover:underline">
-              {mode === "signin" ? "Create an account" : "Sign in"}
-            </button>
+            {mode === "reset" ? (
+              <>Remembered it?{" "}
+                <button onClick={() => { setMode("signin"); setError(null); setInfo(null); }} className="font-semibold text-accent hover:underline">Back to sign in</button>
+              </>
+            ) : (
+              <>{mode === "signin" ? "New here?" : "Already have an account?"}{" "}
+                <button onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setInfo(null); }} className="font-semibold text-accent hover:underline">
+                  {mode === "signin" ? "Create an account" : "Sign in"}
+                </button>
+              </>
+            )}
           </p>
         </div>
       </div>
