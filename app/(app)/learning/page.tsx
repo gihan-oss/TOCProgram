@@ -15,6 +15,9 @@ import { MASGLA_STARTER, effectiveModules, courseIsEmpty } from "@/lib/starter-c
 export default function LearningPage() {
   const { user } = useAuth();
   const canEdit = user?.role === "admin" || user?.role === "facilitator";
+  // Coordinators can see every module (no participant-style unlocking gate), but
+  // without the editing controls — a read-only oversight view.
+  const canViewAll = canEdit || user?.role === "coordinator";
   const toast = useToast();
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -242,14 +245,15 @@ export default function LearningPage() {
           <div className="space-y-3">
             {modules.map((m, i) => ({ m, i }))
               // Learners only see what they've reached: completed modules + the
-              // current one. Future modules stay hidden until unlocked.
-              .filter(({ i }) => canEdit || activeIdx < 0 || i <= activeIdx)
+              // current one. Future modules stay hidden until unlocked. Editors
+              // and coordinators (oversight) see every module.
+              .filter(({ i }) => canViewAll || activeIdx < 0 || i <= activeIdx)
               .map(({ m, i }) => {
                 const totalItems = m.resources.length;
                 const completed = m.resources.filter((r) => done.has(r.id)).length;
                 const pct = totalItems ? Math.round((completed / totalItems) * 100) : 0;
                 const complete = moduleComplete(m, done);
-                const isCurrent = !canEdit && i === activeIdx;
+                const isCurrent = !canViewAll && i === activeIdx;
                 const justUnlocked = isCurrent && i > 0 && completed === 0; // freshly opened
 
                 const inner = (
@@ -276,7 +280,7 @@ export default function LearningPage() {
                           m.summary && <p className="mt-0.5 text-sm text-muted-foreground">{m.summary}</p>
                         )}
 
-                        {!canEdit && totalItems > 0 && (
+                        {!canViewAll && totalItems > 0 && (
                           <>
                             <p className="mt-2 text-xs text-muted-foreground">{totalItems} item{totalItems !== 1 ? "s" : ""} · {completed}/{totalItems} done</p>
                             <div className="mt-1.5 h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} /></div>
@@ -299,7 +303,7 @@ export default function LearningPage() {
                 return <Link key={m.id} href={`/learning/${m.id}`}>{inner}</Link>;
               })}
           </div>
-          {!canEdit && activeIdx >= 0 && modules.length - (activeIdx + 1) > 0 && (
+          {!canViewAll && activeIdx >= 0 && modules.length - (activeIdx + 1) > 0 && (
             <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Icons.Lock className="h-3.5 w-3.5" /> {modules.length - (activeIdx + 1)} more module{modules.length - (activeIdx + 1) !== 1 ? "s" : ""} unlock as you finish each one.
             </p>

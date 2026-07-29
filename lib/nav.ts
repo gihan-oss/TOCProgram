@@ -14,6 +14,9 @@ export const NAV: NavItem[] = [
   // ---- Participant: a guided path ----
   { href: "/journey", label: "My Journey", icon: "Footprints", group: "Overview", roles: ["participant"] },
   { href: "/learning", label: "My Learning", icon: "GraduationCap", group: "Learn", roles: ["participant"] },
+  // Coordinators are an oversight role — they can view the course modules (all
+  // unlocked, read-only) without the participant's step-by-step gating.
+  { href: "/learning", label: "Modules", icon: "GraduationCap", group: "Learn", roles: ["coordinator"] },
   { href: "/assessments", label: "Assessments", icon: "ClipboardCheck", group: "Learn", roles: ["participant"] },
   { href: "/certificate", label: "My Certificate", icon: "Award", group: "Learn", roles: ["participant"] },
   { href: "/toc", label: "Theory of Change", icon: "Workflow", group: "Build", roles: ["participant"] },
