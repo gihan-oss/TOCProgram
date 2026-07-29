@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, Stat, Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import {
-  PROGRAMS, QUESTION_ZERO, AREAS_OF_FOCUS, DESIRED_OUTCOMES, PEOPLE,
+  QUESTION_ZERO, AREAS_OF_FOCUS, DESIRED_OUTCOMES, PEOPLE,
   DECISION_STATUS, PROGRAM_STATUS,
   type Program, type Decision, type ProgramStatus,
 } from "@/lib/mas";
+import { loadPrograms, savePrograms } from "@/lib/programs-store";
 
 const decisionTone: Record<Decision, "success" | "warning" | "danger"> = { Keep: "success", Modify: "warning", Cancel: "danger" };
 const statusTone: Record<ProgramStatus, "success" | "accent" | "warning" | "muted"> = {
@@ -23,13 +25,22 @@ const blank = (): Program => ({
 });
 
 export default function ProgramsPage() {
-  const [programs, setPrograms] = useState<Program[]>(PROGRAMS);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [q, setQ] = useState("");
   const [areaFilter, setAreaFilter] = useState<string | "All">("All");
   const [statusFilter, setStatusFilter] = useState<ProgramStatus | "All">("All");
   const [decisionFilter, setDecisionFilter] = useState<Decision | "All">("All");
   const [editing, setEditing] = useState<Program | null>(null);
   const [isNew, setIsNew] = useState(false);
   const toast = useToast();
+
+  useEffect(() => {
+    loadPrograms().then((ps) => {
+      setPrograms(ps);
+      setLoaded(true);
+    });
+  }, []);
 
   const summary = useMemo(() => ({
     total: programs.length,
@@ -52,20 +63,38 @@ export default function ProgramsPage() {
   const shown = programs.filter((p) =>
     (areaFilter === "All" || p.area === areaFilter) &&
     (statusFilter === "All" || p.status === statusFilter) &&
-    (decisionFilter === "All" || p.decision === decisionFilter),
+    (decisionFilter === "All" || p.decision === decisionFilter) &&
+    (!q || `${p.name} ${p.area} ${p.outcome} ${p.department ?? ""}`.toLowerCase().includes(q.toLowerCase())),
   );
 
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   function patch(id: string, fields: Partial<Program>) {
-    setPrograms((prev) => prev.map((p) => (p.id === id ? { ...p, ...fields } : p)));
+    setPrograms((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, ...fields } : p));
+      // Debounced persist
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => savePrograms(next), 600);
+      return next;
+    });
   }
-  function save(p: Program) {
+  async function save(p: Program) {
     if (!p.name.trim()) { toast("Give the program a name", "error"); return; }
-    setPrograms((prev) => (isNew ? [p, ...prev] : prev.map((x) => (x.id === p.id ? p : x))));
-    toast(isNew ? "Program added" : "Program updated");
+    const next = isNew
+      ? [p, ...programs]
+      : programs.map((x) => (x.id === p.id ? p : x));
+    setPrograms(next);
+    const ok = await savePrograms(next);
+    toast(ok
+      ? (isNew ? "Program added" : "Program updated")
+      : "Saved locally — connect Supabase to share");
     setEditing(null);
   }
-  function remove(id: string) {
-    setPrograms((prev) => prev.filter((p) => p.id !== id));
+  async function remove(id: string) {
+    if (!window.confirm("Delete this program? This cannot be undone.")) return;
+    const next = programs.filter((p) => p.id !== id);
+    setPrograms(next);
+    await savePrograms(next);
     setEditing(null);
     toast("Program deleted");
   }
@@ -134,9 +163,41 @@ export default function ProgramsPage() {
         {(decisionFilter !== "All" || statusFilter !== "All" || areaFilter !== "All") && (
           <button onClick={() => { setAreaFilter("All"); setStatusFilter("All"); setDecisionFilter("All"); }} className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-secondary">Clear</button>
         )}
+        {/* Search */}
+        <div className="flex items-center gap-2">
+          <Icons.Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by name or focus area…"
+            className="rounded-lg border bg-card px-3 py-1.5 text-sm outline-none focus:border-accent w-48"
+          />
+          {q && (
+            <button onClick={() => setQ("")} className="text-xs text-muted-foreground hover:text-foreground">
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Board grouped by Area of Focus */}
+      {loaded && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {shown.length} of {programs.length} program{programs.length !== 1 ? "s" : ""}
+          {(areaFilter !== "All" || statusFilter !== "All" || decisionFilter !== "All" || q) && " match current filters"}
+        </p>
+      )}
+
+      {!loaded ? (
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="p-4 animate-pulse">
+              <div className="h-4 w-32 rounded bg-muted mb-3" />
+              <div className="h-3 w-24 rounded bg-muted mb-2" />
+              <div className="h-3 w-48 rounded bg-muted" />
+            </Card>
+          ))}
+        </div>
+      ) : (
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         {groups.map((a) => {
           const items = shown.filter((p) => p.area === a);
@@ -151,8 +212,10 @@ export default function ProgramsPage() {
                 {items.map((p) => (
                   <div key={p.id} className="rounded-xl border p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold">{p.name}</p>
-                      <button onClick={() => { setEditing(p); setIsNew(false); }} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Edit">
+                      <Link href={`/programs/${p.id}`} className="text-sm font-semibold hover:text-accent hover:underline">
+                        {p.name}
+                      </Link>
+                      <button onClick={(e) => { e.preventDefault(); setEditing(p); setIsNew(false); }} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Edit">
                         <Icons.Pencil className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -202,6 +265,7 @@ export default function ProgramsPage() {
         })}
         {shown.length === 0 && <p className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No programs match these filters.</p>}
       </div>
+      )}
 
       {editing && (
         <ProgramModal

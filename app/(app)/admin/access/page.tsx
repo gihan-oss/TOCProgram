@@ -173,6 +173,7 @@ export default function AccessPage() {
   }
 
   async function remove(target: string) {
+    if (!window.confirm("Remove this member? This cannot be undone.")) return;
     setRows((r) => r.filter((x) => x.email !== target));
     await removeMember(target);
   }
