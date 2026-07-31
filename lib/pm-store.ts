@@ -1,198 +1,155 @@
 "use client";
 
 // Persistence for the program-management modules (Tasks, Financials, M&E, Budget).
-//
-// Uses Supabase directly (getSupabaseBrowserClient pattern from content.ts)
-// with localStorage fallback for demo mode. No API routes needed.
+// Each entity type has its own BaseStore subclass.
+// Custom operations (addMeasurement, saveBudgetLine) sit on top.
 
-import { getSupabaseBrowserClient } from "./supabase";
+import { BaseStore, lsRead } from "./base-store";
 import type { BudgetLine, FinancialEntry, Measurement, ProgramIndicator, Task } from "./pm-types";
 
-const uid = (prefix: string) =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? `${prefix}-${crypto.randomUUID()}`
-    : `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+// ===========================================================================
+// Row mappers: Supabase snake_case -> application camelCase
+// ===========================================================================
+const r2t = (r: Record<string, unknown>): Task => ({
+  id: r.id as string,
+  programId: r.program_id as string,
+  title: (r.title as string) ?? "",
+  description: r.description as string | undefined,
+  status: (r.status as Task["status"]) ?? "in_progress",
+  dueDate: r.due_date as string | undefined,
+  assignee: r.assignee as string | undefined,
+  priority: r.priority as Task["priority"] | undefined,
+  createdAt: r.created_at as string,
+  completedAt: r.completed_at as string | null | undefined,
+});
+const t2r = (t: Task) => ({
+  id: t.id, program_id: t.programId, title: t.title, description: t.description ?? "",
+  status: t.status, due_date: t.dueDate ?? null, assignee: t.assignee ?? "",
+  priority: t.priority ?? "medium", completed_at: t.completedAt ?? null,
+  created_at: t.createdAt,
+});
 
-// ---- localStorage helpers (demo-mode fallback) ----------------------------
-const TKEY = (p: string) => `pm-tasks:${p}`;
-const FKEY = (p: string) => `pm-financials:${p}`;
-const IKEY = (p: string) => `pm-indicators:${p}`;
-const BKEY = (p: string) => `pm-budget:${p}`;
-function lsRead<T>(key: string): T[] {
-  try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T[]) : []; } catch { return []; }
-}
-function lsWrite<T>(key: string, rows: T[]): void {
-  try { localStorage.setItem(key, JSON.stringify(rows)); } catch {}
-}
+const r2f = (r: Record<string, unknown>): FinancialEntry => ({
+  id: r.id as string,
+  programId: r.program_id as string,
+  type: (r.type as FinancialEntry["type"]) ?? "expense",
+  amount: Number(r.amount ?? 0),
+  description: r.description as string | undefined,
+  category: r.category as string | undefined,
+  date: r.date as string | undefined,
+  createdAt: r.created_at as string,
+});
+const f2r = (e: FinancialEntry) => ({
+  id: e.id, program_id: e.programId, type: e.type, amount: e.amount,
+  description: e.description ?? "", category: e.category ?? "",
+  date: e.date ?? null, created_at: e.createdAt,
+});
+
+const r2i = (r: Record<string, unknown>): ProgramIndicator => ({
+  id: r.id as string,
+  email: r.email as string | undefined,
+  programId: r.program_id as string | undefined,
+  name: (r.name as string) ?? "",
+  description: r.description as string | undefined,
+  type: (r.type as ProgramIndicator["type"]) ?? "Quantitative",
+  level: (r.level as ProgramIndicator["level"]) ?? "output",
+  baseline: Number(r.baseline ?? 0),
+  target: Number(r.target ?? 0),
+  current: Number(r.current ?? 0),
+  targetDate: r.target_date as string | undefined,
+  frequency: r.frequency as string | undefined,
+  meansOfVerification: r.means_of_verification as string | undefined,
+  unit: r.unit as string | undefined,
+  measurements: Array.isArray(r.measurements) ? (r.measurements as Measurement[]) : [],
+  createdAt: r.created_at as string,
+});
+const i2r = (i: ProgramIndicator) => ({
+  id: i.id, email: i.email ?? null, program_id: i.programId ?? null,
+  name: i.name, description: i.description ?? "",
+  type: i.type, level: i.level,
+  baseline: i.baseline, target: i.target, current: i.current,
+  target_date: i.targetDate ?? null, frequency: i.frequency ?? "",
+  means_of_verification: i.meansOfVerification ?? "", unit: i.unit ?? "",
+  measurements: i.measurements, created_at: i.createdAt,
+});
+
+const r2b = (r: Record<string, unknown>): BudgetLine => ({
+  id: r.id as string,
+  programId: r.program_id as string,
+  category: (r.category as string) ?? "",
+  description: r.description as string | undefined,
+  amount: Number(r.amount ?? 0),
+});
+const b2r = (l: BudgetLine) => ({
+  id: l.id, program_id: l.programId, category: l.category,
+  description: l.description ?? "", amount: l.amount,
+});
 
 // ===========================================================================
-// TASKS
+// Store instances
 // ===========================================================================
-export async function listTasks(programId: string): Promise<Task[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { data, error } = await sb
-        .from("program_tasks")
-        .select("*")
-        .eq("program_id", programId)
-        .order("created_at", { ascending: false });
-      if (!error) return (data ?? []).map(rowToTask);
-    } catch { /* fall through to localStorage */ }
-  }
-  return lsRead<Task>(TKEY(programId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
 
-export async function createTask(input: Omit<Task, "id" | "createdAt" | "completedAt">): Promise<Task> {
-  const task: Task = { ...input, id: uid("task"), createdAt: new Date().toISOString(), completedAt: null };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_tasks").insert(taskToRow(task));
-      if (!error) return task;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(TKEY(task.programId), [task, ...lsRead<Task>(TKEY(task.programId))]);
-  return task;
+class TaskStore extends BaseStore<Task> {
+  table = "program_tasks";
+  lsKey = (pid: string) => `pm-tasks:${pid}`;
+  scopeColumn = "program_id";
+  fromRow = r2t;
+  toRow = t2r;
+  sortFn = (a: Task, b: Task) => b.createdAt.localeCompare(a.createdAt);
+  idPrefix = "task";
 }
+const taskStore = new TaskStore();
 
-export async function updateTask(task: Task, patch: Partial<Task>): Promise<Task> {
-  const next: Task = { ...task, ...patch };
-  if (next.status === "completed" && !next.completedAt) next.completedAt = new Date().toISOString();
-  if (next.status !== "completed") next.completedAt = null;
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_tasks").update(taskToRow(next)).eq("id", next.id);
-      if (!error) return next;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(TKEY(next.programId), lsRead<Task>(TKEY(next.programId)).map((t) => (t.id === next.id ? next : t)));
-  return next;
+class FinancialStore extends BaseStore<FinancialEntry> {
+  table = "program_financials";
+  lsKey = (pid: string) => `pm-financials:${pid}`;
+  scopeColumn = "program_id";
+  fromRow = r2f;
+  toRow = f2r;
+  sortFn = (a: FinancialEntry, b: FinancialEntry) => (b.date ?? "").localeCompare(a.date ?? "");
+  idPrefix = "fin";
 }
+const finStore = new FinancialStore();
 
-export async function deleteTask(task: Task): Promise<void> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_tasks").delete().eq("id", task.id);
-      if (!error) return;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(TKEY(task.programId), lsRead<Task>(TKEY(task.programId)).filter((t) => t.id !== task.id));
-}
+class IndicatorStore extends BaseStore<ProgramIndicator> {
+  table = "program_indicators";
+  lsKey = (pid: string) => `pm-indicators:${pid}`;
+  scopeColumn = "program_id";
+  fromRow = r2i;
+  toRow = i2r;
+  idPrefix = "ind";
+  sortFn = (a: ProgramIndicator, b: ProgramIndicator) => b.createdAt.localeCompare(a.createdAt);
 
-// ===========================================================================
-// FINANCIAL ENTRIES
-// ===========================================================================
-export async function listFinancials(programId: string): Promise<FinancialEntry[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
+  async listAll(): Promise<ProgramIndicator[]> {
+    // Collect known program IDs from localStorage so the base listAll can
+    // fall back to the correct scoped keys when Supabase is unavailable.
+    const prefix = (this.lsKey as (scope: string) => string)("");
+    const pids = new Set<string>();
     try {
-      const { data, error } = await sb
-        .from("program_financials")
-        .select("*")
-        .eq("program_id", programId)
-        .order("date", { ascending: false });
-      if (!error) return (data ?? []).map(rowToFinancial);
-    } catch { /* fall through to localStorage */ }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith(prefix)) continue;
+        pids.add(key.slice(prefix.length));
+      }
+    } catch { /* iterating localStorage — ignore */ }
+    return super.listAll([...pids]);
   }
-  return lsRead<FinancialEntry>(FKEY(programId)).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 }
+const indStore = new IndicatorStore();
 
-export async function createFinancial(input: Omit<FinancialEntry, "id" | "createdAt">): Promise<FinancialEntry> {
-  const entry: FinancialEntry = { ...input, id: uid("fin"), createdAt: new Date().toISOString() };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_financials").insert(financialToRow(entry));
-      if (!error) return entry;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(FKEY(entry.programId), [entry, ...lsRead<FinancialEntry>(FKEY(entry.programId))]);
-  return entry;
+class BudgetStore extends BaseStore<BudgetLine> {
+  table = "program_budget_lines";
+  lsKey = (pid: string) => `pm-budget:${pid}`;
+  scopeColumn = "program_id";
+  fromRow = r2b;
+  toRow = b2r;
+  idPrefix = "bud";
 }
-
-export async function deleteFinancial(entry: FinancialEntry): Promise<void> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_financials").delete().eq("id", entry.id);
-      if (!error) return;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(FKEY(entry.programId), lsRead<FinancialEntry>(FKEY(entry.programId)).filter((e) => e.id !== entry.id));
-}
-
-export async function updateFinancial(entry: FinancialEntry, patch: Partial<FinancialEntry>): Promise<FinancialEntry> {
-  const next: FinancialEntry = { ...entry, ...patch };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_financials").update(financialToRow(next)).eq("id", next.id);
-      if (!error) return next;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(FKEY(next.programId), lsRead<FinancialEntry>(FKEY(next.programId)).map((e) => (e.id === next.id ? next : e)));
-  return next;
-}
+const budgetStore = new BudgetStore();
 
 // ===========================================================================
-// M&E INDICATORS (+ measurement history)
+// Exported helpers (custom operations)
 // ===========================================================================
-export async function listIndicators(programId: string): Promise<ProgramIndicator[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { data, error } = await sb
-        .from("program_indicators")
-        .select("*")
-        .eq("program_id", programId)
-        .order("created_at", { ascending: false });
-      if (!error) return (data ?? []).map(rowToIndicator);
-    } catch { /* fall through to localStorage */ }
-  }
-  return lsRead<ProgramIndicator>(IKEY(programId));
-}
-
-export async function createIndicator(
-  input: Omit<ProgramIndicator, "id" | "createdAt" | "measurements"> & { measurements?: Measurement[] },
-): Promise<ProgramIndicator> {
-  const ind: ProgramIndicator = { ...input, measurements: input.measurements ?? [], id: uid("ind"), createdAt: new Date().toISOString() };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_indicators").insert(indicatorToRow(ind));
-      if (!error) return ind;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(IKEY(ind.programId), [...lsRead<ProgramIndicator>(IKEY(ind.programId)), ind]);
-  return ind;
-}
-
-export async function updateIndicator(ind: ProgramIndicator, patch: Partial<ProgramIndicator>): Promise<ProgramIndicator> {
-  const next: ProgramIndicator = { ...ind, ...patch };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_indicators").update(indicatorToRow(next)).eq("id", next.id);
-      if (!error) return next;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(IKEY(next.programId), lsRead<ProgramIndicator>(IKEY(next.programId)).map((i) => (i.id === next.id ? next : i)));
-  return next;
-}
-
-export async function deleteIndicator(ind: ProgramIndicator): Promise<void> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_indicators").delete().eq("id", ind.id);
-      if (!error) return;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(IKEY(ind.programId), lsRead<ProgramIndicator>(IKEY(ind.programId)).filter((i) => i.id !== ind.id));
-}
 
 export async function addMeasurement(
   ind: ProgramIndicator,
@@ -203,143 +160,47 @@ export async function addMeasurement(
     value: input.value,
     note: input.note,
   };
-  return updateIndicator(ind, { measurements: [...ind.measurements, measurement] });
-}
-
-// ===========================================================================
-// BUDGET LINES (Model B: budget by category)
-// ===========================================================================
-export async function listBudgetLines(programId: string): Promise<BudgetLine[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { data, error } = await sb
-        .from("program_budget_lines")
-        .select("*")
-        .eq("program_id", programId)
-        .order("category");
-      if (!error) return (data ?? []).map(rowToBudgetLine);
-    } catch { /* fall through to localStorage */ }
-  }
-  return lsRead<BudgetLine>(BKEY(programId));
+  return indStore.update(ind, { measurements: [...ind.measurements, measurement] });
 }
 
 export async function saveBudgetLine(
   input: Omit<BudgetLine, "id"> & { id?: string },
 ): Promise<BudgetLine> {
-  const line: BudgetLine = { ...input, id: input.id ?? uid("bud") };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_budget_lines").upsert(budgetLineToRow(line), { onConflict: "id" });
-      if (!error) return line;
-    } catch { /* fall through to localStorage */ }
+  if (input.id) {
+    const existing = lsRead<BudgetLine>(budgetStore.lsKey(input.programId)).find((l: BudgetLine) => l.id === input.id);
+    if (existing) return budgetStore.update(existing, input);
   }
-  const rows = lsRead<BudgetLine>(BKEY(line.programId));
-  const idx = rows.findIndex((r) => r.id === line.id);
-  if (idx >= 0) rows[idx] = line; else rows.push(line);
-  lsWrite(BKEY(line.programId), rows);
-  return line;
-}
-
-export async function deleteBudgetLine(line: BudgetLine): Promise<void> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    try {
-      const { error } = await sb.from("program_budget_lines").delete().eq("id", line.id);
-      if (!error) return;
-    } catch { /* fall through to localStorage */ }
-  }
-  lsWrite(BKEY(line.programId), lsRead<BudgetLine>(BKEY(line.programId)).filter((r) => r.id !== line.id));
+  return budgetStore.create(input, input.programId);
 }
 
 // ===========================================================================
-// Row mappers: Supabase snake_case ↔ application camelCase
+// Re-exported CRUD — thin wrappers with original signatures that inject
+// auto-generated fields before delegating to the base store.
 // ===========================================================================
-function rowToTask(row: Record<string, unknown>): Task {
-  return {
-    id: row.id as string,
-    programId: row.program_id as string,
-    title: (row.title as string) ?? "",
-    description: row.description as string | undefined,
-    status: (row.status as Task["status"]) ?? "in_progress",
-    dueDate: row.due_date as string | undefined,
-    assignee: row.assignee as string | undefined,
-    priority: row.priority as Task["priority"] | undefined,
-    createdAt: row.created_at as string,
-    completedAt: row.completed_at as string | null | undefined,
-  };
-}
-function taskToRow(t: Task) {
-  return {
-    id: t.id, program_id: t.programId, title: t.title, description: t.description ?? "",
-    status: t.status, due_date: t.dueDate ?? null, assignee: t.assignee ?? "",
-    priority: t.priority ?? "medium", completed_at: t.completedAt ?? null,
-    created_at: t.createdAt,
-  };
-}
 
-function rowToFinancial(row: Record<string, unknown>): FinancialEntry {
-  return {
-    id: row.id as string,
-    programId: row.program_id as string,
-    type: (row.type as FinancialEntry["type"]) ?? "expense",
-    amount: Number(row.amount ?? 0),
-    description: row.description as string | undefined,
-    category: row.category as string | undefined,
-    date: row.date as string | undefined,
-    createdAt: row.created_at as string,
-  };
-}
-function financialToRow(e: FinancialEntry) {
-  return {
-    id: e.id, program_id: e.programId, type: e.type, amount: e.amount,
-    description: e.description ?? "", category: e.category ?? "",
-    date: e.date ?? null, created_at: e.createdAt,
-  };
-}
+// Tasks
+export const listTasks = taskStore.list.bind(taskStore);
+export const createTask = (input: Omit<Task, "id" | "createdAt" | "completedAt">) =>
+  taskStore.create({ ...input, createdAt: new Date().toISOString(), completedAt: null });
+export const updateTask = taskStore.update.bind(taskStore);
+export const deleteTask = taskStore.delete.bind(taskStore);
 
-function rowToIndicator(row: Record<string, unknown>): ProgramIndicator {
-  return {
-    id: row.id as string,
-    programId: row.program_id as string,
-    name: (row.name as string) ?? "",
-    type: (row.type as ProgramIndicator["type"]) ?? "Quantitative",
-    level: (row.level as ProgramIndicator["level"]) ?? "output",
-    baseline: Number(row.baseline ?? 0),
-    target: Number(row.target ?? 0),
-    current: Number(row.current ?? 0),
-    targetDate: row.target_date as string | undefined,
-    frequency: row.frequency as string | undefined,
-    meansOfVerification: row.means_of_verification as string | undefined,
-    unit: row.unit as string | undefined,
-    measurements: (row.measurements as Measurement[]) ?? [],
-    createdAt: row.created_at as string,
-  };
-}
-function indicatorToRow(i: ProgramIndicator) {
-  return {
-    id: i.id, program_id: i.programId, name: i.name, description: i.description ?? "",
-    type: i.type, level: i.level,
-    baseline: i.baseline, target: i.target, current: i.current,
-    target_date: i.targetDate ?? null, frequency: i.frequency ?? "",
-    means_of_verification: i.meansOfVerification ?? "", unit: i.unit ?? "",
-    measurements: i.measurements, created_at: i.createdAt,
-  };
-}
+// Financials
+export const listFinancials = finStore.list.bind(finStore);
+export const createFinancial = (input: Omit<FinancialEntry, "id" | "createdAt">) =>
+  finStore.create({ ...input, createdAt: new Date().toISOString() });
+export const updateFinancial = finStore.update.bind(finStore);
+export const deleteFinancial = finStore.delete.bind(finStore);
 
-function rowToBudgetLine(row: Record<string, unknown>): BudgetLine {
-  return {
-    id: row.id as string,
-    programId: row.program_id as string,
-    category: (row.category as string) ?? "",
-    description: row.description as string | undefined,
-    amount: Number(row.amount ?? 0),
-  };
-}
-function budgetLineToRow(l: BudgetLine) {
-  return {
-    id: l.id, program_id: l.programId, category: l.category,
-    description: l.description ?? "", amount: l.amount,
-  };
-}
+// Indicators
+export const listIndicators = indStore.list.bind(indStore);
+export const listAllIndicators = (email?: string) =>
+  email ? indStore.listBy("email", email) : indStore.listAll();
+export const createIndicator = (input: Omit<ProgramIndicator, "id" | "createdAt" | "measurements">) =>
+  indStore.create({ ...input, createdAt: new Date().toISOString(), measurements: [] });
+export const updateIndicator = indStore.update.bind(indStore);
+export const deleteIndicator = indStore.delete.bind(indStore);
+
+// Budget lines
+export const listBudgetLines = budgetStore.list.bind(budgetStore);
+export const deleteBudgetLine = budgetStore.delete.bind(budgetStore);

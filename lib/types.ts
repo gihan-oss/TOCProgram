@@ -70,6 +70,7 @@ export type RiskLevel = "Low" | "Medium" | "High";
 
 export interface Assumption {
   id: string;
+  email?: string;
   statement: string;
   owner: string;
   status: AssumptionStatus;
@@ -101,6 +102,7 @@ export type EvidenceKind = "PDF" | "DOCX" | "XLSX" | "Image" | "URL";
 
 export interface Evidence {
   id: string;
+  email?: string;
   name: string;
   kind: EvidenceKind;
   tags: string[];

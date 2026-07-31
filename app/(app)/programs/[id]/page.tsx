@@ -7,6 +7,7 @@ import * as Icons from "lucide-react";
 import { Card, Badge, Stat, Progress, Button, EmptyHint } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
+import { useApp } from "@/components/providers";
 import { type Program } from "@/lib/mas";
 import { loadPrograms } from "@/lib/programs-store";
 import {
@@ -66,10 +67,11 @@ function ProgramDetail() {
     return () => { alive = false; };
   }, [id]);
 
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
-  const canManage = isAdmin || user?.role === "facilitator" || user?.role === "coordinator";
-  const isParticipant = user?.role === "participant";
+  const { role: appRole } = useApp();
+  const { user } = useAuth(); // still needed for mine() email matching
+  const isAdmin = appRole === "admin";
+  const canManage = isAdmin || appRole === "facilitator" || appRole === "coordinator";
+  const isParticipant = appRole === "participant";
 
   const searchParams = useSearchParams();
   const router = useRouter();

@@ -184,6 +184,7 @@ export type ProgramStatus = (typeof PROGRAM_STATUS)[number];
 
 export interface Program {
   id: string;
+  email?: string;
   name: string;
   area: string; // Area of Focus name
   subFocus?: string; // Develop / Train / Equip / ...

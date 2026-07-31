@@ -5,12 +5,13 @@ import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, Stat, Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { useApp } from "@/components/providers";
 import {
   QUESTION_ZERO, AREAS_OF_FOCUS, DESIRED_OUTCOMES, PEOPLE,
   DECISION_STATUS, PROGRAM_STATUS,
   type Program, type Decision, type ProgramStatus,
 } from "@/lib/mas";
-import { loadPrograms, savePrograms } from "@/lib/programs-store";
+import { loadPrograms, createProgram, saveProgram, deleteProgram } from "@/lib/programs-store";
 
 const decisionTone: Record<Decision, "success" | "warning" | "danger"> = { Keep: "success", Modify: "warning", Cancel: "danger" };
 const statusTone: Record<ProgramStatus, "success" | "accent" | "warning" | "muted"> = {
@@ -19,12 +20,14 @@ const statusTone: Record<ProgramStatus, "success" | "accent" | "warning" | "mute
 const personName = (id: string) => PEOPLE.find((p) => p.id === id)?.name ?? id;
 const initials = (name: string) => name.split(" ").map((n) => n[0]).join("").slice(0, 2);
 
-const blank = (): Program => ({
-  id: `p-${Date.now()}`, name: "", area: AREAS_OF_FOCUS[0].name, input: "", baseline: "",
+const blank = (): Omit<Program, "id"> => ({
+  name: "", area: AREAS_OF_FOCUS[0].name, input: "", baseline: "",
   outcome: DESIRED_OUTCOMES[0], decision: "Keep", status: "Not Started", budget: 0, team: [],
 });
 
 export default function ProgramsPage() {
+  const { role } = useApp();
+  const isAdmin = role === "admin";
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [q, setQ] = useState("");
@@ -67,34 +70,38 @@ export default function ProgramsPage() {
     (!q || `${p.name} ${p.area} ${p.outcome} ${p.department ?? ""}`.toLowerCase().includes(q.toLowerCase())),
   );
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimer = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   function patch(id: string, fields: Partial<Program>) {
     setPrograms((prev) => {
       const next = prev.map((p) => (p.id === id ? { ...p, ...fields } : p));
-      // Debounced persist
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => savePrograms(next), 600);
+      const existing = saveTimer.current.get(id);
+      if (existing) clearTimeout(existing);
+      saveTimer.current.set(id, setTimeout(() => {
+        const updated = next.find((p) => p.id === id);
+        if (updated) saveProgram(updated);
+      }, 600));
       return next;
     });
   }
   async function save(p: Program) {
     if (!p.name.trim()) { toast("Give the program a name", "error"); return; }
-    const next = isNew
-      ? [p, ...programs]
-      : programs.map((x) => (x.id === p.id ? p : x));
-    setPrograms(next);
-    const ok = await savePrograms(next);
-    toast(ok
-      ? (isNew ? "Program added" : "Program updated")
-      : "Saved locally — connect Supabase to share");
+    if (isNew) {
+      const { id: _, ...input } = p;
+      const created = await createProgram(input);
+      setPrograms((prev) => [created, ...prev]);
+      toast("Program added");
+    } else {
+      await saveProgram(p);
+      setPrograms((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+      toast("Program updated");
+    }
     setEditing(null);
   }
   async function remove(id: string) {
     if (!window.confirm("Delete this program? This cannot be undone.")) return;
-    const next = programs.filter((p) => p.id !== id);
-    setPrograms(next);
-    await savePrograms(next);
+    setPrograms((prev) => prev.filter((p) => p.id !== id));
+    await deleteProgram(id);
     setEditing(null);
     toast("Program deleted");
   }
@@ -108,9 +115,11 @@ export default function ProgramsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Programs — Theory of Change Dashboard</h1>
           <p className="text-sm text-muted-foreground">Every program answers Question Zero, targets an audience (Input), drives a Change, and carries a Keep / Modify / Cancel decision.</p>
         </div>
-        <Button size="sm" onClick={() => { setEditing(blank()); setIsNew(true); }}>
-          <Icons.Plus className="h-4 w-4" /> Add Program
-        </Button>
+        {isAdmin && (
+          <Button size="sm" onClick={() => { setEditing(blank() as Program); setIsNew(true); }}>
+            <Icons.Plus className="h-4 w-4" /> Add Program
+          </Button>
+        )}
       </div>
 
       {/* Live summary */}
@@ -215,9 +224,11 @@ export default function ProgramsPage() {
                       <Link href={`/programs/${p.id}`} className="text-sm font-semibold hover:text-accent hover:underline">
                         {p.name}
                       </Link>
-                      <button onClick={(e) => { e.preventDefault(); setEditing(p); setIsNew(false); }} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Edit">
-                        <Icons.Pencil className="h-3.5 w-3.5" />
-                      </button>
+                      {isAdmin && (
+                        <button onClick={(e) => { e.preventDefault(); setEditing(p); setIsNew(false); }} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Edit">
+                          <Icons.Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                     {(p.subFocus || p.department || p.region) && (
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -234,11 +245,11 @@ export default function ProgramsPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Badge tone="accent">Change: {p.outcome}</Badge>
                       {/* inline decision */}
-                      <select value={p.decision} onChange={(e) => patch(p.id, { decision: e.target.value as Decision })} className={`rounded-full px-2 py-0.5 text-xs font-medium outline-none ring-1 ring-inset ring-border bg-[hsl(var(--${p.decision === "Keep" ? "success" : p.decision === "Modify" ? "warning" : "danger"})/0.14)]`}>
+                      <select value={p.decision} onChange={(e) => patch(p.id, { decision: e.target.value as Decision })} disabled={!isAdmin} className={`rounded-full px-2 py-0.5 text-xs font-medium outline-none ring-1 ring-inset ring-border bg-[hsl(var(--${p.decision === "Keep" ? "success" : p.decision === "Modify" ? "warning" : "danger"})/0.14)] ${!isAdmin ? "cursor-default opacity-100" : ""}`}>
                         {DECISION_STATUS.map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
                       {/* inline status */}
-                      <select value={p.status} onChange={(e) => patch(p.id, { status: e.target.value as ProgramStatus })} className="rounded-full border px-2 py-0.5 text-xs font-medium outline-none">
+                      <select value={p.status} onChange={(e) => patch(p.id, { status: e.target.value as ProgramStatus })} disabled={!isAdmin} className={`rounded-full border px-2 py-0.5 text-xs font-medium outline-none ${!isAdmin ? "cursor-default opacity-100 appearance-none" : ""}`}>
                         {PROGRAM_STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <span className="ml-auto text-xs font-medium tabular-nums text-muted-foreground">${p.budget.toLocaleString()}</span>
@@ -248,7 +259,11 @@ export default function ProgramsPage() {
                     <div className="mt-2 flex items-center gap-2">
                       <Icons.Users className="h-3.5 w-3.5 text-muted-foreground" />
                       {p.team.length === 0 ? (
-                        <button onClick={() => { setEditing(p); setIsNew(false); }} className="text-xs text-accent hover:underline">Assign people</button>
+                        isAdmin ? (
+                          <button onClick={() => { setEditing(p); setIsNew(false); }} className="text-xs text-accent hover:underline">Assign people</button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No team assigned</span>
+                        )
                       ) : (
                         <div className="flex -space-x-1.5">
                           {p.team.map((id) => (
@@ -267,7 +282,7 @@ export default function ProgramsPage() {
       </div>
       )}
 
-      {editing && (
+      {editing && isAdmin && (
         <ProgramModal
           program={editing}
           isNew={isNew}

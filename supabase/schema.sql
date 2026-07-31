@@ -356,13 +356,45 @@ drop policy if exists "clients update" on public.clients;
 create policy "clients update" on public.clients for update using (public.is_staff());
 
 -- ---- Programs (shared & permanent, staff-writable) ------------------------
--- All programs live in one JSON document that staff can read and edit.
--- Learners can read so the Programs page and TOC Builder work for everyone.
+-- Each program is its own row (row-per-entity).  The legacy `data` (jsonb)
+-- column held the single-doc format; it is kept nullable for migration and
+-- will be dropped once all existing installs have migrated.
 create table if not exists public.programs (
   id          text primary key default 'default',
-  data        jsonb not null default '[]',
+  data        jsonb,                         -- legacy — kept for migration
+  name        text not null default '',
+  area        text not null default '',
+  sub_focus   text,
+  question_zero text,
+  input       text not null default '',
+  baseline    text not null default '',
+  target      text,
+  outcome     text not null default '',
+  decision    text not null default 'Keep',
+  status      text not null default 'Not Started',
+  budget      numeric not null default 0,
+  department  text,
+  region      text,
+  team        jsonb not null default '[]',
   updated_at  timestamptz not null default now()
 );
+-- Idempotent column additions for existing installs.
+alter table public.programs add column if not exists name         text not null default '';
+alter table public.programs add column if not exists area         text not null default '';
+alter table public.programs add column if not exists sub_focus    text;
+alter table public.programs add column if not exists question_zero text;
+alter table public.programs add column if not exists input        text not null default '';
+alter table public.programs add column if not exists baseline     text not null default '';
+alter table public.programs add column if not exists target       text;
+alter table public.programs add column if not exists outcome      text not null default '';
+alter table public.programs add column if not exists decision     text not null default 'Keep';
+alter table public.programs add column if not exists status       text not null default 'Not Started';
+alter table public.programs add column if not exists budget       numeric not null default 0;
+alter table public.programs add column if not exists department   text;
+alter table public.programs add column if not exists region       text;
+alter table public.programs add column if not exists team         jsonb not null default '[]';
+alter table public.programs alter column data drop not null;
+alter table public.programs add column if not exists email text;
 alter table public.programs enable row level security;
 
 drop policy if exists "programs read" on public.programs;
@@ -443,7 +475,8 @@ create policy "tasks delete" on public.program_tasks for delete using (public.is
 -- ---- Program indicators (per-program, staff-write, authenticated-read) -----
 create table if not exists public.program_indicators (
   id          uuid primary key default gen_random_uuid(),
-  program_id  text not null,
+  email       text,
+  program_id  text,
   name        text not null default '',
   description text not null default '',
   type        text not null default 'Quantitative',
@@ -458,6 +491,8 @@ create table if not exists public.program_indicators (
   measurements jsonb not null default '[]',
   created_at  timestamptz not null default now()
 );
+alter table public.program_indicators add column if not exists email text;
+alter table public.program_indicators alter column program_id drop not null;
 alter table public.program_indicators enable row level security;
 
 drop policy if exists "indicators read" on public.program_indicators;
@@ -617,3 +652,57 @@ begin
     execute 'alter publication supabase_realtime add table public.dms';
   end if;
 end $$;
+
+-- ===========================================================================
+-- Assumption Registry (shared, staff-writable)
+-- ===========================================================================
+create table if not exists public.assumptions (
+  id             text primary key,
+  email          text,
+  statement      text not null default '',
+  owner          text not null default '',
+  status         text not null default 'Unverified',
+  risk           text not null default 'Low',
+  linked_outcome text not null default '',
+  linked_evidence jsonb not null default '[]',
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+alter table public.assumptions add column if not exists email text;
+alter table public.assumptions drop column if exists program_id;
+alter table public.assumptions enable row level security;
+
+drop policy if exists "assumptions read" on public.assumptions;
+create policy "assumptions read"   on public.assumptions for select to authenticated using (true);
+drop policy if exists "assumptions insert" on public.assumptions;
+create policy "assumptions insert" on public.assumptions for insert with check (public.is_staff());
+drop policy if exists "assumptions update" on public.assumptions;
+create policy "assumptions update" on public.assumptions for update using (public.is_staff());
+drop policy if exists "assumptions delete" on public.assumptions;
+create policy "assumptions delete" on public.assumptions for delete using (public.is_staff());
+
+-- ===========================================================================
+-- Evidence Repository (shared, staff-writable)
+-- ===========================================================================
+create table if not exists public.evidence (
+  id          text primary key,
+  email       text,
+  name        text not null default '',
+  kind        text not null default 'URL',
+  tags        jsonb not null default '[]',
+  linked_to   text not null default '',
+  uploaded_by text not null default '',
+  date        text not null default '',
+  file_path   text,
+  file_url    text,
+  created_at  timestamptz not null default now()
+);
+alter table public.evidence add column if not exists email text;
+alter table public.evidence enable row level security;
+
+drop policy if exists "evidence read" on public.evidence;
+create policy "evidence read"   on public.evidence for select to authenticated using (true);
+drop policy if exists "evidence insert" on public.evidence;
+create policy "evidence insert" on public.evidence for insert with check (public.is_staff());
+drop policy if exists "evidence delete" on public.evidence;
+create policy "evidence delete" on public.evidence for delete using (public.is_staff());

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle } from "@/components/ui";
 import { useToast } from "@/components/toast";
-import { EVIDENCE } from "@/lib/data";
+import { useAuth } from "@/components/auth";
+import { listEvidence, createEvidence, deleteEvidence } from "@/lib/evidence-store";
 import type { Evidence, EvidenceKind } from "@/lib/types";
 
 const KIND_ICON: Record<EvidenceKind, keyof typeof Icons> = {
@@ -27,25 +28,42 @@ function kindOf(name: string): EvidenceKind {
 export default function EvidencePage() {
   const [q, setQ] = useState("");
   const [kind, setKind] = useState<EvidenceKind | "All">("All");
-  const [items, setItems] = useState<Evidence[]>(EVIDENCE);
+  const [items, setItems] = useState<Evidence[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    listEvidence(user?.email).then((data) => { setItems(data); setLoaded(true); });
+  }, [user?.email]);
+
   const allTags = Array.from(new Set(items.flatMap((e) => e.tags)));
 
-  function onFiles(files: FileList | null) {
+  async function onFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const added: Evidence[] = Array.from(files).map((f, i) => ({
-      id: `ev-${Date.now()}-${i}`,
-      name: f.name,
-      kind: kindOf(f.name),
-      tags: ["new"],
-      linkedTo: "Unlinked — assign to an outcome",
-      uploadedBy: "You",
-      date: new Date().toISOString().slice(0, 10),
-    }));
+    const added = await Promise.all(
+      Array.from(files).map((f) =>
+        createEvidence({
+          name: f.name,
+          kind: kindOf(f.name),
+          tags: ["new"],
+          linkedTo: "Unlinked \u2014 assign to an outcome",
+          uploadedBy: "You",
+          date: new Date().toISOString().slice(0, 10),
+        }, user?.email),
+      ),
+    );
     setItems((prev) => [...added, ...prev]);
     toast(`${added.length} file${added.length > 1 ? "s" : ""} uploaded`);
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("Delete this evidence item?")) return;
+    setItems((prev) => prev.filter((e) => e.id !== id));
+    await deleteEvidence(id);
+    toast("Evidence removed");
   }
 
   const shown = useMemo(() => {
@@ -73,7 +91,7 @@ export default function EvidencePage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex flex-1 items-center gap-2 rounded-lg border bg-card px-3 py-2">
           <Icons.Search className="h-4 w-4 text-muted-foreground" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search evidence…" className="w-full bg-transparent text-sm outline-none" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search evidence\u2026" className="w-full bg-transparent text-sm outline-none" />
         </div>
         <select value={kind} onChange={(e) => setKind(e.target.value as EvidenceKind | "All")} className="rounded-lg border bg-card px-3 py-2 text-sm outline-none">
           {["All", "PDF", "DOCX", "XLSX", "Image", "URL"].map((k) => <option key={k} value={k}>{k}</option>)}
@@ -92,18 +110,36 @@ export default function EvidencePage() {
         ))}
       </div>
 
+      {!loaded ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i} className="h-32 animate-pulse p-4"><div className="h-4 w-3/4 rounded bg-muted" /><div className="mt-3 h-3 w-1/2 rounded bg-muted" /></Card>
+          ))}
+        </div>
+      ) : shown.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          {items.length === 0 ? "No evidence yet. Upload files or link resources to support your theory of change." : "No evidence matches your filters."}
+        </p>
+      ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((e) => {
           const IconCmp = Icons[KIND_ICON[e.kind]] as Icons.LucideIcon;
           return (
-            <Card key={e.id} className="p-4">
+            <Card key={e.id} className="group relative p-4">
+              <button
+                onClick={() => remove(e.id)}
+                className="absolute right-2 top-2 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))] group-hover:opacity-100"
+                title="Delete"
+              >
+                <Icons.Trash2 className="h-3.5 w-3.5" />
+              </button>
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-foreground">
                   <IconCmp className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{e.name}</p>
-                  <p className="text-xs text-muted-foreground">{e.uploadedBy} · {e.date}</p>
+                  <p className="text-xs text-muted-foreground">{e.uploadedBy} &middot; {e.date}</p>
                 </div>
                 <Badge tone="muted">{e.kind}</Badge>
               </div>
@@ -116,8 +152,8 @@ export default function EvidencePage() {
             </Card>
           );
         })}
-        {shown.length === 0 && <p className="col-span-full rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No evidence matches your filters.</p>}
       </div>
+      )}
     </div>
   );
 }

@@ -82,7 +82,8 @@ export interface Measurement {
 
 export interface ProgramIndicator {
   id: string;
-  programId: string;
+  email?: string;
+  programId?: string;
   name: string;
   description?: string;
   type: "Quantitative" | "Qualitative";
