@@ -61,31 +61,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const supabase = getSupabaseBrowserClient();
 
+  // Resolve the portal role, but never let a slow or unreachable members RPC
+  // trap the user on the loading screen — fall back to the static-allowlist
+  // role after a few seconds.
+  const roleFor = async (email: string): Promise<Role> => {
+    const fallback = resolveAccess(email).role;
+    try {
+      return await Promise.race([
+        resolveWithMembers(email).then((a) => a.role),
+        new Promise<Role>((resolve) => setTimeout(() => resolve(fallback), 6000)),
+      ]);
+    } catch {
+      return fallback;
+    }
+  };
+
   const buildUser = async (email: string, name?: string): Promise<AuthUser> => ({
     email,
     name: name || nameFromEmail(email),
-    role: (await resolveWithMembers(email)).role,
+    role: await roleFor(email),
   });
 
   useEffect(() => {
-    if (supabase) {
-      supabase.auth.getSession().then(async ({ data }) => {
-        const u = data.session?.user;
-        if (u) setUser(await buildUser(u.email ?? "", u.user_metadata?.name as string));
-        setLoading(false);
-      });
-      const { data: sub } = supabase.auth.onAuthStateChange(async (_e, session) => {
-        const u = session?.user;
-        setUser(u ? await buildUser(u.email ?? "", u.user_metadata?.name as string) : null);
-      });
-      return () => sub.subscription.unsubscribe();
+    if (!supabase) {
+      // demo mode — restore from localStorage
+      try {
+        const raw = localStorage.getItem(DEMO_KEY);
+        if (raw) setUser(JSON.parse(raw));
+      } catch {}
+      setLoading(false);
+      return;
     }
-    // demo mode — restore from localStorage
-    try {
-      const raw = localStorage.getItem(DEMO_KEY);
-      if (raw) setUser(JSON.parse(raw));
-    } catch {}
-    setLoading(false);
+
+    let active = true;
+    // Hard failsafe: whatever happens with Supabase, stop showing the loading
+    // spinner so users are never stuck staring at it.
+    const failsafe = setTimeout(() => { if (active) setLoading(false); }, 8000);
+
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        const u = data.session?.user;
+        if (u?.email && active) setUser(await buildUser(u.email, u.user_metadata?.name as string));
+      })
+      .catch(() => {})
+      .finally(() => { if (active) { setLoading(false); clearTimeout(failsafe); } });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user;
+      if (!u?.email) { if (active) setUser(null); return; }
+      // IMPORTANT: don't await Supabase calls *inside* this callback — the auth
+      // client holds an internal lock while it runs, so the members RPC in
+      // buildUser would deadlock and hang the app on the loading screen. Defer
+      // to the next tick, after the lock is released.
+      const email = u.email;
+      const name = u.user_metadata?.name as string;
+      setTimeout(() => {
+        if (!active) return;
+        void buildUser(email, name).then((next) => { if (active) setUser(next); });
+      }, 0);
+    });
+
+    return () => { active = false; clearTimeout(failsafe); sub.subscription.unsubscribe(); };
   }, [supabase]);
 
   const signIn: AuthState["signIn"] = async (email, password) => {
