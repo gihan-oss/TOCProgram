@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { resetEmail } from "@/lib/email-templates";
+import { PORTAL_URL } from "@/lib/mas";
 
 // Send a password-reset email that comes from the Amal & Company portal (via
 // Brevo) instead of Supabase's plain default email. We use the service-role key
@@ -16,6 +17,16 @@ export const maxDuration = 30;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://evwzlgzticnblpdqphus.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 
+// The public base URL for links. Next's `req.url` reports localhost on Vercel,
+// which would send reset links to a machine that isn't there — so derive it from
+// the forwarded host header, falling back to the configured portal URL.
+function publicOrigin(req: Request): string {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  if (host && !/^(localhost|127\.0\.0\.1)/i.test(host)) return `${proto}://${host}`;
+  return PORTAL_URL;
+}
+
 export async function POST(req: Request) {
   if (!SERVICE_KEY) {
     return NextResponse.json({ ok: false, code: "not_configured" }, { status: 501 });
@@ -30,7 +41,7 @@ export async function POST(req: Request) {
   const email = (body.email ?? "").trim().toLowerCase();
   if (!email) return NextResponse.json({ ok: false, error: "No email provided" }, { status: 400 });
 
-  const origin = new URL(req.url).origin;
+  const origin = publicOrigin(req);
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
   try {
