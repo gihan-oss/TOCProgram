@@ -27,6 +27,11 @@ function publicOrigin(req: Request): string {
   return PORTAL_URL;
 }
 
+// Diagnostic (no secret): is the service-role key visible to this deployment?
+export function GET() {
+  return NextResponse.json({ configured: !!SERVICE_KEY });
+}
+
 export async function POST(req: Request) {
   if (!SERVICE_KEY) {
     return NextResponse.json({ ok: false, code: "not_configured" }, { status: 501 });

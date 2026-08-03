@@ -25,24 +25,45 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [linkDead, setLinkDead] = useState(false);
+  const [deadReason, setDeadReason] = useState<string | null>(null);
 
-  // Our branded email links here as /reset?token_hash=…&type=recovery. Verify
-  // that token to open the recovery session. Doing it in JS (not a plain GET)
-  // means email link-scanners can't burn the one-time token, and there's no
-  // PKCE code verifier to depend on — so it works across devices too.
+  // Establish the recovery session from whatever the email link carried. We
+  // support all three shapes so it works no matter how the link was generated:
+  //   • ?token_hash=…&type=recovery  → verifyOtp   (our branded email)
+  //   • ?code=…                      → exchangeCodeForSession (Supabase PKCE)
+  //   • #access_token=…              → detectSessionInUrl handles it (implicit)
+  // Verifying in JS (not a plain GET) also means email link-scanners can't burn
+  // a one-time token before the user arrives.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenHash = params.get("token_hash");
-    const type = params.get("type");
-    if (!tokenHash || !type) return; // older hash-token links fall through below
+    const q = new URLSearchParams(window.location.search);
+    const h = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const tokenHash = q.get("token_hash");
+    const type = q.get("type") || "recovery";
+    const code = q.get("code");
+    const urlErr = q.get("error_description") || q.get("error") || h.get("error_description") || h.get("error");
+    const clearUrl = () => { try { window.history.replaceState({}, "", "/reset"); } catch {} };
+    const fail = (reason: string) => { setDeadReason(reason); setLinkDead(true); setChecking(false); };
+
     const sb = getSupabaseBrowserClient();
-    if (!sb) { setChecking(false); return; }
-    sb.auth.verifyOtp({ type: type as "recovery", token_hash: tokenHash }).then(({ error }) => {
-      // Drop the token from the address bar either way.
-      try { window.history.replaceState({}, "", "/reset"); } catch {}
-      if (error) { setLinkDead(true); setChecking(false); }
-      // On success, onAuthStateChange sets `user` and the form appears.
-    });
+    if (urlErr) { fail(urlErr); return; }
+    if (!sb) return;
+
+    (async () => {
+      try {
+        if (tokenHash) {
+          const { error } = await sb.auth.verifyOtp({ type: type as "recovery", token_hash: tokenHash });
+          clearUrl();
+          if (error) fail(error.message);
+        } else if (code) {
+          const { error } = await sb.auth.exchangeCodeForSession(code);
+          clearUrl();
+          if (error) fail(error.message);
+        }
+        // else: implicit #access_token — handled by the client, `user` will set.
+      } catch (e) {
+        fail(e instanceof Error ? e.message : "Couldn't verify the reset link");
+      }
+    })();
   }, []);
 
   // Give Supabase a moment to establish the recovery session from the URL
@@ -102,6 +123,7 @@ export default function ResetPasswordPage() {
       <Frame>
         <h2 className="text-2xl font-bold tracking-tight">Link expired</h2>
         <p className="mt-2 text-sm text-muted-foreground">This password-reset link is invalid or has expired. Request a new one from the sign-in page.</p>
+        {deadReason && <p className="mt-2 text-xs text-muted-foreground/70">Reason: {deadReason}</p>}
         <Link href="/login" className="mt-6 inline-block text-sm font-semibold text-accent hover:underline">Back to sign in</Link>
       </Frame>
     );
