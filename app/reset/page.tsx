@@ -7,6 +7,7 @@ import * as Icons from "lucide-react";
 import { Button } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/components/auth";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { homeFor } from "@/lib/nav";
 import { MAS } from "@/lib/mas";
 
@@ -23,6 +24,26 @@ export default function ResetPasswordPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [linkDead, setLinkDead] = useState(false);
+
+  // Our branded email links here as /reset?token_hash=…&type=recovery. Verify
+  // that token to open the recovery session. Doing it in JS (not a plain GET)
+  // means email link-scanners can't burn the one-time token, and there's no
+  // PKCE code verifier to depend on — so it works across devices too.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const type = params.get("type");
+    if (!tokenHash || !type) return; // older hash-token links fall through below
+    const sb = getSupabaseBrowserClient();
+    if (!sb) { setChecking(false); return; }
+    sb.auth.verifyOtp({ type: type as "recovery", token_hash: tokenHash }).then(({ error }) => {
+      // Drop the token from the address bar either way.
+      try { window.history.replaceState({}, "", "/reset"); } catch {}
+      if (error) { setLinkDead(true); setChecking(false); }
+      // On success, onAuthStateChange sets `user` and the form appears.
+    });
+  }, []);
 
   // Give Supabase a moment to establish the recovery session from the URL
   // before we decide the link is invalid — otherwise we'd flash an error while
@@ -68,7 +89,7 @@ export default function ResetPasswordPage() {
     );
   }
 
-  if (loading || (checking && !user)) {
+  if (!linkDead && (loading || (checking && !user))) {
     return (
       <Frame>
         <div className="flex items-center gap-3 text-muted-foreground"><Icons.Loader2 className="h-5 w-5 animate-spin" /> Verifying your reset link…</div>
