@@ -20,7 +20,17 @@ const anonKey =
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
+// Cache a single browser client for the whole tab. Creating a fresh GoTrue
+// client on every call means multiple auth instances all contend on the same
+// browser auth-lock (navigator.locks), which can stall session reads and leave
+// the app stuck on the loading screen. One shared instance avoids that.
+const makeBrowserClient = () => createBrowserClient(url!, anonKey!);
+let browserClient: ReturnType<typeof makeBrowserClient> | null = null;
+
 export function getSupabaseBrowserClient() {
   if (!isSupabaseConfigured) return null;
-  return createBrowserClient(url!, anonKey!);
+  // On the server there's no shared tab to cache for; make a throwaway client.
+  if (typeof window === "undefined") return makeBrowserClient();
+  if (!browserClient) browserClient = makeBrowserClient();
+  return browserClient;
 }
