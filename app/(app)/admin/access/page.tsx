@@ -187,6 +187,17 @@ export default function AccessPage() {
       }
     } catch { /* fall back to email reset */ }
 
+    // Email fallback (no direct-reset key): send a branded Amal & Company reset
+    // link if we can, otherwise Supabase's default reset email.
+    try {
+      const r = await fetch("/api/auth/reset-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: m.email, name: m.name }),
+      });
+      if (r.ok) { const d = await r.json(); if (d.ok) { toast(`Sent a password-reset link to ${m.email} ✨`, "success"); return; } }
+    } catch { /* fall back to Supabase email */ }
+
     const res = await resetPassword(m.email);
     if (res.error) { toast(`Couldn't send: ${res.error}`, "error"); return; }
     toast(isDemo ? "Reset email simulated (demo mode has no email)." : `Sent a password-reset link to ${m.email} ✨`, "success");
