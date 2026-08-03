@@ -50,7 +50,13 @@ export async function POST(req: Request) {
       email,
       options: { redirectTo: `${origin}/reset` },
     });
-    const link = data?.properties?.action_link;
+    // Prefer the hashed token: our /reset page verifies it client-side with
+    // verifyOtp. That way an email link-scanner doing a plain GET can't burn
+    // the one-time token (no JS runs), and there's no PKCE verifier to miss.
+    const hashed = data?.properties?.hashed_token;
+    const link = hashed
+      ? `${origin}/reset?token_hash=${encodeURIComponent(hashed)}&type=recovery`
+      : data?.properties?.action_link;
     // No account (or any error) → say ok anyway so we don't reveal who exists.
     if (error || !link) return NextResponse.json({ ok: true });
 
