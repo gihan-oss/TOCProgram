@@ -5,6 +5,8 @@ import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle, Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { useAuth } from "@/components/auth";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { ADMIN_EMAILS, LEARNER_EMAILS } from "@/lib/access";
 import { addNotification, sendEmail, listMembers, listProfiles, saveMember, removeMember, type Member, type MemberProfile } from "@/lib/store";
 import { inviteEmail, genTempPassword } from "@/lib/email-templates";
@@ -46,6 +48,7 @@ export default function AccessPage() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const toast = useToast();
+  const { resetPassword, isDemo } = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -154,6 +157,39 @@ export default function AccessPage() {
       res.ok ? (res.demo ? `Email simulated. Temp password: ${pwd}` : "Credentials re-sent ✨") : `Failed: ${res.error ?? "unknown error"}`,
       res.ok ? "success" : "error",
     );
+  }
+
+  // Reset the password for a member who's already signed in (their invite temp
+  // password is long gone). If the deployment has the service-role key, the
+  // server sets a fresh temp password we can hand straight to the person;
+  // otherwise we fall back to emailing them a self-service reset link.
+  async function resetPw(m: Member) {
+    if (!window.confirm(`Reset the password for ${m.email}?`)) return;
+    try {
+      const sb = getSupabaseBrowserClient();
+      const token = sb ? (await sb.auth.getSession()).data.session?.access_token : null;
+      if (token) {
+        const res = await fetch("/api/admin/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ email: m.email }),
+        });
+        const data = (await res.json()) as { ok?: boolean; password?: string; code?: string; error?: string };
+        if (res.ok && data.ok && data.password) {
+          // Show it in a prompt so the admin can copy it to share with the user.
+          window.prompt(`New temporary password for ${m.email} — copy it and share it. They can change it after signing in.`, data.password);
+          toast(`Password reset for ${m.email} ✨`, "success");
+          return;
+        }
+        // Any error other than "key not configured" is real — surface it and stop.
+        if (data.code && data.code !== "not_configured") { toast(data.error ?? "Couldn't reset password", "error"); return; }
+        // not_configured → fall through to the email-link reset below.
+      }
+    } catch { /* fall back to email reset */ }
+
+    const res = await resetPassword(m.email);
+    if (res.error) { toast(`Couldn't send: ${res.error}`, "error"); return; }
+    toast(isDemo ? "Reset email simulated (demo mode has no email)." : `Sent a password-reset link to ${m.email} ✨`, "success");
   }
 
   async function resendAllInvited() {
@@ -320,9 +356,13 @@ export default function AccessPage() {
                       <button onClick={() => setEditing(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-foreground/70 hover:bg-secondary" title="Edit person">
                         <Icons.Pencil className="h-3.5 w-3.5" /> Edit
                       </button>
-                      {r.status === "Invited" && (
+                      {r.status === "Invited" ? (
                         <button onClick={() => resend(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10" title="Resend credentials email">
                           <Icons.Send className="h-3.5 w-3.5" /> Resend
+                        </button>
+                      ) : (
+                        <button onClick={() => resetPw(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10" title="Email this person a password-reset link">
+                          <Icons.KeyRound className="h-3.5 w-3.5" /> Reset password
                         </button>
                       )}
                       <button onClick={() => remove(r.email)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger)/0.1)]">
