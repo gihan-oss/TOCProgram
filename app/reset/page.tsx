@@ -29,7 +29,10 @@ export default function ResetPasswordPage() {
   // it's still being processed.
   useEffect(() => {
     if (user) { setChecking(false); return; }
-    const t = setTimeout(() => setChecking(false), 4000);
+    // Wait past the auth provider's role-resolution timeout (and failsafe)
+    // before declaring the link dead — otherwise we'd flash "Link expired"
+    // while the recovery session is still being established.
+    const t = setTimeout(() => setChecking(false), 9000);
     return () => clearTimeout(t);
   }, [user]);
 

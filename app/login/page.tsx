@@ -67,10 +67,23 @@ export default function LoginPage() {
     setError(null);
     setInfo(null);
     if (mode === "reset") {
-      const res = await resetPassword(email);
+      // Prefer a branded Amal & Company email; fall back to Supabase's default
+      // one if the branded path isn't configured (no service-role key).
+      let sent = false;
+      try {
+        const r = await fetch("/api/auth/reset-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        if (r.ok) { const d = await r.json(); sent = !!d.ok; }
+      } catch { /* fall back below */ }
+      if (!sent) {
+        const res = await resetPassword(email);
+        if (res.error) { setBusy(false); setError(res.error); return; }
+      }
       setBusy(false);
-      if (res.error) setError(res.error);
-      else setInfo("If that email has an account, a password-reset link is on its way. Check your inbox (and spam).");
+      setInfo("If that email has an account, a password-reset link is on its way. Check your inbox (and spam).");
       return;
     }
     const res = mode === "signin" ? await signIn(email, password) : await signUp(name, email, password);
