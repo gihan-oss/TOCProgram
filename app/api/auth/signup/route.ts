@@ -18,33 +18,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
   }
 
-  // Check if already a member
-  const existing = await queryOne<{ email: string }>(
-    `SELECT email FROM members WHERE LOWER(email) = LOWER($1)`,
+  // Check if already a member (for role)
+  const existingMember = await queryOne<{ role: string }>(
+    `SELECT role FROM members WHERE LOWER(email) = LOWER($1)`,
     [email],
   );
 
   const access = resolveAccess(email);
-  if (!existing) {
+  if (!existingMember) {
     if (!access.allowed) {
       return NextResponse.json({ error: access.reason ?? "Not authorized" }, { status: 403 });
     }
   }
 
   const hashed = await hashPassword(password);
+  const displayName = name || email.split("@")[0];
 
-  if (existing) {
-    // Update existing member's password (first-time invitee setting their own)
+  // Set the permanent password in users
+  await execute(
+    `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), $2, $3)
+     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, name = EXCLUDED.name`,
+    [email, displayName, hashed],
+  );
+
+  // Ensure members row exists (for role tracking)
+  if (!existingMember) {
     await execute(
-      `UPDATE members SET temp_password = $1 WHERE LOWER(email) = LOWER($2)`,
-      [hashed, email],
+      `INSERT INTO members (email, role, status) VALUES (LOWER($1), $2, 'Active')
+       ON CONFLICT (email) DO NOTHING`,
+      [email, access.role],
     );
   } else {
+    // Clear the invite temp password — user now has a permanent one
     await execute(
-      `INSERT INTO members (email, name, role, status, temp_password)
-       VALUES (LOWER($1), $2, $3, 'Active', $4)
-       ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password`,
-      [email, name || email.split("@")[0], access.role, hashed],
+      `UPDATE members SET temp_password = '', status = 'Active' WHERE LOWER(email) = LOWER($1)`,
+      [email],
     );
   }
 

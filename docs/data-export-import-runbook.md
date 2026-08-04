@@ -11,11 +11,12 @@ This is the operational companion to `zero-impact-migration-playbook.md`. It con
 
 ## 1. What lives where
 
+Two separate concerns, two separate target tables:
+
 | Supabase (source) | New PostgreSQL (target) | Notes |
 |---|---|---|
-| `auth.users` (email + `encrypted_password`) | `members.temp_password` | bcrypt hashes copied verbatim by `scripts/migrate-auth-users.mjs` (email/password users only; Google OAuth users are skipped — they sign in via Google on the new server too) |
-| `auth.users` metadata (`created_at`, `last_sign_in_at`, `confirmed_at`, `raw_user_meta_data`, `raw_app_meta_data`) | *(no matching target columns)* | Export as `auth-users-reference.csv` for audit/reference only — the current `members` table has no columns for these (see §3.4.2) |
-| `public.members` | `members` | Same columns (email, name, role, status, temp_password, client, created_at) |
+| `auth.users` (email, `encrypted_password`, name, timestamps) | `users` | Authentication accounts. `encrypted_password` → `password_hash` (bcrypt verbatim). `raw_user_meta_data` → `name` (extracted, with fallback). Google OAuth users have NULL password_hash. See §3.4. |
+| `public.members` | `members` | Invite allowlist. Columns: email (FK → `users.email`), role, status, temp_password, client, created_at. `temp_password` is the admin-set invitation password (emailed to the invitee, consumed on first sign-in, then cleared). The user's permanent password lives in `users.password_hash`. |
 | `public.profiles` | `profiles` | Same columns incl. `avatar_url` |
 | `public.notifications` | `notifications` | `id` uuid → text; new schema defaults `id` to `gen_random_uuid()::text` |
 | `public.course` | `course` | Identical single-row JSON doc |
@@ -27,6 +28,7 @@ This is the operational companion to `zero-impact-migration-playbook.md`. It con
 | `public.programs` + PM tables | `programs` / `program_tasks` / `program_financials` / `program_indicators` / `program_budget_lines` | See column notes in §5 |
 | `public.assumptions` / `public.evidence` | `assumptions` / `evidence` | Mostly identical |
 | `public.program_assignments` | *(not in app schema)* | Preserve manually if it has rows — see §5 |
+| `storage.objects` (`course-files` bucket) | `public/uploads/` (Docker volume `uploads-data`) | Files downloaded from Supabase Storage, placed in the container volume, served at `/uploads/...`. Old URLs in `course.modules` and `profiles.avatar_url` updated via SQL — see §3.5.3 |
 
 Per the earlier migration docs, `programs`, the PM tables, `assumptions`, `evidence` and `program_assignments` were **not deployed** to Supabase (the app ran those on localStorage), so they are normally empty. Export them anyway and include them only if their row counts are non-zero.
 
@@ -40,7 +42,7 @@ Per the earlier migration docs, `programs`, the PM tables, `assumptions`, `evide
   docker compose ps            # db (healthy), portal (running)
   ```
   On first boot, `db/init/01-schema.sql` creates all tables (a fresh database gets them automatically; `lib/db.ts` also runs an equivalent inline schema lazily).
-- A `scripts/migrate-auth-users.mjs` run needs `DATABASE_URL` — inside the `portal` container it is already set.
+- The `users` table must be imported before `members` (foreign key dependency: `members.email` → `users.email`).
 - Note the container name for the database is **`toc-portal-db`** (renamed to avoid a collision with the sibling TOCPortal project's `toc-db`).
 
 ---
@@ -85,7 +87,7 @@ Run each `SELECT` below individually, then download the result as CSV. Save the 
 
 ```sql
 -- members (allowlist + invitations)
-select email, name, role, status, temp_password, client, created_at
+select email, role, status, temp_password, client, created_at
 from public.members order by created_at;
 -- Save as: members.csv
 
@@ -163,71 +165,89 @@ from public.evidence order by created_at;
 -- (columns file_path and file_url are omitted — the target schema doesn't have them)
 ```
 
-### 3.4 Auth users (passwords + reference metadata)
+### 3.4 Auth users → `users` table
 
-This is the most critical export — it determines whether users can sign in after cutover.
+`auth.users` holds the actual sign-in accounts. This migrates to a dedicated `users` table — separate from `members` (the invite allowlist). The two are linked by email.
 
-> **Important:** The target `members` table only stores the bcrypt password hash (`temp_password`). It does NOT have columns for `created_at`, `last_sign_in_at`, `confirmed_at`, `raw_user_meta_data`, or `raw_app_meta_data` from `auth.users`. Export the full metadata anyway (§3.4.2) — you'll want it for audit, support, and troubleshooting post-cutover.
-
-#### 3.4.1 Password hashes (required — feeds `scripts/migrate-auth-users.mjs`)
+The target `users` table:
 
 ```sql
-select email, encrypted_password from auth.users
+create table if not exists users (
+  email            text primary key,
+  name             text not null default '',
+  password_hash    text,                          -- NULL for Google OAuth users
+  email_verified   boolean not null default false,
+  last_sign_in_at  timestamptz,
+  created_at       timestamptz not null default now()
+);
+```
+
+#### 3.4.1 Export users (required — loads into the `users` table)
+
+```sql
+select
+  email,
+  encrypted_password as password_hash,
+  coalesce(
+    raw_user_meta_data->>'name',
+    raw_user_meta_data->>'full_name',
+    raw_user_meta_data->>'user_name',
+    split_part(email, '@', 1)
+  ) as name,
+  (confirmed_at is not null) as email_verified,
+  last_sign_in_at,
+  created_at
+from auth.users
 where email is not null and deleted_at is null
 order by created_at;
 -- Save as: auth-users.csv
 ```
 
-Supabase hashes are bcrypt (`$2a$`/`$2b$`), which bcryptjs verifies as-is — users keep their exact passwords. Rows where `encrypted_password` is NULL or empty are **Google sign-in users** (they authenticate via OAuth, not a password); the migration script skips those automatically. Google users will continue to sign in via Google on the new server (the signin route auto-creates their `members` row on first login if they match the admin domain or are already in the allowlist).
+Supabase hashes are bcrypt (`$2a$`/`$2b$`), which bcryptjs verifies as-is — users keep their exact passwords. Google OAuth users have NULL `password_hash`; the migration script skips those rows (they authenticate via Google, not a password).
 
-#### 3.4.2 Full auth metadata (recommended — audit & reference)
+The `name` column is extracted from `raw_user_meta_data` with a fallback to the email prefix. Review `auth-users.csv` and fix any fallback names before importing.
 
-Export every `auth.users` column for your records. The target `members` table cannot store most of these, but you'll want this CSV if you need to answer "when did user X last sign in?" or "was user Y email-verified?" post-cutover.
+#### 3.4.2 Export members (the allowlist — already covered in §3.2)
+
+The `members` table is the invite allowlist — email, role, status, temp_password, client. The export query in §3.2 already produces `members.csv`. The target `members` table no longer has a `name` column — display names live in `users.name` (or `profiles.name`). `temp_password` stays: it holds the admin-set invitation password, distinct from the user's permanent `users.password_hash`.
+
+> **Implementation note:** The current codebase (`lib/db.ts` inline schema, `app/api/auth/*` routes, `scripts/migrate-auth-users.mjs`) stores both the user's bcrypt hash and the invite password in `members.temp_password`, and uses `members.name` for display. These must be updated to use the `users` table before running this runbook. The runbook describes the target state.
 
 ```sql
-select
-  email,
-  encrypted_password,
-  created_at        as signed_up_at,
-  updated_at        as auth_updated_at,
-  last_sign_in_at   as last_login_at,
-  confirmed_at      as email_confirmed_at,
-  raw_user_meta_data,
-  raw_app_meta_data,
-  case when encrypted_password is null or encrypted_password = ''
-       then 'google' else 'email' end as auth_provider
-from auth.users
-where deleted_at is null
-order by created_at;
--- Save as: auth-users-reference.csv
+-- Already in §3.2 — repeated here for clarity
+select email, role, status, client, created_at
+from public.members order by created_at;
+-- Save as: members.csv
 ```
 
-**What this tells you (reference only — not imported):**
-- **`signed_up_at`** — original account creation date. The target `members.created_at` comes from `public.members.created_at` (the invitation date), which may differ.
-- **`last_login_at`** — who has been active. No equivalent column in the new schema.
-- **`email_confirmed_at`** — whether the user verified their email.
-- **`auth_provider`** — separates Google sign-in users from email/password users at a glance.
-- **`raw_user_meta_data`** — may contain `name`, `full_name`, or `avatar_url` captured during Supabase sign-up. Compare with `public.members.name` and `public.profiles.name` to spot discrepancies.
+> **Important:** After the migration, `members.email` references `users.email`. Import `auth-users.csv` (→ `users`) **before** `members.csv` (→ `members`), otherwise the foreign key constraint fails.
 
 #### 3.4.3 Cross-check: auth users not in the members allowlist
 
-These are users who exist in Supabase Auth but are missing from `public.members`. They will **lose access** after migration unless you add them to the `members` table. Run this query and review every row:
+These are users who signed up (exist in `auth.users`) but were never added to the invite allowlist (`public.members`). They will **lose access** after migration unless you add them. Run this query and review every row:
 
 ```sql
 select a.email, a.created_at, a.last_sign_in_at,
        case when a.encrypted_password is null or a.encrypted_password = ''
-            then 'google' else 'email' end as provider
+            then 'google' else 'email' end as provider,
+       coalesce(
+         a.raw_user_meta_data->>'name',
+         a.raw_user_meta_data->>'full_name',
+         split_part(a.email, '@', 1)
+       ) as display_name
 from auth.users a
 where a.deleted_at is null
   and lower(a.email) not in (select lower(m.email) from public.members m)
 order by a.created_at;
 ```
 
-**If this query returns rows:** decide whether to add those emails to the `members` CSV before importing, or handle them as new sign-ups post-cutover (Google users will auto-create on first sign-in if they match the admin domain; email users will need a password reset).
+**If this query returns rows:** for each user, decide whether to:
+- **Add them to `members.csv`** before importing (set an appropriate role and client), or
+- **Let them self-serve** post-cutover — Google users on an admin domain auto-create their members row on first sign-in; email/password users will need a password reset.
 
 #### 3.4.4 Cross-check: members not in auth.users
 
-Invitees who never signed up (they have a `members` row but no `auth.users` row). These are expected — they keep their invitation status:
+Invitees who never signed up (a `members` row but no `auth.users` row). These are expected — they keep their invitation status. Their `users` row is created when they first sign in.
 
 ```sql
 select m.email, m.role, m.status, m.created_at
@@ -266,13 +286,65 @@ On the new server these files go into the persistent `uploads-data` volume (`/ap
 docker cp ./course-files-export/. toc-portal:/app/public/uploads/
 ```
 
+#### 3.5.3 Update stored URLs in the database
+
+After cutover, the old Supabase Storage public URLs (e.g. `https://evwzlgzticnblpdqphus.supabase.co/storage/v1/object/public/course-files/...`) are dead. Two database columns reference them:
+
+| Column | Table | Format |
+|---|---|---|
+| `avatar_url` | `profiles` | Full Supabase Storage URL (one per profile) |
+| `url` | `course.modules` JSONB | Inside `Resource.url` for File/PDF/Image resources |
+
+**Replace the Supabase Storage base URL** with `/uploads/` so existing course materials and avatars keep working. Run this SQL against the new PostgreSQL **after** importing the CSVs and copying the files:
+
+```sql
+-- 1. Profile avatars: replace the Supabase Storage base URL
+UPDATE profiles
+SET avatar_url = regexp_replace(
+  avatar_url,
+  '^https://[^/]+/storage/v1/object/public/course-files/',
+  '/uploads/'
+)
+WHERE avatar_url LIKE '%supabase.co/storage/v1/object/public/course-files/%';
+
+-- 2. Course resources (inside the `modules` JSONB column): replace every
+--    Resource.url that points to Supabase Storage. The modules column is a
+--    JSON array of module objects, each with a resources array.
+UPDATE course
+SET modules = regexp_replace(
+  modules::text,
+  'https://[^/]+/storage/v1/object/public/course-files/',
+  '/uploads/',
+  'g'
+)::jsonb
+WHERE modules::text LIKE '%supabase.co/storage/v1/object/public/course-files/%';
+```
+
+**Verify** after running:
+
+```sql
+-- Should return 0 rows — no remaining Supabase Storage URLs
+SELECT email, avatar_url FROM profiles
+WHERE avatar_url LIKE '%supabase.co%';
+
+-- Should return 0 rows
+SELECT id FROM course
+WHERE modules::text LIKE '%supabase.co%';
+```
+
+> **Note:** Profile avatars also have a per-browser localStorage cache (`toc-avatar:{email}`). This cache self-heals: the next time a user saves their profile, the new `/uploads/...` URL overwrites the stale cache. No action needed.
+
 ---
 
 ## 4. Import into PostgreSQL
 
 ```bash
-# Core tables — import each CSV. All CSVs have the same columns as their
-# target tables, so plain \copy works.
+# Step 1 — Users (auth accounts). MUST run before members (FK dependency).
+docker cp auth-users.csv toc-portal-db:/tmp/auth-users.csv
+docker exec -i toc-portal-db psql -U toc_user -d toc_db \
+  -c "\copy users from '/tmp/auth-users.csv' with (format csv, header true)"
+
+# Step 2 — Core tables (members, profiles, notifications, etc.)
 for t in members profiles notifications course course_progress clients toc messages dms; do
   docker cp $t.csv toc-portal-db:/tmp/$t.csv
   docker exec -i toc-portal-db psql -U toc_user -d toc_db \
@@ -291,7 +363,8 @@ Then verify row counts match the Supabase counts:
 
 ```bash
 docker exec -i toc-portal-db psql -U toc_user -d toc_db -c \
-  "select 'members' as t, count(*) from members
+  "select 'users' as t, count(*) from users
+   union all select 'members', count(*) from members
    union all select 'profiles', count(*) from profiles
    union all select 'notifications', count(*) from notifications
    union all select 'course', count(*) from course
@@ -302,19 +375,30 @@ docker exec -i toc-portal-db psql -U toc_user -d toc_db -c \
    union all select 'dms', count(*) from dms;"
 ```
 
-### 4.1 Passwords
-
-Copy `auth-users.csv` into the `portal` container and run the migration script:
+Also verify no Supabase Storage URLs remain in the database after running the §3.5.3 URL replacement:
 
 ```bash
-docker cp auth-users.csv toc-portal:/tmp/auth-users.csv
-docker exec -i toc-portal node scripts/migrate-auth-users.mjs /tmp/auth-users.csv
-# expect: Migrated <N> auth users (skipped <M>).
+docker exec -i toc-portal-db psql -U toc_user -d toc_db -c \
+  "SELECT 'profile avatars' AS src, count(*) AS stale FROM profiles WHERE avatar_url LIKE '%supabase.co%'
+   UNION ALL
+   SELECT 'course resources', count(*) FROM course WHERE modules::text LIKE '%supabase.co%';"
+# Both rows must show 0.
 ```
 
-This upserts `members.temp_password` (bcrypt) and sets `status = 'Active'` for every email/password user — so existing logins work immediately. Skipped rows are Google sign-in users (no bcrypt hash in `encrypted_password`).
+### 4.1 Passwords (already handled by the `users` import)
 
-> **Note:** `public.members.created_at` (exported in `members.csv`) is preserved during the CSV import. The migration script does NOT overwrite `created_at` — it only touches `temp_password` and `status`. The `auth.users.created_at` (account creation date) and `public.members.created_at` (invitation date) may differ; keep `auth-users-reference.csv` from §3.4.2 if you need the original signup dates.
+The CSV import in Step 1 above already loads `password_hash` into the `users` table. No separate migration script is needed — `auth-users.csv` carries the bcrypt hashes in the `password_hash` column, and the `\copy` loads them directly.
+
+Verify that every email/password user has a bcrypt hash and every Google user has NULL:
+
+```bash
+docker exec -i toc-portal-db psql -U toc_user -d toc_db -c \
+  "SELECT
+     count(*) FILTER (WHERE password_hash IS NOT NULL AND password_hash LIKE '\$2%') AS email_users,
+     count(*) FILTER (WHERE password_hash IS NULL) AS google_users,
+     count(*) FILTER (WHERE password_hash IS NOT NULL AND password_hash NOT LIKE '\$2%') AS needs_review
+   FROM users;"
+-- needs_review must be 0.
 
 ---
 
@@ -376,7 +460,7 @@ Any rows written to Supabase after your first export must be carried over so not
      -c "\copy course_progress from 'delta_course_progress.csv' with (format csv, header true, on_conflict do update)"
    ```
    (`\copy` supports `on_conflict do update` for single-column primary keys; for composite ones use a temp table + `INSERT ... ON CONFLICT (email) DO UPDATE`.)
-4. Re-run `migrate-auth-users.mjs` on the delta `auth-users.csv` for any new accounts.
+4. For any new accounts created during the delta window, re-export `auth.users` into a fresh `delta-auth-users.csv` (same query as §3.4.1) and import via the same `\copy users` command.
 5. Re-verify the affected row counts, then flip DNS.
 
 ---

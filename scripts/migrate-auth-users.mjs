@@ -1,10 +1,10 @@
 // One-time migration: carry existing Supabase passwords into the new
-// PostgreSQL members.temp_password column so users keep their passwords at
+// PostgreSQL users.password_hash column so users keep their passwords at
 // cutover (no resets, no re-registration).
 //
 // Supabase stores passwords as bcrypt hashes in auth.users.encrypted_password.
-// bcryptjs verifies those hashes as-is (see the signin route's "$2" branch),
-// so we copy the hash verbatim.
+// bcryptjs verifies those hashes as-is (see the signin route), so we copy the
+// hash verbatim into the users table (separate from the members allowlist).
 //
 // Usage:
 //   1. In Supabase SQL Editor, export:
@@ -46,10 +46,8 @@ for (const line of lines) {
     continue;
   }
   await pool.query(
-    `INSERT INTO members (email, name, role, status, temp_password)
-     VALUES ($1, '', 'participant', 'Active', $2)
-     ON CONFLICT (email) DO UPDATE
-       SET temp_password = EXCLUDED.temp_password, status = 'Active'`,
+    `INSERT INTO users (email, name, password_hash) VALUES ($1, '', $2)
+     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
     [email.toLowerCase(), hash],
   );
   imported++;

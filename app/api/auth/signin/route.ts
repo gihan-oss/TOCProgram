@@ -30,13 +30,25 @@ export async function POST(req: Request) {
     if (!access.allowed && !member) {
       return NextResponse.json({ error: access.reason ?? "Not authorized" }, { status: 403 });
     }
-    // Upsert member if not exists
+    // Upsert users row (name) and members row (role) if not exists
     if (!member) {
       const role = access.role;
       await execute(
-        `INSERT INTO members (email, name, role, status) VALUES (LOWER($1), $2, $3, 'Active')
+        `INSERT INTO users (email, name) VALUES (LOWER($1), $2)
          ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name`,
-        [googleUser.email, googleUser.name, role],
+        [googleUser.email, googleUser.name],
+      );
+      await execute(
+        `INSERT INTO members (email, role, status) VALUES (LOWER($1), $2, 'Active')
+         ON CONFLICT (email) DO NOTHING`,
+        [googleUser.email, role],
+      );
+    } else {
+      // Update name in users for existing members
+      await execute(
+        `INSERT INTO users (email, name) VALUES (LOWER($1), $2)
+         ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name`,
+        [googleUser.email, googleUser.name],
       );
     }
     // Create/update profile
@@ -61,17 +73,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }
 
-  // Check if member exists in the allowlist
-  const member = await queryOne<{ email: string; name: string; role: string; temp_password: string }>(
-    `SELECT email, name, role, temp_password FROM members WHERE LOWER(email) = LOWER($1)`,
+  // Check if user exists (users table) and member exists (members table)
+  const user = await queryOne<{ name: string; password_hash: string | null }>(
+    `SELECT name, password_hash FROM users WHERE LOWER(email) = LOWER($1)`,
     [email],
   );
+  const member = await queryOne<{ role: string; temp_password: string }>(
+    `SELECT role, temp_password FROM members WHERE LOWER(email) = LOWER($1)`,
+    [email],
+  );
+  const displayName = user?.name || email.split("@")[0];
 
-  if (!member) {
+  if (!user && !member) {
     // First-time sign-in: must be on the allowlist (invited member or admin
-    // domain). Auto-create the account with the password they enter — same
-    // behaviour as the old Supabase invitee auto-approve, so nobody is locked
-    // out and nobody can sign in without a password.
+    // domain). Auto-create both users and members rows.
     const access = resolveAccess(email);
     if (!access.allowed) {
       return NextResponse.json({ error: access.reason ?? "Not authorized" }, { status: 403 });
@@ -80,35 +95,59 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
     }
     const hashed = await hashPassword(password);
+    const name = email.split("@")[0];
     await execute(
-      `INSERT INTO members (email, name, role, status, temp_password)
-       VALUES (LOWER($1), $2, $3, 'Active', $4)
-       ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password, role = EXCLUDED.role`,
-      [email, email.split("@")[0], access.role, hashed],
+      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), $2, $3)
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      [email, name, hashed],
+    );
+    await execute(
+      `INSERT INTO members (email, role, status) VALUES (LOWER($1), $2, 'Active')
+       ON CONFLICT (email) DO NOTHING`,
+      [email, access.role],
     );
     await setSessionCookie(email);
-    return NextResponse.json({ user: { email, name: email.split("@")[0], role: access.role } });
+    return NextResponse.json({ user: { email, name, role: access.role } });
   }
 
-  // Verify: bcrypt hash (migrated Supabase password or one set by the user),
-  // then legacy plaintext temp password, then first-sign-in (no password yet).
+  // Determine role: static allowlist wins, then members row
+  const staticAccess = resolveAccess(email);
+  const role = staticAccess.allowed ? staticAccess.role : (member?.role ?? "participant");
+
+  // Verify password: users.password_hash first (permanent), then
+  // members.temp_password (invite password, plaintext or bcrypt).
   let pwValid = false;
-  if (member.temp_password.startsWith("$2")) {
-    pwValid = await verifyPassword(password, member.temp_password);
-  } else if (member.temp_password) {
-    pwValid = password === member.temp_password;
+  if (user?.password_hash) {
+    pwValid = await verifyPassword(password, user.password_hash);
+  } else if (member?.temp_password) {
+    if (member.temp_password.startsWith("$2")) {
+      pwValid = await verifyPassword(password, member.temp_password);
+    } else {
+      pwValid = password === member.temp_password;
+    }
   } else {
-    pwValid = true; // no temp password yet — first sign-in adopts this one
+    // Neither a permanent password nor an invite password — first sign-in
+    // with no temp password set. Adopt the entered password.
+    pwValid = true;
   }
   if (!pwValid) {
     return NextResponse.json({ error: "Incorrect password. Please use the password from your invitation email." }, { status: 401 });
   }
-  // Upgrade plaintext / missing temp passwords to a bcrypt hash.
-  if (!member.temp_password || !member.temp_password.startsWith("$2")) {
+
+  // Set/upgrade the permanent password hash in users.
+  if (!user?.password_hash || !user.password_hash.startsWith("$2")) {
     const hashed = await hashPassword(password);
-    await execute(`UPDATE members SET temp_password = $1 WHERE LOWER(email) = LOWER($2)`, [hashed, member.email]);
+    await execute(
+      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), $2, $3)
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      [email, displayName, hashed],
+    );
+  }
+  // Clear the one-time invite password once the permanent one is set.
+  if (member?.temp_password) {
+    await execute(`UPDATE members SET temp_password = '' WHERE LOWER(email) = LOWER($1)`, [email]);
   }
 
-  await setSessionCookie(member.email);
-  return NextResponse.json({ user: { email: member.email, name: member.name, role: member.role } });
+  await setSessionCookie(email);
+  return NextResponse.json({ user: { email, name: displayName, role } });
 }

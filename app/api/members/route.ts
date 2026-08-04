@@ -19,8 +19,10 @@ export async function GET() {
     return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
   const rows = await query(
-    `SELECT email, name, role, status, temp_password, client, created_at
-     FROM members ORDER BY created_at DESC`,
+    `SELECT m.email, u.name, m.role, m.status, m.temp_password, m.client, m.created_at
+     FROM members m
+     LEFT JOIN users u ON LOWER(u.email) = LOWER(m.email)
+     ORDER BY m.created_at DESC`,
   );
   return NextResponse.json(rows ?? []);
 }
@@ -45,15 +47,20 @@ export async function POST(req: Request) {
   }
 
   await execute(
-    `INSERT INTO members (email, name, role, status, temp_password, client)
-     VALUES (LOWER($1), $2, $3, $4, $5, $6)
+    `INSERT INTO users (email, name) VALUES (LOWER($1), $2)
+     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name`,
+    [email, (body.name as string) ?? ""],
+  );
+
+  await execute(
+    `INSERT INTO members (email, role, status, temp_password, client)
+     VALUES (LOWER($1), $2, $3, $4, $5)
      ON CONFLICT (email) DO UPDATE SET
-       name = EXCLUDED.name, role = EXCLUDED.role,
+       role = EXCLUDED.role,
        status = EXCLUDED.status, temp_password = EXCLUDED.temp_password,
        client = EXCLUDED.client`,
     [
       email,
-      (body.name as string) ?? "",
       (body.role as string) ?? "participant",
       (body.status as string) ?? "Invited",
       tempPassword,

@@ -17,25 +17,27 @@ export async function GET() {
   let rows;
   if (isStaff) {
     rows = await query(
-      `SELECT m.email, m.name, m.role as member_role, m.client,
+      `SELECT m.email, u.name, m.role as member_role, m.client,
               p.role_type, p.department, p.avatar_url,
               COALESCE(array_length(cp.done, 1), 0) as done_count
        FROM members m
+       LEFT JOIN users u ON LOWER(u.email) = LOWER(m.email)
        LEFT JOIN profiles p ON LOWER(p.email) = LOWER(m.email)
        LEFT JOIN course_progress cp ON LOWER(cp.email) = LOWER(m.email)
-       ORDER BY m.name`,
+       ORDER BY u.name`,
     );
   } else {
     const client = member?.[0]?.client ?? "";
     rows = await query(
-      `SELECT m.email, m.name, m.role as member_role, m.client,
+      `SELECT m.email, u.name, m.role as member_role, m.client,
               p.role_type, p.department, p.avatar_url,
               COALESCE(array_length(cp.done, 1), 0) as done_count
        FROM members m
+       LEFT JOIN users u ON LOWER(u.email) = LOWER(m.email)
        LEFT JOIN profiles p ON LOWER(p.email) = LOWER(m.email)
        LEFT JOIN course_progress cp ON LOWER(cp.email) = LOWER(m.email)
        WHERE m.client = $1
-       ORDER BY m.name`,
+       ORDER BY u.name`,
       [client],
     );
   }

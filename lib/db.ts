@@ -41,8 +41,14 @@ function getPool(): Pool | null {
 // ---- Idempotent schema setup ----------------------------------------------
 // Runs once per process, lazily on the first query. Mirrors db/init/01-schema.sql.
 const SCHEMA_SQL = `
-create table if not exists members (
+create table if not exists users (
   email text primary key, name text not null default '',
+  password_hash text, email_verified boolean not null default false,
+  last_sign_in_at timestamptz, created_at timestamptz not null default now()
+);
+
+create table if not exists members (
+  email text primary key references users(email),
   role text not null default 'participant', status text not null default 'Invited',
   temp_password text not null default '', client text not null default '',
   created_at timestamptz not null default now()

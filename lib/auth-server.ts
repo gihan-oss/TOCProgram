@@ -163,16 +163,19 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   // Role resolution matches the client: the static allowlist (admin domains)
   // wins, then the members row, then participant.
   const staticAccess = resolveAccess(email);
-  const member = await queryOne<{ name: string; role: string }>(
-    `SELECT name, role FROM members WHERE LOWER(email) = LOWER($1)`,
+  const row = await queryOne<{ name: string; role: string }>(
+    `SELECT u.name, COALESCE(m.role, 'participant') as role
+     FROM users u
+     LEFT JOIN members m ON LOWER(m.email) = LOWER(u.email)
+     WHERE LOWER(u.email) = LOWER($1)`,
     [email],
   );
   const role: Role = staticAccess.allowed
     ? staticAccess.role
-    : ((member?.role as Role) ?? "participant");
+    : ((row?.role as Role) ?? "participant");
   return {
     email,
-    name: member?.name || email.split("@")[0],
+    name: row?.name || email.split("@")[0],
     role,
   };
 }

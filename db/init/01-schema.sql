@@ -11,14 +11,28 @@
 --   • jsonb for nested objects/arrays (meta, data, modules, measurements)
 
 -- ===========================================================================
+-- Authentication accounts (email/password + Google OAuth)
+-- ===========================================================================
+-- password_hash is NULL for Google OAuth users. name is the display name.
+create table if not exists users (
+  email            text primary key,
+  name             text not null default '',
+  password_hash    text,
+  email_verified   boolean not null default false,
+  last_sign_in_at  timestamptz,
+  created_at       timestamptz not null default now()
+);
+
+-- ===========================================================================
 -- Members / invitations — the access allowlist
 -- ===========================================================================
 -- Rows contain invite temp passwords, so reads/writes are staff-gated in the
 -- API layer (app/api/members). The login screen checks allowlist via
 -- app/api/members/check, which reveals only allowed/role.
+-- email references users(email) — a users row is created at invite time
+-- (with just name) so the FK is satisfied.
 create table if not exists members (
-  email         text primary key,
-  name          text not null default '',
+  email         text primary key references users(email),
   role          text not null default 'participant',
   status        text not null default 'Invited',
   temp_password text not null default '',

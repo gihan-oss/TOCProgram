@@ -31,8 +31,9 @@ export async function POST(req: Request) {
     }
     const hashed = await hashPassword(body.password);
     await execute(
-      `UPDATE members SET temp_password = $1 WHERE LOWER(email) = LOWER($2)`,
-      [hashed, email],
+      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), '', $2)
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      [email, hashed],
     );
     return NextResponse.json({ ok: true });
   }
@@ -48,34 +49,42 @@ export async function POST(req: Request) {
     }
     const hashed = await hashPassword(body.password);
     await execute(
-      `INSERT INTO members (email, name, role, status, temp_password)
-       VALUES (LOWER($1), '', 'participant', 'Active', $2)
-       ON CONFLICT (email) DO UPDATE SET temp_password = EXCLUDED.temp_password, status = 'Active'`,
+      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), '', $2)
+       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
       [email, hashed],
     );
+    // Ensure a members row exists so the user can sign in (static-allowlist
+    // users may not have one yet).
+    const staticAccess = resolveAccess(email);
+    if (staticAccess.allowed) {
+      await execute(
+        `INSERT INTO members (email, role, status) VALUES (LOWER($1), $2, 'Active')
+         ON CONFLICT (email) DO NOTHING`,
+        [email, staticAccess.role],
+      );
+    }
     await setSessionCookie(email);
     return NextResponse.json({ ok: true });
   }
 
   // Forgot-password request — never reveal whether the email exists
   if (body.email) {
-    const member = await queryOne<{ email: string; name: string }>(
-      `SELECT email, name FROM members WHERE LOWER(email) = LOWER($1)`,
+    const user = await queryOne<{ email: string; name: string }>(
+      `SELECT email, name FROM users WHERE LOWER(email) = LOWER($1)`,
       [body.email],
     );
-    // Also send for static-allowlist users (admin domain) with no row yet; the
-    // token branch below creates the member row when the new password is set.
+    // Also send for static-allowlist users (admin domain) with no row yet.
     const staticAccess = resolveAccess(body.email);
-    if (member || staticAccess.allowed) {
-      const token = createResetToken(member?.email ?? body.email);
+    if (user || staticAccess.allowed) {
+      const token = createResetToken(user?.email ?? body.email);
       const origin = new URL(req.url).origin;
       const link = `${origin}/reset?token=${encodeURIComponent(token)}`;
-      const html = `<p>Hi${member?.name ? ` ${member.name}` : ""},</p>
+      const html = `<p>Hi${user?.name ? ` ${user.name}` : ""},</p>
         <p>You asked to reset your password for the Impact Portal.</p>
         <p><a href="${link}">Choose a new password</a></p>
         <p>This link expires in 1 hour. If you didn't ask for it, you can safely ignore this email.</p>`;
       await sendEmailServer({
-        to: member?.email ?? body.email,
+        to: user?.email ?? body.email,
         subject: "Reset your Impact Portal password",
         html,
       }).catch(() => {});

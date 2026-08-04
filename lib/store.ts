@@ -143,11 +143,11 @@ export type MemberRole = "admin" | "participant" | "coordinator";
 
 export interface Member {
   email: string;
-  name: string;
+  name: string;       // display name, joined from users table
   role: MemberRole;
   status: "Active" | "Invited";
-  temp_password: string;
-  client?: string; // which client (organization) they belong to
+  temp_password: string; // admin-set invite password, cleared after first sign-in
+  client?: string;       // which client (organization) they belong to
   created_at?: string;
 }
 
