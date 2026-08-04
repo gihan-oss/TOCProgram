@@ -1,4 +1,27 @@
 services:
+  # ---- PostgreSQL database ---------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: toc-portal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: toc_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toc_password_change_me}
+      POSTGRES_DB: toc_db
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Auto-creates the tables on first boot:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toc_user -d toc_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Not published to the host — only the app talks to it, over the internal
+    # Docker network. Uncomment to inspect it from the host with psql:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+
   # ---- The Portal (Next.js app) ---------------------------------------------
   portal:
     build:
@@ -7,7 +30,14 @@ services:
     image: toc-portal
     container_name: toc-portal
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
+      # Turns on persistence for every data store (profiles, course, chat, PM…).
+      DATABASE_URL: postgresql://toc_user:${POSTGRES_PASSWORD:-toc_password_change_me}@db:5432/toc_db
+      # Secret used to sign login sessions — set a long random value in .env
+      AUTH_SECRET: ${AUTH_SECRET:-please_set_a_long_random_auth_secret}
       # Optional server-only secrets:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
@@ -17,7 +47,14 @@ services:
       - "3000:80"
       # Uncomment to expose HTTPS (requires ssl/ volume below):
       # - "3443:443"
+    volumes:
+      # Uploaded course files survive container rebuilds.
+      - uploads-data:/app/public/uploads
     # SSL certificates for HTTPS (optional).
     # Place fullchain.pem and privkey.pem in ./ssl/ and uncomment the line below:
     # volumes:
     #   - ./ssl:/etc/nginx/ssl:ro
+
+volumes:
+  db-data:
+  uploads-data:

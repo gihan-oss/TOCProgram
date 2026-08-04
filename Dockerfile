@@ -62,6 +62,10 @@ RUN mkdir -p /run/nginx /var/lib/nginx/tmp /etc/nginx/ssl \
 # ---- supervisord ----
 COPY supervisord.conf /etc/supervisord.conf
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
-USER nextjs
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+# Run as root so the entrypoint can fix permissions on the persistent uploads
+# volume; supervisord then drops to the nextjs user (see supervisord.conf).
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

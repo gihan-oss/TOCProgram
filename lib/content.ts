@@ -1,11 +1,10 @@
 "use client";
 
-import { getSupabaseBrowserClient } from "./supabase";
+// Admin-managed course content. With the database configured it's SHARED and
+// PERMANENT (every learner on any device sees what admins build). Without it,
+// it falls back to localStorage so the app still works in demo mode.
 
-// Admin-managed course content. With Supabase configured it's SHARED and
-// PERMANENT (every learner on any device sees what admins build, files live in
-// Supabase Storage). Without it, it falls back to localStorage so the app still
-// works in demo mode.
+import { apiFetch } from "./api-fetch";
 
 export type ResourceType = "Video" | "PDF" | "File" | "Note" | "Worksheet" | "Link" | "Quiz";
 
@@ -68,11 +67,14 @@ const DONE_KEY = (email: string) => `toc-progress:${email.toLowerCase()}`;
 // ---------------- Modules (shared course document) ----------------
 
 export async function loadModules(): Promise<CourseModule[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("course").select("modules").eq("id", "default").maybeSingle();
-    return ((data?.modules as CourseModule[]) ?? []);
-  }
+  try {
+    const res = await apiFetch("/api/course");
+    if (res.ok) {
+      const data = await res.json();
+      return (data?.modules as CourseModule[]) ?? [];
+    }
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   if (typeof window === "undefined") return [];
   try {
     return JSON.parse(localStorage.getItem(KEY) || "[]") as CourseModule[];
@@ -82,11 +84,14 @@ export async function loadModules(): Promise<CourseModule[]> {
 }
 
 export async function saveModules(modules: CourseModule[]): Promise<boolean> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { error } = await sb.from("course").upsert({ id: "default", modules, updated_at: new Date().toISOString() });
-    return !error;
-  }
+  try {
+    const res = await apiFetch("/api/course", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modules, updated_at: new Date().toISOString() }),
+    });
+    return res.ok;
+  } catch {}
   try {
     localStorage.setItem(KEY, JSON.stringify(modules));
     return true;
@@ -98,11 +103,14 @@ export async function saveModules(modules: CourseModule[]): Promise<boolean> {
 // ---------------- Per-learner progress ----------------
 
 export async function loadDone(email: string): Promise<Set<string>> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("course_progress").select("done").eq("email", email.toLowerCase()).maybeSingle();
-    return new Set((data?.done as string[]) ?? []);
-  }
+  try {
+    const res = await apiFetch(`/api/progress?email=${encodeURIComponent(email.toLowerCase())}`);
+    if (res.ok) {
+      const data = await res.json();
+      return new Set((data?.done as string[]) ?? []);
+    }
+    return new Set(); // server reachable, response not OK — don't use cache
+  } catch {}
   if (typeof window === "undefined") return new Set();
   try {
     return new Set(JSON.parse(localStorage.getItem(DONE_KEY(email)) || "[]") as string[]);
@@ -112,11 +120,14 @@ export async function loadDone(email: string): Promise<Set<string>> {
 }
 
 export async function saveDone(email: string, done: Set<string>) {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    await sb.from("course_progress").upsert({ email: email.toLowerCase(), done: [...done], updated_at: new Date().toISOString() });
+  try {
+    await apiFetch("/api/progress", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase(), done: [...done], updated_at: new Date().toISOString() }),
+    });
     return;
-  }
+  } catch {}
   try {
     localStorage.setItem(DONE_KEY(email), JSON.stringify([...done]));
   } catch {}
@@ -140,11 +151,14 @@ export function normalizeMeta(m: unknown): LearnerMeta {
 }
 
 export async function loadMeta(email: string): Promise<LearnerMeta> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("course_progress").select("meta").eq("email", email.toLowerCase()).maybeSingle();
-    return normalizeMeta(data?.meta);
-  }
+  try {
+    const res = await apiFetch(`/api/progress?email=${encodeURIComponent(email.toLowerCase())}&field=meta`);
+    if (res.ok) {
+      const data = await res.json();
+      return normalizeMeta(data?.meta);
+    }
+    return emptyMeta(); // server reachable, response not OK — don't use cache
+  } catch {}
   if (typeof window === "undefined") return emptyMeta();
   try {
     return normalizeMeta(JSON.parse(localStorage.getItem(META_KEY(email)) || "null"));
@@ -154,11 +168,14 @@ export async function loadMeta(email: string): Promise<LearnerMeta> {
 }
 
 export async function saveMeta(email: string, meta: LearnerMeta) {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    await sb.from("course_progress").upsert({ email: email.toLowerCase(), meta, updated_at: new Date().toISOString() });
+  try {
+    await apiFetch("/api/progress", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase(), meta, updated_at: new Date().toISOString() }),
+    });
     return;
-  }
+  } catch {}
   try {
     localStorage.setItem(META_KEY(email), JSON.stringify(meta));
   } catch {}
@@ -171,8 +188,7 @@ export async function saveMeta(email: string, meta: LearnerMeta) {
 // later signs in and opens the module.
 //
 // Anonymous visitors can't read `course`/`members` or write `course_progress`
-// directly (row-level security), so everything goes through SECURITY DEFINER
-// RPCs granted to `anon` (see supabase/schema.sql). Each participant is
+// directly, so everything goes through dedicated API routes. Each participant is
 // identified by an opaque token (md5 of their email) — the email itself never
 // reaches the browser, and saves only ever target a real enrolled member.
 
@@ -182,11 +198,13 @@ export interface PublicParticipant { key: string; name: string }
 // Read the shared course as an anonymous visitor. Falls back to loadModules()
 // (which works when signed in, or in localStorage demo mode).
 export async function loadModulesPublic(): Promise<CourseModule[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data, error } = await sb.rpc("public_course");
-    if (!error && Array.isArray(data)) return data as CourseModule[];
-  }
+  try {
+    const res = await apiFetch("/api/public/course");
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) return data as CourseModule[];
+    }
+  } catch {}
   return loadModules();
 }
 
@@ -194,14 +212,16 @@ export async function loadModulesPublic(): Promise<CourseModule[]> {
 // `key` is an opaque md5(email) token; in demo mode it's the email itself
 // (read from the locally stored members allowlist to avoid a circular import).
 export async function loadPublicRoster(): Promise<PublicParticipant[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data, error } = await sb.rpc("public_roster");
-    if (error || !Array.isArray(data)) return [];
-    return (data as { token: string; name: string }[])
-      .map((r) => ({ key: r.token, name: r.name }))
-      .filter((r) => r.key && r.name);
-  }
+  try {
+    const res = await apiFetch("/api/public/roster");
+    if (res.ok) {
+      const data = await res.json() as { token: string; name: string }[];
+      return data
+        .map((r) => ({ key: r.token, name: r.name }))
+        .filter((r) => r.key && r.name);
+    }
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   try {
     const raw = localStorage.getItem("toc-members");
     const members = raw ? (JSON.parse(raw) as { email: string; name?: string }[]) : [];
@@ -226,32 +246,21 @@ export async function savePublicWorksheet(
   const k = key.trim();
   if (!k) return { ok: false, error: "Choose your name first" };
 
-  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(k);
-
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    // Current schema takes p_token (a roster token OR a plain email).
-    let { error } = await sb.rpc("save_public_worksheet", {
-      p_token: k,
-      p_worksheets: worksheets,
-      p_done: doneIds,
+  try {
+    const res = await apiFetch("/api/public/worksheet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: k,
+        worksheets,
+        done: doneIds,
+      }),
     });
-    // Older deployed schema only had a p_email parameter, so PostgREST can't
-    // find the p_token overload (PGRST202 / "schema cache"). When the person
-    // typed an email (the manual fallback), retry the email signature so saving
-    // works WITHOUT re-running the SQL. (A roster token isn't an email, so the
-    // dropdown path still needs the updated function.)
-    const missing = (e: { code?: string; message?: string }) =>
-      e.code === "PGRST202" || /Could not find the function|schema cache/i.test(e.message ?? "");
-    if (error && isEmail && missing(error)) {
-      ({ error } = await sb.rpc("save_public_worksheet", {
-        p_email: k,
-        p_worksheets: worksheets,
-        p_done: doneIds,
-      }));
-    }
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
+    if (res.ok) return { ok: true };
+    const err = await res.json().catch(() => ({ error: "Save failed" }));
+    return { ok: false, error: err.error ?? "Save failed" };
+  } catch {
+    // Fall through to localStorage demo mode below
   }
 
   // Demo / localStorage mode — the key is the email; merge into the same keys
@@ -273,25 +282,26 @@ export async function savePublicWorksheet(
 }
 
 // Reset (clear) everyone's answers for the given worksheet resource ids — a
-// facilitator wiping test/old responses to run fresh. Staff-only; enforced by
-// the RPC. Returns how many learner rows were cleared, or an error.
+// facilitator wiping test/old responses to run fresh. Staff-only.
+// Returns how many learner rows were cleared, or an error.
 export async function resetWorksheetResponses(
   resourceIds: string[],
 ): Promise<{ ok: boolean; cleared?: number; error?: string }> {
   const ids = resourceIds.filter(Boolean);
   if (ids.length === 0) return { ok: true, cleared: 0 };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data, error } = await sb.rpc("reset_worksheet_responses", { p_resource_ids: ids });
-    if (error) {
-      // RPC not deployed yet → guide the admin instead of failing silently.
-      if (error.code === "PGRST202" || /Could not find the function|schema cache/i.test(error.message)) {
-        return { ok: false, error: "Reset isn't set up yet — run supabase/schema.sql once to enable it." };
-      }
-      return { ok: false, error: error.message };
+  try {
+    const res = await apiFetch("/api/public/worksheet/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resource_ids: ids }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, cleared: data.cleared };
     }
-    return { ok: true, cleared: typeof data === "number" ? data : undefined };
-  }
+    const err = await res.json().catch(() => ({ error: "Reset failed" }));
+    return { ok: false, error: err.error ?? "Reset failed" };
+  } catch {}
   // Demo / localStorage mode: clear this browser's own saved answers.
   try {
     if (typeof window !== "undefined") {
@@ -313,17 +323,19 @@ export async function resetWorksheetResponses(
 // ---------------- File upload ----------------
 
 export async function uploadFile(file: File): Promise<{ url?: string; dataUrl?: string; fileName: string; error?: string }> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const safe = file.name.replace(/[^\w.\-]+/g, "_");
-    const path = `${Date.now()}-${safe}`;
-    const { error } = await sb.storage.from("course-files").upload(path, file, { cacheControl: "3600", upsert: false });
-    if (error) return { fileName: file.name, error: error.message };
-    const { data } = sb.storage.from("course-files").getPublicUrl(path);
-    return { url: data.publicUrl, fileName: file.name };
-  }
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await apiFetch("/api/files", { method: "POST", body: form });
+    if (res.ok) {
+      const data = await res.json();
+      return { url: data.url, fileName: data.fileName ?? file.name };
+    }
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    if (err.error) return { fileName: file.name, error: err.error };
+  } catch {}
   // localStorage fallback — base64, size-limited
-  if (file.size > 2_000_000) return { fileName: file.name, error: "Over 2 MB — connect Supabase Storage or paste a link." };
+  if (file.size > 2_000_000) return { fileName: file.name, error: "Over 2 MB — paste a link instead." };
   const dataUrl: string = await new Promise((resolve) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result as string);

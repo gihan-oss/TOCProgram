@@ -6,7 +6,7 @@ import * as Icons from "lucide-react";
 import { Card, Badge, Button, Progress, Stat, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
 import { useToast } from "@/components/toast";
-import { listMembers, listProfiles, listLearnerProgress, listTocs, isSupabaseConfigured, type Member, type MemberProfile, type ProgressRow, type TocRow } from "@/lib/store";
+import { listMembers, listProfiles, listLearnerProgress, listTocs, type Member, type MemberProfile, type ProgressRow, type TocRow } from "@/lib/store";
 import { loadModules, moduleComplete, QUIZ_PASS, type CourseModule, type LearnerMeta } from "@/lib/content";
 import { effectiveModules } from "@/lib/starter-course";
 import { computeGameState } from "@/lib/gamify";
@@ -55,7 +55,6 @@ export default function LearnersPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [presenting, setPresenting] = useState(false);
-  const configured = isSupabaseConfigured();
 
   useEffect(() => {
     (async () => {
@@ -164,13 +163,6 @@ export default function LearnersPage() {
       <p className="mb-4 text-sm text-muted-foreground">Everyone in the portal and exactly where they are — sign-up, modules, worksheets, quizzes and their Theory of Change.</p>
 
       {presenting && <KickoffSlide modules={modules} rows={rows} onClose={() => setPresenting(false)} />}
-
-      {!configured && (
-        <Card className="mb-4 flex items-start gap-2 border-[hsl(var(--warning)/0.4)] bg-[hsl(var(--warning)/0.08)] p-3 text-sm">
-          <Icons.Info className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warning))]" />
-          <span>Live cross-learner tracking needs Supabase connected. Until then this shows only data saved on this browser. (Add your Supabase keys and run <code className="rounded bg-secondary px-1">supabase/schema.sql</code>.)</span>
-        </Card>
-      )}
 
       <div className="mb-4 grid gap-3 sm:grid-cols-4">
         <Card className="p-4"><Stat label="People" value={summary.total} /></Card>

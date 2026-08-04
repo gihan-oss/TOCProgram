@@ -1,13 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api-fetch";
 import { resolveAccess, type Access } from "@/lib/access";
 import { checkMemberAccess } from "@/lib/store";
 import type { Role } from "@/lib/types";
 
 // Members-aware access: the static allowlist first, then anyone an admin has
-// invited. Invited members are looked up through the check_access RPC (the
+// invited. Invited members are looked up through the check_access endpoint (the
 // members table itself is staff-only), so this works before sign-in without
 // exposing the member list. This is what lets invited accounts sign in.
 async function resolveWithMembers(email: string): Promise<Access> {
@@ -31,6 +31,7 @@ interface AuthState {
   loading: boolean;
   isDemo: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signInWithGoogle: (googleToken: string) => Promise<{ error?: string }>;
   signUp: (name: string, email: string, password: string) => Promise<{ error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ error?: string }>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
@@ -49,17 +50,10 @@ const DEMO_KEY = "toc-demo-auth";
 const nameFromEmail = (email: string) =>
   email.split("@")[0].split(/[.\-_]/).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
 
-// Supabase returns this when the email/password doesn't match an existing
-// account — which, for an approved invitee signing in the first time, just
-// means their account hasn't been created yet.
-function isInvalidCredentials(error: { message?: string; code?: string }): boolean {
-  return error.code === "invalid_credentials" || /invalid login credentials/i.test(error.message ?? "");
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = getSupabaseBrowserClient();
+  const [isDemo, setIsDemo] = useState(false);
 
   const buildUser = async (email: string, name?: string): Promise<AuthUser> => ({
     email,
@@ -67,102 +61,152 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: (await resolveWithMembers(email)).role,
   });
 
+  // Check for an existing session on mount.
   useEffect(() => {
-    if (supabase) {
-      supabase.auth.getSession().then(async ({ data }) => {
-        const u = data.session?.user;
-        if (u) setUser(await buildUser(u.email ?? "", u.user_metadata?.name as string));
-        setLoading(false);
-      });
-      const { data: sub } = supabase.auth.onAuthStateChange(async (_e, session) => {
-        const u = session?.user;
-        setUser(u ? await buildUser(u.email ?? "", u.user_metadata?.name as string) : null);
-      });
-      return () => sub.subscription.unsubscribe();
-    }
-    // demo mode — restore from localStorage
-    try {
-      const raw = localStorage.getItem(DEMO_KEY);
-      if (raw) setUser(JSON.parse(raw));
-    } catch {}
-    setLoading(false);
-  }, [supabase]);
+    (async () => {
+      let serverReached = false;
+      try {
+        const res = await apiFetch("/api/auth/session");
+        serverReached = true;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setUser(await buildUser(data.user.email, data.user.name));
+            setIsDemo(false);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {}
+      // Demo mode only when the API was unreachable (offline / no DB). A
+      // reachable API that reports "no session" is NOT demo mode.
+      if (!serverReached) {
+        try {
+          const raw = localStorage.getItem(DEMO_KEY);
+          if (raw) {
+            setUser(JSON.parse(raw));
+            setIsDemo(true);
+          }
+        } catch {}
+      }
+      setLoading(false);
+    })();
+  }, []);
 
   const signIn: AuthState["signIn"] = async (email, password) => {
     const access = await resolveWithMembers(email);
     if (!access.allowed) return { error: access.reason };
-    if (supabase) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error) return {};
-      // First-time invited user: they're on the approved list but don't have a
-      // login yet, so signing in fails with "invalid credentials". Create the
-      // account for them on the spot (auto-approve) using the credentials they
-      // just entered — so the emailed password works on the very first sign-in,
-      // with no separate "Sign up" step.
-      if (isInvalidCredentials(error)) {
-        const { data, error: signUpErr } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { name: nameFromEmail(email) } },
-        });
-        // A real, already-registered account → the password was simply wrong.
-        if (signUpErr) return { error: "Incorrect password. Please use the password from your invitation email." };
-        if (data.session) return {}; // auto-confirmed → signed in
-        // Email confirmation is still on for the project: try once more, else guide.
-        const retry = await supabase.auth.signInWithPassword({ email, password });
-        return retry.error ? { error: "Account created — check your email to confirm it, then sign in." } : {};
-      }
-      return { error: error.message };
-    }
     if (!email || password.length < 6) return { error: "Enter an email and a password of at least 6 characters." };
-    const u: AuthUser = { email, name: nameFromEmail(email), role: access.role };
-    localStorage.setItem(DEMO_KEY, JSON.stringify(u));
-    setUser(u);
-    return {};
+    try {
+      const res = await apiFetch("/api/auth/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error ?? "Sign-in failed." };
+      const u = await buildUser(data.user.email, data.user.name);
+      setUser(u);
+      setIsDemo(false);
+      return {};
+    } catch {
+      // API unavailable → demo mode fallback
+      const u: AuthUser = { email, name: nameFromEmail(email), role: access.role };
+      localStorage.setItem(DEMO_KEY, JSON.stringify(u));
+      setUser(u);
+      setIsDemo(true);
+      return {};
+    }
+  };
+
+  const signInWithGoogle: AuthState["signInWithGoogle"] = async (googleToken) => {
+    try {
+      const res = await apiFetch("/api/auth/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ googleToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error ?? "Google sign-in failed." };
+      // Check access after Google auth
+      const access = await resolveWithMembers(data.user.email);
+      if (!access.allowed) return { error: access.reason };
+      const u = await buildUser(data.user.email, data.user.name);
+      setUser(u);
+      setIsDemo(false);
+      return {};
+    } catch {
+      return { error: "Sign-in unavailable. Check your connection." };
+    }
   };
 
   const signUp: AuthState["signUp"] = async (name, email, password) => {
     const access = await resolveWithMembers(email);
     if (!access.allowed) return { error: access.reason };
-    if (supabase) {
-      const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
-      return error ? { error: error.message } : {};
-    }
     if (!email || password.length < 6) return { error: "Enter an email and a password of at least 6 characters." };
-    const u: AuthUser = { email, name: name || nameFromEmail(email), role: access.role };
-    localStorage.setItem(DEMO_KEY, JSON.stringify(u));
-    setUser(u);
-    return {};
+    try {
+      const res = await apiFetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error ?? "Sign-up failed." };
+      return {};
+    } catch {
+      // API unavailable → demo mode
+      const u: AuthUser = { email, name: name || nameFromEmail(email), role: access.role };
+      localStorage.setItem(DEMO_KEY, JSON.stringify(u));
+      setUser(u);
+      setIsDemo(true);
+      return {};
+    }
   };
 
-  // Let a signed-in user replace their (temporary) password with their own.
   const updatePassword: AuthState["updatePassword"] = async (newPassword) => {
-    if (!supabase) return {}; // demo mode — nothing to update
     if (!newPassword || newPassword.length < 6) return { error: "Your password must be at least 6 characters." };
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    return error ? { error: error.message } : {};
+    try {
+      const res = await apiFetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error ?? "Password update failed." };
+      return {};
+    } catch {
+      return {}; // demo mode — nothing to update
+    }
   };
 
-  // Send a "forgot password" email. The link brings the user back to /reset,
-  // where they set a new password. Demo mode has no email service, so it's a
-  // no-op success. We don't reveal whether the address has an account.
   const resetPassword: AuthState["resetPassword"] = async (email) => {
-    if (!supabase) return {}; // demo mode — nothing to send
     if (!email) return { error: "Enter the email address for your account." };
-    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset` : undefined;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
-    return error ? { error: error.message } : {};
+    try {
+      const res = await apiFetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error };
+      return {};
+    } catch {
+      return {}; // demo mode — no email service
+    }
   };
 
   const signOut: AuthState["signOut"] = async () => {
-    if (supabase) await supabase.auth.signOut();
-    else localStorage.removeItem(DEMO_KEY);
-    try { localStorage.removeItem("toc-role"); } catch {} // don't carry a role between accounts
+    try {
+      await apiFetch("/api/auth/signout", { method: "POST" });
+    } catch {}
+    localStorage.removeItem(DEMO_KEY);
+    try { localStorage.removeItem("toc-role"); } catch {}
     setUser(null);
+    setIsDemo(false);
   };
 
   return (
-    <Ctx.Provider value={{ user, loading, isDemo: !isSupabaseConfigured, signIn, signUp, updatePassword, resetPassword, signOut }}>
+    <Ctx.Provider value={{ user, loading, isDemo, signIn, signInWithGoogle, signUp, updatePassword, resetPassword, signOut }}>
       {children}
     </Ctx.Provider>
   );

@@ -91,7 +91,7 @@ export default function ChatPage() {
           <Icons.MessagesSquare className="mx-auto h-8 w-8 text-accent" />
           <p className="mt-2 font-semibold">Chat needs the live database</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Community chat runs on Supabase realtime. Once your administrator connects Supabase, this room goes live for everyone in your organization.
+            Community chat needs the live database. Once your administrator sets it up, this room goes live for everyone in your organization.
           </p>
         </Card>
       </div>

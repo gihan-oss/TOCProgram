@@ -7,7 +7,7 @@ import { Card, Button, Badge, EmptyHint } from "@/components/ui";
 import { useAuth } from "@/components/auth";
 import { useToast } from "@/components/toast";
 import { Markdown } from "@/components/markdown";
-import { listMembers, listProfiles, listLearnerProgress, isSupabaseConfigured } from "@/lib/store";
+import { listMembers, listProfiles, listLearnerProgress } from "@/lib/store";
 import { loadModules, type CourseModule, type LearnerMeta } from "@/lib/content";
 import { effectiveModules } from "@/lib/starter-course";
 import {
@@ -19,7 +19,6 @@ export default function GroupAnalysisPage() {
   const { user } = useAuth();
   const toast = useToast();
   const canView = user?.role === "admin" || user?.role === "facilitator" || user?.role === "coordinator";
-  const configured = isSupabaseConfigured();
 
   const [modules, setModules] = useState<CourseModule[]>([]);
   const [rows, setRows] = useState<PersonRow[]>([]);
@@ -117,13 +116,6 @@ export default function GroupAnalysisPage() {
       <p className="mb-4 text-sm text-muted-foreground">
         An AI read of the patterns across the whole cohort — with the raw answers a click away.
       </p>
-
-      {!configured && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-[hsl(var(--warning)/0.4)] bg-[hsl(var(--warning)/0.08)] px-3 py-2 text-xs">
-          <Icons.Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[hsl(var(--warning))]" />
-          <span>Cross-participant data needs Supabase connected. Until then this shows only what&apos;s saved on this browser.</span>
-        </div>
-      )}
 
       {/* Compact stat strip */}
       <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border bg-card px-4 py-2.5 text-sm">

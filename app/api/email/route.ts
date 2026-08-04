@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendEmailServer } from "@/lib/email-server";
 
 // Sends transactional email via Brevo (BREVO_API_KEY), with Resend
 // (RESEND_API_KEY) as a fallback. Without a key, sends are simulated so product
@@ -26,20 +27,6 @@ async function brevoVerifiedSenders(key: string): Promise<{ name: string; email:
   } catch {
     return [];
   }
-}
-
-async function brevoSend(key: string, sender: { name: string; email: string }, to: string, subject: string, html: string, replyTo?: { email: string; name?: string }) {
-  return fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "api-key": key, "Content-Type": "application/json", accept: "application/json" },
-    body: JSON.stringify({
-      sender,
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-      ...(replyTo ? { replyTo } : {}),
-    }),
-  });
 }
 
 // GET — diagnostic. Returns config status (never the key itself) so failures are
@@ -81,49 +68,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Missing to/subject/html" }, { status: 400 });
   }
 
-  const brevoKey = process.env.BREVO_API_KEY;
-  const resendKey = process.env.RESEND_API_KEY;
-  const envFrom = parseFrom(process.env.EMAIL_FROM || "Amal & Company Portal <noreply@amalandcompany.com>");
-  // The verified sender address never changes (anti-spoofing), but the display
-  // NAME can — so a Nuri question shows as "Asker's Name" in the team's inbox,
-  // and Reply goes straight to them via reply-to.
-  const from = { name: fromName || envFrom.name, email: envFrom.email };
-  const replyToObj = replyTo ? { email: replyTo, ...(replyToName ? { name: replyToName } : {}) } : undefined;
-
-  // ---- Brevo (preferred, self-healing sender) ----
-  if (brevoKey) {
-    let res = await brevoSend(brevoKey, from, to, subject, html, replyToObj);
-    if (res.ok) return NextResponse.json({ ok: true, provider: "brevo" });
-
-    const firstErr = (await res.text()).slice(0, 200);
-
-    // Likely an unverified sender — fall back to a verified one and retry once.
-    const verified = await brevoVerifiedSenders(brevoKey);
-    if (verified.length > 0 && verified[0].email.toLowerCase() !== from.email.toLowerCase()) {
-      res = await brevoSend(brevoKey, { name: from.name, email: verified[0].email }, to, subject, html, replyToObj);
-      if (res.ok) return NextResponse.json({ ok: true, provider: "brevo", usedSender: verified[0].email, healed: true });
-    }
-
-    const detail = verified.length === 0
-      ? "no verified senders in Brevo — add & verify one"
-      : firstErr;
-    console.error("[email] Brevo error:", detail);
-    return NextResponse.json({ ok: false, error: `Brevo: ${detail}`.slice(0, 280) }, { status: 502 });
-  }
-
-  // ---- Resend (fallback) ----
-  if (resendKey) {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: `${from.name} <${from.email}>`, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
-    });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: `Resend: ${(await res.text()).slice(0, 200)}` }, { status: 502 });
-    }
-    return NextResponse.json({ ok: true, provider: "resend" });
-  }
-
-  console.log(`[email simulated] to=${to} subject="${subject}"`);
-  return NextResponse.json({ ok: true, demo: true });
+  const result = await sendEmailServer({ to, subject, html, replyTo, replyToName, fromName });
+  if (!result.ok) return NextResponse.json(result, { status: 502 });
+  return NextResponse.json(result);
 }

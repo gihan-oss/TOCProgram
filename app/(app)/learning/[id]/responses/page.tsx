@@ -9,7 +9,7 @@ import { useAuth } from "@/components/auth";
 import { CLIENT } from "@/lib/mas";
 import { effectiveModules } from "@/lib/starter-course";
 import { loadModules, resetWorksheetResponses, type CourseModule, type Resource, type WorksheetField } from "@/lib/content";
-import { listLearnerProgress, listProfiles, listMembers, isSupabaseConfigured } from "@/lib/store";
+import { listLearnerProgress, listProfiles, listMembers } from "@/lib/store";
 import { ResponsesPresent, type PresentPrompt } from "@/components/responses-present";
 import { useToast } from "@/components/toast";
 
@@ -177,12 +177,6 @@ export default function ResponsesPage({ params }: { params: Promise<{ id: string
           answersByField={answersByField}
           onClose={() => setPresenting(false)}
         />
-      )}
-
-      {!isSupabaseConfigured() && (
-        <div className="mt-4 rounded-xl border border-[hsl(var(--warning)/0.3)] bg-[hsl(var(--warning)/0.08)] px-4 py-3 text-sm text-muted-foreground">
-          Demo mode: only responses saved on this browser are visible. Connect Supabase to see everyone&apos;s answers live.
-        </div>
       )}
 
       {!loaded ? (

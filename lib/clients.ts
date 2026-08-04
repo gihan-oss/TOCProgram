@@ -1,10 +1,10 @@
 "use client";
 
-// Client directory. With Supabase configured it's shared & permanent (a single
+// Client directory. With the database configured it's shared & permanent (a single
 // JSON document every admin sees); otherwise it falls back to localStorage so
 // the app still works in demo mode. MAS GLA is seeded as the first client.
 
-import { getSupabaseBrowserClient } from "./supabase";
+import { apiFetch } from "./api-fetch";
 
 export type ClientStatus = "Active" | "Onboarding" | "Paused" | "Archived";
 
@@ -44,12 +44,15 @@ export const SEED_CLIENTS: Client[] = [
 const KEY = "toc-clients";
 
 export async function loadClients(): Promise<Client[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("clients").select("data").eq("id", "default").maybeSingle();
-    const list = data?.data as Client[] | undefined;
-    return list ?? SEED_CLIENTS; // no row yet → seed; an empty saved list stays empty
-  }
+  try {
+    const res = await apiFetch("/api/clients");
+    if (res.ok) {
+      const data = await res.json();
+      const list = data?.data as Client[] | undefined;
+      return list ?? SEED_CLIENTS;
+    }
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   if (typeof window === "undefined") return SEED_CLIENTS;
   try {
     const raw = localStorage.getItem(KEY);
@@ -60,11 +63,14 @@ export async function loadClients(): Promise<Client[]> {
 }
 
 export async function saveClients(list: Client[]): Promise<boolean> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { error } = await sb.from("clients").upsert({ id: "default", data: list, updated_at: new Date().toISOString() });
-    return !error;
-  }
+  try {
+    const res = await apiFetch("/api/clients", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: list, updated_at: new Date().toISOString() }),
+    });
+    return res.ok;
+  } catch {}
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
     return true;

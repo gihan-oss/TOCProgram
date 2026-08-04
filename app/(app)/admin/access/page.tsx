@@ -141,7 +141,9 @@ export default function AccessPage() {
   }
 
   async function resend(m: Member) {
-    let pwd = m.temp_password;
+    // Stored temp passwords are hashed — only the plaintext generated at invite
+    // time is safe to resend; otherwise generate a fresh one.
+    let pwd = m.temp_password && !m.temp_password.startsWith("$2") ? m.temp_password : "";
     if (!pwd) {
       pwd = genTempPassword();
       const updated = { ...m, temp_password: pwd };
@@ -162,7 +164,7 @@ export default function AccessPage() {
     setBusy(true);
     let sent = 0, demo = false;
     for (const m of invited) {
-      let pwd = m.temp_password;
+      let pwd = m.temp_password && !m.temp_password.startsWith("$2") ? m.temp_password : "";
       if (!pwd) { pwd = genTempPassword(); const u = { ...m, temp_password: pwd }; await saveMember(u); setRows((r) => r.map((x) => (x.email === m.email ? u : x))); }
       const { subject, html } = inviteEmail({ name: m.name, email: m.email, password: pwd, role: m.role, client: m.client, clientLogoUrl: clientLogo(m.client), loginUrl: LOGIN_URL });
       const res = await sendEmail(m.email, subject, html);
@@ -286,7 +288,7 @@ export default function AccessPage() {
                         they've signed in / onboarded they've set their own
                         password (which is stored hashed and is NEVER visible to
                         anyone), so we stop showing the stale temp one. */}
-                    {st.label === "Invited · pending" && r.temp_password && (
+                    {st.label === "Invited · pending" && r.temp_password && !r.temp_password.startsWith("$2") && (
                       <div className="mt-0.5 text-xs font-normal text-muted-foreground">
                         temp password: <code className="rounded bg-muted px-1 font-mono">{r.temp_password}</code>
                         <span className="ml-1 text-muted-foreground/70">(until they sign in)</span>

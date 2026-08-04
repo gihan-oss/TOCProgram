@@ -1,10 +1,10 @@
 "use client";
 
-// Lifetime data layer. With Supabase env vars set, everything persists to the
-// database (forever, across devices). Without them, it falls back to
+// Lifetime data layer. With the database configured, everything persists to
+// PostgreSQL (forever, across devices). Without it, it falls back to
 // localStorage so the app still works end-to-end in demo mode.
 
-import { getSupabaseBrowserClient } from "./supabase";
+import { apiFetch } from "./api-fetch";
 import type { TocDoc, TocSet } from "./toc-templates";
 import { toTocSet } from "./toc-templates";
 import { normalizeMeta, type LearnerMeta } from "./content";
@@ -38,16 +38,17 @@ const AVKEY = (e: string) => `toc-avatar:${e.toLowerCase()}`;
 // ---------------- Profiles ----------------
 
 export async function getProfile(email: string): Promise<MemberProfile | null> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("profiles").select("*").eq("email", email.toLowerCase()).maybeSingle();
-    const p = (data as MemberProfile | null) ?? null;
-    // Fall back to a locally-kept picture if the DB doesn't have avatar_url yet.
-    if (p && !p.avatar_url) {
-      try { const a = localStorage.getItem(AVKEY(email)); if (a) p.avatar_url = a; } catch {}
+  try {
+    const res = await apiFetch(`/api/profile?email=${encodeURIComponent(email.toLowerCase())}`);
+    if (res.ok) {
+      const p = await res.json() as MemberProfile | null;
+      if (p && !p.avatar_url) {
+        try { const a = localStorage.getItem(AVKEY(email)); if (a) p.avatar_url = a; } catch {}
+      }
+      return p;
     }
-    return p;
-  }
+    return null; // server reachable, response not OK — don't use cache
+  } catch {}
   try {
     const raw = localStorage.getItem(PKEY(email));
     return raw ? (JSON.parse(raw) as MemberProfile) : null;
@@ -58,40 +59,33 @@ export async function getProfile(email: string): Promise<MemberProfile | null> {
 
 export async function saveProfile(profile: MemberProfile): Promise<{ ok: boolean; error?: string }> {
   const row = { ...profile, email: profile.email.toLowerCase(), updated_at: new Date().toISOString() };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    // Keep the picture locally too, so it survives even if the profiles table
-    // doesn't have the avatar_url column yet (schema not re-run).
-    try { if (row.avatar_url) localStorage.setItem(AVKEY(row.email), row.avatar_url); } catch {}
-    let { error } = await sb.from("profiles").upsert(row, { onConflict: "email" });
-    // Unknown-column (avatar_url) → the schema update hasn't been applied. Save
-    // everything else so the profile still persists (picture stays local).
-    if (error && (error.code === "PGRST204" || /avatar_url/i.test(error.message))) {
-      const { avatar_url: _omit, ...rest } = row;
-      ({ error } = await sb.from("profiles").upsert(rest, { onConflict: "email" }));
+  try {
+    if (row.avatar_url) localStorage.setItem(AVKEY(row.email), row.avatar_url);
+    const res = await apiFetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(row),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      console.error("[store] saveProfile failed", err.error ?? res.statusText);
+      return { ok: false, error: err.error ?? res.statusText };
     }
-    if (error) { console.error("[store] saveProfile failed", error.message); return { ok: false, error: error.message }; }
+    return { ok: true };
+  } catch {
+    try { localStorage.setItem(PKEY(profile.email), JSON.stringify(row)); } catch {}
     return { ok: true };
   }
-  try {
-    localStorage.setItem(PKEY(profile.email), JSON.stringify(row));
-  } catch {}
-  return { ok: true };
 }
 
 // ---------------- Notifications ----------------
 
 export async function listNotifications(email: string): Promise<AppNotification[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb
-      .from("notifications")
-      .select("*")
-      .eq("email", email.toLowerCase())
-      .order("created_at", { ascending: false })
-      .limit(50);
-    return (data as AppNotification[] | null) ?? [];
-  }
+  try {
+    const res = await apiFetch(`/api/notifications?email=${encodeURIComponent(email.toLowerCase())}`);
+    if (res.ok) return (await res.json() as AppNotification[]) ?? [];
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   try {
     const raw = localStorage.getItem(NKEY(email));
     return raw ? (JSON.parse(raw) as AppNotification[]) : [];
@@ -109,11 +103,14 @@ export async function addNotification(email: string, title: string, body = ""): 
     read: false,
     created_at: new Date().toISOString(),
   };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    await sb.from("notifications").insert({ email: note.email, title, body });
+  try {
+    await apiFetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: note.email, title, body }),
+    });
     return;
-  }
+  } catch {}
   try {
     const list = await listNotifications(email);
     localStorage.setItem(NKEY(email), JSON.stringify([note, ...list].slice(0, 50)));
@@ -121,11 +118,14 @@ export async function addNotification(email: string, title: string, body = ""): 
 }
 
 export async function markAllRead(email: string): Promise<void> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    await sb.from("notifications").update({ read: true }).eq("email", email.toLowerCase()).eq("read", false);
+  try {
+    await apiFetch("/api/notifications/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase() }),
+    });
     return;
-  }
+  } catch {}
   try {
     const list = await listNotifications(email);
     localStorage.setItem(NKEY(email), JSON.stringify(list.map((n) => ({ ...n, read: true }))));
@@ -154,11 +154,11 @@ export interface Member {
 const MKEY = "toc-members";
 
 export async function listMembers(): Promise<Member[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("members").select("*").order("created_at", { ascending: false });
-    return (data as Member[] | null) ?? [];
-  }
+  try {
+    const res = await apiFetch("/api/members");
+    if (res.ok) return (await res.json() as Member[]) ?? [];
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   try {
     const raw = localStorage.getItem(MKEY);
     return raw ? (JSON.parse(raw) as Member[]) : [];
@@ -169,11 +169,14 @@ export async function listMembers(): Promise<Member[]> {
 
 export async function saveMember(member: Member): Promise<void> {
   const row = { ...member, email: member.email.toLowerCase() };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    await sb.from("members").upsert(row, { onConflict: "email" });
+  try {
+    await apiFetch("/api/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(row),
+    });
     return;
-  }
+  } catch {}
   try {
     const rest = (await listMembers()).filter((m) => m.email !== row.email);
     localStorage.setItem(MKEY, JSON.stringify([{ ...row, created_at: new Date().toISOString() }, ...rest]));
@@ -193,28 +196,25 @@ function asMemberRole(r?: string | null): MemberRole {
 
 export async function checkMemberAccess(email: string): Promise<MemberAccess | null> {
   const e = email.trim().toLowerCase();
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data, error } = await sb.rpc("check_access", { p_email: e });
-    if (!error) {
-      const row = (Array.isArray(data) ? data[0] : data) as { allowed?: boolean; member_role?: string } | null;
+  try {
+    const res = await apiFetch(`/api/members/check?email=${encodeURIComponent(e)}`);
+    if (res.ok) {
+      const row = await res.json() as { allowed?: boolean; member_role?: string } | null;
       if (row?.allowed) return { allowed: true, role: asMemberRole(row.member_role) };
       return null;
     }
-    // RPC missing → schema.sql hasn't been re-run yet; fall through to the
-    // direct read below, which the old open policies still allow.
-  }
+    return null; // server reachable, response not OK — don't use cache
+  } catch {}
   const m = (await listMembers()).find((x) => x.email.trim().toLowerCase() === e);
   return m ? { allowed: true, role: asMemberRole(m.role) } : null;
 }
 
 export async function removeMember(email: string): Promise<void> {
   const e = email.toLowerCase();
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    await sb.from("members").delete().eq("email", e);
+  try {
+    await apiFetch(`/api/members?email=${encodeURIComponent(e)}`, { method: "DELETE" });
     return;
-  }
+  } catch {}
   try {
     const rest = (await listMembers()).filter((m) => m.email !== e);
     localStorage.setItem(MKEY, JSON.stringify(rest));
@@ -226,11 +226,14 @@ export async function removeMember(email: string): Promise<void> {
 const TOC_KEY = (e: string) => `toc-doc:${e.toLowerCase()}`;
 
 export async function loadToc(email: string): Promise<TocDoc | null> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("toc").select("data").eq("email", email.toLowerCase()).maybeSingle();
-    return (data?.data as TocDoc) ?? null;
-  }
+  try {
+    const res = await apiFetch(`/api/toc?email=${encodeURIComponent(email.toLowerCase())}`);
+    if (res.ok) {
+      const data = await res.json();
+      return (data?.data as TocDoc) ?? null;
+    }
+    return null; // server reachable, response not OK — don't use cache
+  } catch {}
   try {
     const raw = localStorage.getItem(TOC_KEY(email));
     return raw ? (JSON.parse(raw) as TocDoc) : null;
@@ -241,11 +244,14 @@ export async function loadToc(email: string): Promise<TocDoc | null> {
 
 export async function saveToc(email: string, doc: TocDoc): Promise<void> {
   const data = { ...doc, updatedAt: new Date().toISOString() };
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    await sb.from("toc").upsert({ email: email.toLowerCase(), data, updated_at: data.updatedAt }, { onConflict: "email" });
+  try {
+    await apiFetch("/api/toc", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase(), data, updated_at: data.updatedAt }),
+    });
     return;
-  }
+  } catch {}
   try {
     localStorage.setItem(TOC_KEY(email), JSON.stringify(data));
   } catch {}
@@ -270,39 +276,37 @@ export interface ProgressRow { email: string; done: string[]; meta: LearnerMeta;
 export interface TocRow { email: string; data: TocDoc; updated_at?: string }
 
 export async function listProfiles(): Promise<MemberProfile[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("profiles").select("*");
-    return (data as MemberProfile[] | null) ?? [];
-  }
+  try {
+    const res = await apiFetch("/api/profiles");
+    if (res.ok) return (await res.json() as MemberProfile[]) ?? [];
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   return [];
 }
 
 export async function listLearnerProgress(): Promise<ProgressRow[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("course_progress").select("email, done, meta, updated_at");
-    return ((data as ProgressRow[] | null) ?? []).map((r) => ({
-      ...r,
-      done: r.done ?? [],
-      // A row created by saveDone leaves `meta` at its DB default `{}` (no
-      // scores/worksheets keys), so normalize — never trust the raw shape.
-      meta: normalizeMeta(r.meta),
-    }));
-  }
+  try {
+    const res = await apiFetch("/api/progress/all");
+    if (res.ok) {
+      return ((await res.json() as ProgressRow[]) ?? []).map((r) => ({
+        ...r,
+        done: r.done ?? [],
+        meta: normalizeMeta(r.meta),
+      }));
+    }
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   return [];
 }
 
 export async function listTocs(): Promise<TocRow[]> {
-  const sb = getSupabaseBrowserClient();
-  if (sb) {
-    const { data } = await sb.from("toc").select("email, data, updated_at");
-    return (data as TocRow[] | null) ?? [];
-  }
+  try {
+    const res = await apiFetch("/api/toc/all");
+    if (res.ok) return (await res.json() as TocRow[]) ?? [];
+    return []; // server reachable, response not OK — don't use cache
+  } catch {}
   return [];
 }
-
-export const isSupabaseConfigured = () => !!getSupabaseBrowserClient();
 
 // ---------------- Email ----------------
 
@@ -313,7 +317,7 @@ export async function sendEmail(
   opts?: { replyTo?: string; replyToName?: string; fromName?: string },
 ): Promise<{ ok: boolean; demo?: boolean; error?: string }> {
   try {
-    const res = await fetch("/api/email", {
+    const res = await apiFetch("/api/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ to, subject, html, replyTo: opts?.replyTo, replyToName: opts?.replyToName, fromName: opts?.fromName }),

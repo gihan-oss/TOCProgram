@@ -6,17 +6,17 @@ import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Button } from "@/components/ui";
 import { Logo } from "@/components/logo";
-import { useAuth } from "@/components/auth";
 import { homeFor } from "@/lib/nav";
 import { MAS } from "@/lib/mas";
+import type { Role } from "@/lib/types";
 
-// Landing page for the "forgot password" email link. Supabase brings the user
-// here with a one-time recovery session already in the URL, which the auth
-// client detects on load — so `user` becomes set. We then let them choose a new
-// password (via updateUser under the hood) and continue into the portal.
+// Landing page for the "forgot password" email link. The link carries a
+// short-lived signed token (?token=...) that lets the user choose a new
+// password without being signed in.
 export default function ResetPasswordPage() {
-  const { user, loading, updatePassword, isDemo } = useAuth();
   const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
+  const [legacySupabase, setLegacySupabase] = useState(false);
   const [checking, setChecking] = useState(true);
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -24,25 +24,48 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  // Give Supabase a moment to establish the recovery session from the URL
-  // before we decide the link is invalid — otherwise we'd flash an error while
-  // it's still being processed.
   useEffect(() => {
-    if (user) { setChecking(false); return; }
-    const t = setTimeout(() => setChecking(false), 4000);
-    return () => clearTimeout(t);
-  }, [user]);
+    try {
+      setToken(new URLSearchParams(window.location.search).get("token"));
+      // Detect legacy Supabase recovery links (hash carries access_token +
+      // type=recovery). The Supabase client used to extract these, but we no
+      // longer include it — guide the user to request a fresh reset link.
+      if (window.location.hash.includes("type=recovery")) {
+        setLegacySupabase(true);
+      }
+    } catch {}
+    setChecking(false);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!token) { setError("This reset link is invalid or has expired. Request a new one."); return; }
     if (newPw.length < 6) { setError("Your password must be at least 6 characters."); return; }
     if (newPw !== confirmPw) { setError("Those passwords don't match."); return; }
     setBusy(true);
-    const res = await updatePassword(newPw);
-    setBusy(false);
-    if (res.error) { setError(res.error); return; }
-    setDone(true);
+    try {
+      const res = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password: newPw }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setBusy(false); setError(data.error ?? "Password update failed."); return; }
+      // The server signs the user in — resolve the session to land on the
+      // right page.
+      let role: Role = "participant";
+      try {
+        const s = await fetch("/api/auth/session");
+        if (s.ok) { const sess = await s.json(); role = (sess?.user?.role as Role) ?? "participant"; }
+      } catch {}
+      setBusy(false);
+      setDone(true);
+      setTimeout(() => router.replace(homeFor(role)), 800);
+    } catch {
+      setBusy(false);
+      setError("Couldn't reach the portal. Check your connection and try again.");
+    }
   }
 
   const Frame = ({ children }: { children: React.ReactNode }) => (
@@ -55,17 +78,7 @@ export default function ResetPasswordPage() {
     </div>
   );
 
-  if (isDemo) {
-    return (
-      <Frame>
-        <h2 className="text-2xl font-bold tracking-tight">Password reset</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Password reset is available once the portal is connected to Supabase authentication.</p>
-        <Link href="/login" className="mt-6 inline-block text-sm font-semibold text-accent hover:underline">Back to sign in</Link>
-      </Frame>
-    );
-  }
-
-  if (loading || (checking && !user)) {
+  if (checking) {
     return (
       <Frame>
         <div className="flex items-center gap-3 text-muted-foreground"><Icons.Loader2 className="h-5 w-5 animate-spin" /> Verifying your reset link…</div>
@@ -73,11 +86,15 @@ export default function ResetPasswordPage() {
     );
   }
 
-  if (!user) {
+  if (!token) {
     return (
       <Frame>
         <h2 className="text-2xl font-bold tracking-tight">Link expired</h2>
-        <p className="mt-2 text-sm text-muted-foreground">This password-reset link is invalid or has expired. Request a new one from the sign-in page.</p>
+        {legacySupabase ? (
+          <p className="mt-2 text-sm text-muted-foreground">You&apos;re using a password-reset link from before our recent upgrade. Those links no longer work — please request a new one from the sign-in page and it will arrive straight away.</p>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">This password-reset link is invalid or has expired. Request a new one from the sign-in page.</p>
+        )}
         <Link href="/login" className="mt-6 inline-block text-sm font-semibold text-accent hover:underline">Back to sign in</Link>
       </Frame>
     );
@@ -89,7 +106,7 @@ export default function ResetPasswordPage() {
         <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]"><Icons.CheckCircle2 className="h-6 w-6" /></div>
         <h2 className="text-2xl font-bold tracking-tight">Password updated</h2>
         <p className="mt-2 text-sm text-muted-foreground">Your new password is set. You can continue into the {MAS.org} portal.</p>
-        <Button size="md" className="mt-6 w-full" onClick={() => router.replace(homeFor(user.role))}>
+        <Button size="md" className="mt-6 w-full" onClick={() => router.replace(homeFor("participant"))}>
           Continue to portal <Icons.ArrowRight className="h-4 w-4" />
         </Button>
       </Frame>
@@ -99,7 +116,7 @@ export default function ResetPasswordPage() {
   return (
     <Frame>
       <h2 className="text-2xl font-bold tracking-tight">Set a new password</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Choose a new password for <span className="font-medium text-foreground">{user.email}</span>.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Choose a new password for your account.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium">New password</span>

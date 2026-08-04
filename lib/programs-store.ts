@@ -4,7 +4,7 @@
 // Legacy single-JSON-doc ({ id: "default", data: [...] }) is migrated once.
 
 import { BaseStore, lsRead, lsWrite } from "./base-store";
-import { getSupabaseBrowserClient } from "./supabase";
+import { apiFetch } from "./api-fetch";
 import { PROGRAMS, type Program } from "./mas";
 
 const PROGRAMS_KEY = "toc-programs";
@@ -51,20 +51,21 @@ const store = new ProgramStore();
 
 // ---- Legacy migration (runs once, best-effort) ----------------------------
 async function migrateLegacy(): Promise<void> {
-  const sb = getSupabaseBrowserClient();
-  if (!sb) return;
   try {
-    const { data: row } = await sb
-      .from("programs")
-      .select("data")
-      .eq("id", "default")
-      .maybeSingle();
+    const res = await apiFetch("/api/programs/legacy");
+    if (!res.ok) return;
+    const row = await res.json();
     const list = row?.data as Program[] | undefined;
     if (!list || list.length === 0) return;
     await Promise.all(list.map((p) =>
-      sb.from("programs").upsert({ ...p2r(p), updated_at: new Date().toISOString() }),
+      apiFetch("/api/programs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // p is a camelCase Program — convert to snake_case rows via p2r.
+        body: JSON.stringify({ ...p2r(p), updated_at: new Date().toISOString() }),
+      }),
     ));
-    await sb.from("programs").delete().eq("id", "default");
+    await apiFetch("/api/programs/legacy", { method: "DELETE" });
   } catch { /* retried next load */ }
 }
 

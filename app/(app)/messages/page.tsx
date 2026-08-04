@@ -119,7 +119,7 @@ function Messages() {
     return (
       <div>
         <SectionTitle sub="Private one-to-one messages with the people in your group.">Messages</SectionTitle>
-        <EmptyHint>Messaging needs the live database (Supabase).</EmptyHint>
+        <EmptyHint>Messaging needs the live database.</EmptyHint>
       </div>
     );
   }

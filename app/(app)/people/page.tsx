@@ -43,7 +43,7 @@ export default function PeoplePage() {
     return (
       <div>
         <SectionTitle sub="See how far your group has come, and message each other.">People</SectionTitle>
-        <EmptyHint>The people directory needs the live database (Supabase).</EmptyHint>
+        <EmptyHint>The people directory needs the live database.</EmptyHint>
       </div>
     );
   }
