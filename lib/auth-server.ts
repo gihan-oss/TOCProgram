@@ -198,9 +198,10 @@ export async function verifyGoogleToken(idToken: string): Promise<GoogleUser | n
     const data = await res.json();
     if (!data.email || !data.email_verified) return null;
     // Bind the token to OUR client ID so ID tokens minted for other Google
-    // apps are rejected.
+    // apps are rejected. Missing CLIENT_ID in production or mismatched audience
+    // both result in rejection.
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (clientId && data.aud !== clientId) return null;
+    if (!clientId || data.aud !== clientId) return null;
     return { email: data.email, name: data.name ?? "", picture: data.picture };
   } catch {
     return null;

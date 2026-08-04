@@ -5,7 +5,8 @@
 # Multi-stage build producing a single self-contained image:
 #   nginx (reverse proxy + static assets) → Next.js.
 #
-# No PostgreSQL, no WebSocket server — data lives in Supabase.
+# PostgreSQL database is managed by docker-compose.yml;
+# app server connects via DATABASE_URL.
 #
 # NOTE ON ENV VARS:
 #   NEXT_PUBLIC_* vars are read by the browser and are baked in at BUILD time,

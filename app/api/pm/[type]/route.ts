@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
-import { requireUser } from "@/lib/api-auth";
+import { requireUser, requireStaff } from "@/lib/api-auth";
 
 // Dynamic PM route: /api/pm/[type]
 // Handles CRUD for: program_tasks, program_financials, program_indicators,
@@ -14,6 +14,31 @@ const ALLOWED_TABLES = [
   "assumptions",
   "evidence",
 ];
+
+// Per-table column whitelist — every column name that appears in a SQL
+// identifier position (scopeColumn, filterCol, INSERT column list,
+// UPDATE SET clause) must be in this set. Any column NOT listed here is
+// rejected with 400. Matches db/init/01-schema.sql exactly.
+const COLUMNS: Record<string, ReadonlySet<string>> = {
+  program_tasks: new Set(["id", "program_id", "title", "description", "status", "due_date", "assignee", "priority", "completed_at", "created_at"]),
+  program_financials: new Set(["id", "program_id", "type", "amount", "description", "category", "date", "created_at"]),
+  program_indicators: new Set(["id", "email", "program_id", "name", "description", "type", "level", "unit", "baseline", "target", "current", "target_date", "frequency", "means_of_verification", "measurements", "created_at"]),
+  program_budget_lines: new Set(["id", "program_id", "category", "description", "amount", "created_at"]),
+  assumptions: new Set(["id", "email", "statement", "owner", "status", "risk", "linked_outcome", "linked_evidence", "created_at", "updated_at"]),
+  evidence: new Set(["id", "email", "name", "kind", "tags", "linked_to", "uploaded_by", "date", "created_at"]),
+};
+
+function validColumns(type: string): ReadonlySet<string> {
+  return COLUMNS[type] ?? new Set();
+}
+
+/** Returns a 400 Response when a column is not in the whitelist, null otherwise. */
+function validateColumn(type: string, col: string): Response | null {
+  if (!validColumns(type).has(col)) {
+    return NextResponse.json({ error: `Unknown column "${col}" for table "${type}"` }, { status: 400 });
+  }
+  return null;
+}
 
 // Columns that hold JSON (jsonb) — the client sends them already stringified
 // (assumptions/evidence stores) or as raw objects (indicator measurements),
@@ -77,10 +102,14 @@ export async function GET(
   const values: unknown[] = [];
 
   if (scopeColumn && scopeValue) {
+    const err = validateColumn(type, scopeColumn);
+    if (err) return err;
     conditions.push(`${scopeColumn} = $${values.length + 1}`);
     values.push(scopeValue);
   }
   if (filterCol && filterVal) {
+    const err = validateColumn(type, filterCol);
+    if (err) return err;
     conditions.push(`${filterCol} = $${values.length + 1}`);
     values.push(filterVal);
   }
@@ -101,8 +130,8 @@ export async function POST(
   if (!ALLOWED_TABLES.includes(type)) {
     return NextResponse.json({ error: "Unknown table" }, { status: 404 });
   }
-  if (!(await requireUser())) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!(await requireStaff(["admin", "facilitator", "coordinator"]))) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
 
   let body: Record<string, unknown>;
@@ -111,6 +140,10 @@ export async function POST(
   }
 
   const columns = Object.keys(body).filter((k) => body[k] !== undefined);
+  for (const col of columns) {
+    const err = validateColumn(type, col);
+    if (err) return err;
+  }
   const values = columns.map((k) => toDbValue(type, k, body[k]));
 
   await execute(
@@ -128,8 +161,8 @@ export async function PUT(
   if (!ALLOWED_TABLES.includes(type)) {
     return NextResponse.json({ error: "Unknown table" }, { status: 404 });
   }
-  if (!(await requireUser())) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!(await requireStaff(["admin", "facilitator", "coordinator"]))) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
 
   const url = new URL(req.url);
@@ -146,6 +179,8 @@ export async function PUT(
   let i = 1;
   for (const [k, v] of Object.entries(body)) {
     if (v !== undefined && k !== "id") {
+      const err = validateColumn(type, k);
+      if (err) return err;
       setClauses.push(`${k} = $${i++}${castCol(type, k)}`);
       values.push(toDbValue(type, k, v));
     }
@@ -168,8 +203,8 @@ export async function DELETE(
   if (!ALLOWED_TABLES.includes(type)) {
     return NextResponse.json({ error: "Unknown table" }, { status: 404 });
   }
-  if (!(await requireUser())) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!(await requireStaff(["admin", "facilitator", "coordinator"]))) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
 
   const url = new URL(req.url);

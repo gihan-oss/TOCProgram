@@ -1,11 +1,28 @@
 import { NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
-import { requireUser } from "@/lib/api-auth";
+import { requireUser, requireStaff } from "@/lib/api-auth";
 
 // GET /api/programs — List all programs (signed-in users)
 // POST /api/programs — Create a program
 // PUT /api/programs/[id] — Update a program
 // DELETE /api/programs/[id] — Delete a program
+
+const PROGRAMS_COLUMNS = new Set([
+  "id", "data", "email",
+  "name", "area", "sub_focus", "question_zero",
+  "input", "baseline", "target", "outcome",
+  "decision", "status", "budget",
+  "department", "region", "team",
+  "created_at", "updated_at",
+]);
+
+/** Returns a 400 Response when a column is not in the whitelist, null otherwise. */
+function validateColumn(col: string): Response | null {
+  if (!PROGRAMS_COLUMNS.has(col)) {
+    return NextResponse.json({ error: `Unknown column "${col}" for table "programs"` }, { status: 400 });
+  }
+  return null;
+}
 
 export async function GET(req: Request) {
   if (!(await requireUser())) {
@@ -22,14 +39,18 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!(await requireUser())) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!(await requireStaff(["admin", "facilitator", "coordinator"]))) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
   const columns = Object.keys(body).filter((k) => body[k] !== undefined);
+  for (const col of columns) {
+    const err = validateColumn(col);
+    if (err) return err;
+  }
   const values = columns.map((k) => body[k]);
   const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
   const colNames = columns.join(", ");
@@ -43,8 +64,8 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  if (!(await requireUser())) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!(await requireStaff(["admin", "facilitator", "coordinator"]))) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
@@ -60,6 +81,8 @@ export async function PUT(req: Request) {
   let i = 1;
   for (const [k, v] of Object.entries(body)) {
     if (v !== undefined && k !== "id") {
+      const err = validateColumn(k);
+      if (err) return err;
       setClauses.push(`${k} = $${i++}`);
       values.push(v);
     }
@@ -75,8 +98,8 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (!(await requireUser())) {
-    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!(await requireStaff(["admin", "facilitator", "coordinator"]))) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
   const url = new URL(req.url);
   const id = url.searchParams.get("id");

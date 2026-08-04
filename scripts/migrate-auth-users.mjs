@@ -40,8 +40,14 @@ for (const line of lines) {
   // email,encrypted_password  (fields cannot contain commas)
   const [email, hash] = line.split(",").map((s) => s.trim());
   if (!email || !hash) { skipped++; continue; }
-  if (!hash.startsWith("$2")) {
-    console.warn(`[skip] ${email}: hash does not look like bcrypt, left untouched`);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    console.warn(`[skip] ${email}: invalid email format`);
+    skipped++;
+    continue;
+  }
+  // bcrypt hashes are always exactly 60 characters ($2a$12$... or $2b$12$...)
+  if (hash.length !== 60 || !hash.startsWith("$2")) {
+    console.warn(`[skip] ${email}: hash does not look like bcrypt (len=${hash.length}), left untouched`);
     skipped++;
     continue;
   }

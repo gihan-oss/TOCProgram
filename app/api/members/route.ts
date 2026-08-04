@@ -39,6 +39,17 @@ export async function POST(req: Request) {
   const email = (body.email as string)?.toLowerCase();
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
+  const VALID_ROLES = new Set(["admin", "participant", "coordinator", "facilitator"]);
+  const VALID_STATUSES = new Set(["Active", "Invited", "Suspended"]);
+  const role = (body.role as string) ?? "participant";
+  const status = (body.status as string) ?? "Invited";
+  if (!VALID_ROLES.has(role)) {
+    return NextResponse.json({ error: `Invalid role: "${role}"` }, { status: 400 });
+  }
+  if (!VALID_STATUSES.has(status)) {
+    return NextResponse.json({ error: `Invalid status: "${status}"` }, { status: 400 });
+  }
+
   // Store invite passwords as bcrypt hashes — never plaintext. (The plaintext
   // is shown to the admin / emailed to the invitee once at invite time.)
   let tempPassword = (body.temp_password as string) ?? "";
@@ -61,8 +72,8 @@ export async function POST(req: Request) {
        client = EXCLUDED.client`,
     [
       email,
-      (body.role as string) ?? "participant",
-      (body.status as string) ?? "Invited",
+      role,
+      status,
       tempPassword,
       (body.client as string) ?? "",
     ],

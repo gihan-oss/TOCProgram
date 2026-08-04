@@ -49,7 +49,7 @@ class ProgramStore extends BaseStore<Program> {
 }
 const store = new ProgramStore();
 
-// ---- Legacy migration (runs once, best-effort) ----------------------------
+// ---- Legacy migration (runs once, safe to retry) --------------------------
 async function migrateLegacy(): Promise<void> {
   try {
     const res = await apiFetch("/api/programs/legacy");
@@ -57,14 +57,24 @@ async function migrateLegacy(): Promise<void> {
     const row = await res.json();
     const list = row?.data as Program[] | undefined;
     if (!list || list.length === 0) return;
-    await Promise.all(list.map((p) =>
-      apiFetch("/api/programs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // p is a camelCase Program — convert to snake_case rows via p2r.
-        body: JSON.stringify({ ...p2r(p), updated_at: new Date().toISOString() }),
+
+    const results = await Promise.all(
+      list.map(async (p) => {
+        const r = await apiFetch("/api/programs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...p2r(p), updated_at: new Date().toISOString() }),
+        });
+        return { id: p.id, ok: r.ok };
       }),
-    ));
+    );
+
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length > 0) {
+      console.warn("[migrateLegacy] Failed to migrate programs:", failed.map((f) => f.id));
+      return; // retry next load — do NOT delete the legacy source
+    }
+
     await apiFetch("/api/programs/legacy", { method: "DELETE" });
   } catch { /* retried next load */ }
 }

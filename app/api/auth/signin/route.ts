@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import {
   hashPassword,
   verifyPassword,
@@ -110,9 +111,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ user: { email, name, role: access.role } });
   }
 
-  // Determine role: static allowlist wins, then members row
+  // Determine role: static allowlist wins, then members row.
   const staticAccess = resolveAccess(email);
   const role = staticAccess.allowed ? staticAccess.role : (member?.role ?? "participant");
+
+  // Block returning users whose member row was removed and who are not on the
+  // static admin allowlist. This mirrors the old client-side resolveWithMembers()
+  // that checked the members table before every sign-in attempt.
+  if (!staticAccess.allowed && !member) {
+    return NextResponse.json({ error: "Access revoked — please contact your administrator." }, { status: 403 });
+  }
 
   // Verify password: users.password_hash first (permanent), then
   // members.temp_password (invite password, plaintext or bcrypt).
@@ -123,12 +131,18 @@ export async function POST(req: Request) {
     if (member.temp_password.startsWith("$2")) {
       pwValid = await verifyPassword(password, member.temp_password);
     } else {
-      pwValid = password === member.temp_password;
+      // Constant-time comparison for plaintext invite passwords.
+      const a = Buffer.from(password);
+      const b = Buffer.from(member.temp_password);
+      pwValid = a.length === b.length && timingSafeEqual(a, b);
     }
   } else {
-    // Neither a permanent password nor an invite password — first sign-in
-    // with no temp password set. Adopt the entered password.
-    pwValid = true;
+    // Neither a permanent password nor an invite password is set — this
+    // user was created without credentials. Require a password reset.
+    return NextResponse.json(
+      { error: "No password is set for this account. Please use the password reset link or contact your administrator." },
+      { status: 401 },
+    );
   }
   if (!pwValid) {
     return NextResponse.json({ error: "Incorrect password. Please use the password from your invitation email." }, { status: 401 });

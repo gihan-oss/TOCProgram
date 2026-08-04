@@ -39,33 +39,33 @@ A Next.js (App Router) + TypeScript + Tailwind CSS app that combines:
 - **Dark mode**, responsive/mobile-friendly layout, accessible, executive-grade design
   inspired by Notion, Airtable, Asana, Miro and Monday.com.
 
-## Authentication (Supabase, with demo fallback)
+## Authentication (server-side, with demo fallback)
 
 Sign-in / sign-up lives at `/login`; the whole portal is gated behind it.
 
-- **Demo mode (default):** with no env vars set, any email + a 6+ char password
-  logs you in (stored locally). The app deploys and works immediately.
-- **Real auth:** create a free **Supabase** project → Settings → API → copy the
-  URL and anon key into env vars (locally `.env.local`, and in Vercel → Settings →
-  Environment Variables). See `.env.example`. The app auto-detects them and
-  switches `/login` to real Supabase email/password accounts — no code changes.
+- **Demo mode (default):** with no `DATABASE_URL` set, the app runs in demo mode —
+  any email + a 6+ char password logs you in (stored in localStorage).
+- **Real auth:** set `DATABASE_URL` (to a PostgreSQL instance) and `AUTH_SECRET`
+  (a 64-char random string). See `.env.example` and `docker-compose.yml`.
+  The app auto-detects the database and switches to real email/password + Google
+  OAuth accounts — no code changes.
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+DATABASE_URL=postgresql://toc_user:toc_password_change_me@db:5432/toc_db
+AUTH_SECRET=please_set_a_long_random_auth_secret
 ```
 
-Auth lives in `components/auth.tsx` (`useAuth()`), the client in `lib/supabase.ts`,
-and the route gate in `components/auth-guard.tsx`.
+Auth lives in `lib/auth-server.ts` (server-side HMAC sessions + Google OAuth),
+`app/api/auth/*` (signin, signup, signout, session, reset routes), and the
+client in `components/auth.tsx` (`useAuth()`).
 
 ## Lifetime data, email & notifications
 
 - **Profiles ("Know Our Members"):** onboarding captures role type, department,
-  commitment, tenure and skills, saved via `lib/store.ts` — to **Supabase**
-  (permanent) when configured, localStorage otherwise. Schema: `supabase/schema.sql`
-  (run the whole file in the Supabase SQL Editor — safe to re-run, and re-running
-  applies the latest security policies).
-- **Security & multi-user testing:** row-level security keeps each learner's
+  commitment, tenure and skills, saved via REST API routes to **PostgreSQL**
+  (permanent) when configured, localStorage otherwise. Schema: `db/init/01-schema.sql`
+  (runs automatically on Docker first boot, and lazily in-process for non-Docker dev).
+- **Security & multi-user testing:** API-level authorization keeps each learner's
   data private (staff can read everything; the member allowlist — which holds
   invite temp passwords — is staff-only, with the login screen using a safe
   `check_access` RPC). Verify a live project with `npm run test:security`,
