@@ -5,15 +5,15 @@ services:
     container_name: toc-portal-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: toc_user
+      POSTGRES_USER: ${POSTGRES_USER:-toc_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toc_password_change_me}
-      POSTGRES_DB: toc_db
+      POSTGRES_DB: ${POSTGRES_DB:-toc_db}
     volumes:
       - db-data:/var/lib/postgresql/data
       # Auto-creates the tables on first boot:
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U toc_user -d toc_db"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -35,7 +35,7 @@ services:
         condition: service_healthy
     environment:
       # Turns on persistence for every data store (profiles, course, chat, PM…).
-      DATABASE_URL: postgresql://toc_user:${POSTGRES_PASSWORD:-toc_password_change_me}@db:5432/toc_db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-toc_user}:${POSTGRES_PASSWORD:-toc_password_change_me}@db:5432/${POSTGRES_DB:-toc_db}
       # Secret used to sign login sessions — set a long random value in .env
       AUTH_SECRET: ${AUTH_SECRET:-please_set_a_long_random_auth_secret}
       # Optional server-only secrets:

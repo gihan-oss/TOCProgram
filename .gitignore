@@ -8,3 +8,6 @@ next-env.d.ts
 .DS_Store
 .vercel
 npm-debug.log*
+*.csv
+*.dump
+/public/uploads/

@@ -42,13 +42,18 @@ function getPool(): Pool | null {
 // Runs once per process, lazily on the first query. Mirrors db/init/01-schema.sql.
 const SCHEMA_SQL = `
 create table if not exists users (
-  email text primary key, name text not null default '',
-  password_hash text, email_verified boolean not null default false,
-  last_sign_in_at timestamptz, created_at timestamptz not null default now()
+  id uuid not null default gen_random_uuid() unique, email text primary key,
+  name text not null default '', encrypted_password text,
+  email_confirmed_at timestamptz, last_sign_in_at timestamptz,
+  raw_user_meta_data jsonb not null default '{}',
+  raw_app_meta_data jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists members (
   email text primary key references users(email),
+  name text not null default '',
   role text not null default 'participant', status text not null default 'Invited',
   temp_password text not null default '', client text not null default '',
   created_at timestamptz not null default now()
@@ -145,7 +150,8 @@ create table if not exists evidence (
   id text primary key, email text, name text not null default '',
   kind text not null default 'URL', tags jsonb not null default '[]',
   linked_to text not null default '', uploaded_by text not null default '',
-  date text not null default '', created_at timestamptz not null default now()
+  date text not null default '', file_path text, file_url text,
+  created_at timestamptz not null default now()
 );
 create index if not exists evidence_email_idx on evidence (email);
 

@@ -31,8 +31,8 @@ export async function POST(req: Request) {
     }
     const hashed = await hashPassword(body.password);
     await execute(
-      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), '', $2)
-       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      `INSERT INTO users (email, name, encrypted_password) VALUES (LOWER($1), '', $2)
+       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password`,
       [email, hashed],
     );
     return NextResponse.json({ ok: true });
@@ -49,8 +49,8 @@ export async function POST(req: Request) {
     }
     const hashed = await hashPassword(body.password);
     await execute(
-      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), '', $2)
-       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      `INSERT INTO users (email, name, encrypted_password) VALUES (LOWER($1), '', $2)
+       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password`,
       [email, hashed],
     );
     // Ensure a members row exists so the user can sign in (static-allowlist

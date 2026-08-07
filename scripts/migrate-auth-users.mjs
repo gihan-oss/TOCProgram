@@ -1,5 +1,5 @@
 // One-time migration: carry existing Supabase passwords into the new
-// PostgreSQL users.password_hash column so users keep their passwords at
+// PostgreSQL users.encrypted_password column so users keep their passwords at
 // cutover (no resets, no re-registration).
 //
 // Supabase stores passwords as bcrypt hashes in auth.users.encrypted_password.
@@ -52,8 +52,8 @@ for (const line of lines) {
     continue;
   }
   await pool.query(
-    `INSERT INTO users (email, name, password_hash) VALUES ($1, '', $2)
-     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+    `INSERT INTO users (email, name, encrypted_password) VALUES ($1, '', $2)
+     ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password`,
     [email.toLowerCase(), hash],
   );
   imported++;

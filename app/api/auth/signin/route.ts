@@ -60,6 +60,14 @@ export async function POST(req: Request) {
       [googleUser.email, googleUser.name, googleUser.picture ?? ""],
     );
     await setSessionCookie(googleUser.email);
+    // Ensure admin-domain users always have role='admin' in members.
+    if (googleUser.email.split('@')[1]?.toLowerCase() === 'amalandcompany.com') {
+      await execute(
+        `INSERT INTO members (email, role, status) VALUES (LOWER($1), 'admin', 'Active')
+         ON CONFLICT (email) DO UPDATE SET role = 'admin'`,
+        [googleUser.email],
+      );
+    }
     // Role resolution matches getSessionUser: static allowlist wins, then the
     // members row.
     const role = access.allowed ? access.role : (member?.role ?? access.role);
@@ -75,8 +83,8 @@ export async function POST(req: Request) {
   }
 
   // Check if user exists (users table) and member exists (members table)
-  const user = await queryOne<{ name: string; password_hash: string | null }>(
-    `SELECT name, password_hash FROM users WHERE LOWER(email) = LOWER($1)`,
+  const user = await queryOne<{ name: string; encrypted_password: string | null }>(
+    `SELECT name, encrypted_password FROM users WHERE LOWER(email) = LOWER($1)`,
     [email],
   );
   const member = await queryOne<{ role: string; temp_password: string }>(
@@ -98,8 +106,8 @@ export async function POST(req: Request) {
     const hashed = await hashPassword(password);
     const name = email.split("@")[0];
     await execute(
-      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), $2, $3)
-       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      `INSERT INTO users (email, name, encrypted_password) VALUES (LOWER($1), $2, $3)
+       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password`,
       [email, name, hashed],
     );
     await execute(
@@ -122,11 +130,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Access revoked — please contact your administrator." }, { status: 403 });
   }
 
-  // Verify password: users.password_hash first (permanent), then
+  // Verify password: users.encrypted_password first (permanent), then
   // members.temp_password (invite password, plaintext or bcrypt).
   let pwValid = false;
-  if (user?.password_hash) {
-    pwValid = await verifyPassword(password, user.password_hash);
+  if (user?.encrypted_password) {
+    pwValid = await verifyPassword(password, user.encrypted_password);
   } else if (member?.temp_password) {
     if (member.temp_password.startsWith("$2")) {
       pwValid = await verifyPassword(password, member.temp_password);
@@ -149,11 +157,11 @@ export async function POST(req: Request) {
   }
 
   // Set/upgrade the permanent password hash in users.
-  if (!user?.password_hash || !user.password_hash.startsWith("$2")) {
+  if (!user?.encrypted_password || !user.encrypted_password.startsWith("$2")) {
     const hashed = await hashPassword(password);
     await execute(
-      `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), $2, $3)
-       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+      `INSERT INTO users (email, name, encrypted_password) VALUES (LOWER($1), $2, $3)
+       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password`,
       [email, displayName, hashed],
     );
   }
@@ -163,5 +171,13 @@ export async function POST(req: Request) {
   }
 
   await setSessionCookie(email);
+  // Ensure admin-domain users always have role='admin' in members.
+  if (email.split('@')[1]?.toLowerCase() === 'amalandcompany.com') {
+    await execute(
+      `INSERT INTO members (email, role, status) VALUES (LOWER($1), 'admin', 'Active')
+       ON CONFLICT (email) DO UPDATE SET role = 'admin'`,
+      [email],
+    );
+  }
   return NextResponse.json({ user: { email, name: displayName, role } });
 }

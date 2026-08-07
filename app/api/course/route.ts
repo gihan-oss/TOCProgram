@@ -5,9 +5,11 @@ import { getSessionEmail } from "@/lib/auth-server";
 // GET /api/course — Read the course document
 // PUT /api/course — Save the course document (staff only)
 
+// Mirrors the original Supabase is_staff() RLS function.
 async function isStaff(): Promise<boolean> {
   const email = await getSessionEmail();
   if (!email) return false;
+  if (email.split('@')[1]?.toLowerCase() === 'amalandcompany.com') return true;
   const row = await queryOne<{ role: string }>(
     `SELECT role FROM members WHERE LOWER(email) = LOWER($1) AND role = 'admin'`,
     [email],

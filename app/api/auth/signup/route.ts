@@ -36,8 +36,8 @@ export async function POST(req: Request) {
 
   // Set the permanent password in users
   await execute(
-    `INSERT INTO users (email, name, password_hash) VALUES (LOWER($1), $2, $3)
-     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, name = EXCLUDED.name`,
+    `INSERT INTO users (email, name, encrypted_password) VALUES (LOWER($1), $2, $3)
+     ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password, name = EXCLUDED.name`,
     [email, displayName, hashed],
   );
 

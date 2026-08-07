@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
 import { getSessionEmail, hashPassword } from "@/lib/auth-server";
 
-// Helper: check if the current user is staff
+// Helper: check if the current user is staff — mirrors the original Supabase
+// is_staff() RLS function: admin-domain users OR members with role='admin'.
 async function isStaff(): Promise<boolean> {
   const email = await getSessionEmail();
   if (!email) return false;
+  if (email.split('@')[1]?.toLowerCase() === 'amalandcompany.com') return true;
   const row = await queryOne<{ role: string }>(
     `SELECT role FROM members WHERE LOWER(email) = LOWER($1) AND role = 'admin'`,
     [email],

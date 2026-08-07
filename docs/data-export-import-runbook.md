@@ -15,22 +15,20 @@ Two separate concerns, two separate target tables:
 
 | Supabase (source) | New PostgreSQL (target) | Notes |
 |---|---|---|
-| `auth.users` (email, `encrypted_password`, name, timestamps) | `users` | Authentication accounts. `encrypted_password` → `password_hash` (bcrypt verbatim). `raw_user_meta_data` → `name` (extracted, with fallback). Google OAuth users have NULL password_hash. See §3.4. |
-| `public.members` | `members` | Invite allowlist. Columns: email (FK → `users.email`), role, status, temp_password, client, created_at. `temp_password` is the admin-set invitation password (emailed to the invitee, consumed on first sign-in, then cleared). The user's permanent password lives in `users.password_hash`. |
-| `public.profiles` | `profiles` | Same columns incl. `avatar_url` |
-| `public.notifications` | `notifications` | `id` uuid → text; new schema defaults `id` to `gen_random_uuid()::text` |
+| `auth.users` (email, `encrypted_password`, name, timestamps) | `users` | Authentication accounts — mirrors `auth.users` 1:1. `encrypted_password` is the bcrypt hash verbatim (NULL for Google OAuth users). `email_confirmed_at` is the Supabase `confirmed_at` timestamp. `raw_user_meta_data` / `raw_app_meta_data` are carried as-is. See §3.4. |
+| `public.members` | `members` | Identical (8 columns: email, name, role, status, temp_password, client, created_at). `temp_password` is the admin-set invitation password (emailed to the invitee, consumed on first sign-in, then cleared). The user's permanent password lives in `users.encrypted_password`. |
+| `public.profiles` | `profiles` | Identical (10 columns incl. `avatar_url`) |
+| `public.notifications` | `notifications` | Identical (id uuid, 6 columns) |
 | `public.course` | `course` | Identical single-row JSON doc |
 | `public.course_progress` | `course_progress` | Identical (done text[], meta jsonb) |
 | `public.clients` | `clients` | Identical single-row JSON doc |
 | `public.toc` | `toc` | Identical per-learner JSON |
-| `public.messages` | `messages` | `id` uuid → text; default generated |
-| `public.dms` | `dms` | `id` uuid → text; default generated |
-| `public.programs` + PM tables | `programs` / `program_tasks` / `program_financials` / `program_indicators` / `program_budget_lines` | See column notes in §5 |
-| `public.assumptions` / `public.evidence` | `assumptions` / `evidence` | Mostly identical |
-| `public.program_assignments` | *(not in app schema)* | Preserve manually if it has rows — see §5 |
+| `public.messages` | `messages` | Identical (id uuid, 6 columns) |
+| `public.dms` | `dms` | Identical (id uuid, 7 columns) |
+| `public.program_assignments` | *(not in app schema)* | Exists in Supabase but has 0 rows; preserve manually if it ever gains rows — see §5 |
 | `storage.objects` (`course-files` bucket) | `public/uploads/` (Docker volume `uploads-data`) | Files downloaded from Supabase Storage, placed in the container volume, served at `/uploads/...`. Old URLs in `course.modules` and `profiles.avatar_url` updated via SQL — see §3.5.3 |
 
-Per the earlier migration docs, `programs`, the PM tables, `assumptions`, `evidence` and `program_assignments` were **not deployed** to Supabase (the app ran those on localStorage), so they are normally empty. Export them anyway and include them only if their row counts are non-zero.
+`programs`, the PM tables, `assumptions`, and `evidence` were **never deployed** to Supabase (the app used localStorage for them). They are excluded from the export queries below. `program_assignments` exists but is empty (0 rows); export it only if a future count shows rows.
 
 ---
 
@@ -69,13 +67,6 @@ union all select 'toc', count(*) from public.toc
 union all select 'messages', count(*) from public.messages
 union all select 'dms', count(*) from public.dms
 union all select 'program_assignments', count(*) from public.program_assignments
-union all select 'programs', count(*) from public.programs
-union all select 'program_tasks', count(*) from public.program_tasks
-union all select 'program_financials', count(*) from public.program_financials
-union all select 'program_indicators', count(*) from public.program_indicators
-union all select 'program_budget_lines', count(*) from public.program_budget_lines
-union all select 'assumptions', count(*) from public.assumptions
-union all select 'evidence', count(*) from public.evidence
 union all select 'auth_users (non-deleted)', count(*) from auth.users where deleted_at is null
 union all select 'auth_users (total)', count(*) from auth.users
 union all select 'storage_objects', count(*) from storage.objects;
@@ -87,98 +78,69 @@ Run each `SELECT` below individually, then download the result as CSV. Save the 
 
 ```sql
 -- members (allowlist + invitations)
-select email, role, status, temp_password, client, created_at
-from public.members order by created_at;
+select * from public.members order by created_at;
 -- Save as: members.csv
 
 -- profiles ("Know Our Members")
-select email, name, role_type, department, commitment, tenure, skills, onboarded, avatar_url, updated_at
-from public.profiles order by email;
+select * from public.profiles order by email;
 -- Save as: profiles.csv
 
 -- notifications
-select id, email, title, body, read, created_at
-from public.notifications order by created_at;
+select * from public.notifications order by created_at;
 -- Save as: notifications.csv
 
 -- course (single shared document)
-select id, modules, updated_at from public.course;
+select * from public.course;
 -- Save as: course.csv
 
 -- course_progress (per-learner completion)
-select email, done, meta, updated_at
-from public.course_progress order by email;
+select * from public.course_progress order by email;
 -- Save as: course_progress.csv
 
 -- clients (single shared directory)
-select id, data, updated_at from public.clients;
+select * from public.clients;
 -- Save as: clients.csv
 
 -- toc (per-learner Theory of Change)
-select email, data, updated_at from public.toc order by email;
+select * from public.toc order by email;
 -- Save as: toc.csv
 
 -- messages (group chat per client)
-select id, client, email, name, body, created_at
-from public.messages order by created_at;
+select * from public.messages order by created_at;
 -- Save as: messages.csv
 
 -- dms (1:1 direct messages)
-select id, from_email, to_email, from_name, body, read, created_at
-from public.dms order by created_at;
+select * from public.dms order by created_at;
 -- Save as: dms.csv
 ```
 
-### 3.3 Optional tables — export only if §3.1 counts were > 0
+### 3.3 Optional table — export only if §3.1 count was > 0
 
-Most of these tables were not deployed to Supabase (the app used localStorage for them), so they are normally empty. If any counts were non-zero, export them with the queries below (see §5 for column-specific notes).
+`program_assignments` exists in Supabase but the app does not use it yet (the target schema does not include it). If it ever gains rows and you want to preserve them, create the table in the target first (see §5), then export:
 
 ```sql
 select * from public.program_assignments order by created_at;
 -- Save as: program_assignments.csv
-
-select id, data, email, name, area, sub_focus, question_zero, input, baseline, target,
-       outcome, decision, status, budget, department, region,
-       coalesce((select array_agg(x::text) from jsonb_array_elements_text(team) x), '{}') as team,
-       updated_at
-from public.programs;
--- Save as: programs.csv
-
-select * from public.program_tasks order by created_at;
--- Save as: program_tasks.csv
-
-select * from public.program_financials order by created_at;
--- Save as: program_financials.csv
-
-select * from public.program_indicators order by created_at;
--- Save as: program_indicators.csv
-
-select * from public.program_budget_lines order by created_at;
--- Save as: program_budget_lines.csv
-
-select * from public.assumptions order by created_at;
--- Save as: assumptions.csv
-
-select id, email, name, kind, tags, linked_to, uploaded_by, date, created_at
-from public.evidence order by created_at;
--- Save as: evidence.csv
--- (columns file_path and file_url are omitted — the target schema doesn't have them)
 ```
 
 ### 3.4 Auth users → `users` table
 
 `auth.users` holds the actual sign-in accounts. This migrates to a dedicated `users` table — separate from `members` (the invite allowlist). The two are linked by email.
 
-The target `users` table:
+The target `users` table (mirrors `auth.users`):
 
 ```sql
 create table if not exists users (
-  email            text primary key,
-  name             text not null default '',
-  password_hash    text,                          -- NULL for Google OAuth users
-  email_verified   boolean not null default false,
-  last_sign_in_at  timestamptz,
-  created_at       timestamptz not null default now()
+  id                  uuid not null default gen_random_uuid() unique,
+  email               text primary key,
+  name                text not null default '',
+  encrypted_password  text,                          -- NULL for Google OAuth users
+  email_confirmed_at  timestamptz,                   -- Supabase confirmed_at
+  last_sign_in_at     timestamptz,
+  raw_user_meta_data  jsonb not null default '{}',
+  raw_app_meta_data   jsonb not null default '{}',
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
 );
 ```
 
@@ -187,38 +149,30 @@ create table if not exists users (
 ```sql
 select
   email,
-  encrypted_password as password_hash,
+  encrypted_password,
   coalesce(
     raw_user_meta_data->>'name',
     raw_user_meta_data->>'full_name',
     raw_user_meta_data->>'user_name',
     split_part(email, '@', 1)
   ) as name,
-  (confirmed_at is not null) as email_verified,
+  confirmed_at as email_confirmed_at,
   last_sign_in_at,
-  created_at
+  raw_user_meta_data,
+  raw_app_meta_data,
+  created_at,
+  updated_at
 from auth.users
 where email is not null and deleted_at is null
 order by created_at;
 -- Save as: auth-users.csv
 ```
 
-Supabase hashes are bcrypt (`$2a$`/`$2b$`), which bcryptjs verifies as-is — users keep their exact passwords. Google OAuth users have NULL `password_hash`; the migration script skips those rows (they authenticate via Google, not a password).
+Supabase hashes are bcrypt (`$2a$`/`$2b$`), which bcryptjs verifies as-is — users keep their exact passwords. Google OAuth users have NULL `encrypted_password`; they authenticate via Google, not a password. The `name` column is extracted from `raw_user_meta_data` with a fallback to the email prefix. Review `auth-users.csv` and fix any fallback names before importing.
 
-The `name` column is extracted from `raw_user_meta_data` with a fallback to the email prefix. Review `auth-users.csv` and fix any fallback names before importing.
+#### 3.4.2 Members allowlist (already covered in §3.2)
 
-#### 3.4.2 Export members (the allowlist — already covered in §3.2)
-
-The `members` table is the invite allowlist — email, role, status, temp_password, client. The export query in §3.2 already produces `members.csv`. The target `members` table no longer has a `name` column — display names live in `users.name` (or `profiles.name`). `temp_password` stays: it holds the admin-set invitation password, distinct from the user's permanent `users.password_hash`.
-
-> **Implementation note:** The current codebase (`lib/db.ts` inline schema, `app/api/auth/*` routes, `scripts/migrate-auth-users.mjs`) stores both the user's bcrypt hash and the invite password in `members.temp_password`, and uses `members.name` for display. These must be updated to use the `users` table before running this runbook. The runbook describes the target state.
-
-```sql
--- Already in §3.2 — repeated here for clarity
-select email, role, status, client, created_at
-from public.members order by created_at;
--- Save as: members.csv
-```
+The `members` table is copied 1:1 from Supabase (§3.2, `select *`). It holds the invite allowlist — email, name, role, status, temp_password, client, created_at. `temp_password` is the admin-set invitation password, distinct from the user's permanent `users.encrypted_password`.
 
 > **Important:** After the migration, `members.email` references `users.email`. Import `auth-users.csv` (→ `users`) **before** `members.csv` (→ `members`), otherwise the foreign key constraint fails.
 
@@ -387,39 +341,35 @@ docker exec -i toc-portal-db psql -U toc_user -d toc_db -c \
 
 ### 4.1 Passwords (already handled by the `users` import)
 
-The CSV import in Step 1 above already loads `password_hash` into the `users` table. No separate migration script is needed — `auth-users.csv` carries the bcrypt hashes in the `password_hash` column, and the `\copy` loads them directly.
+The CSV import in Step 1 above already loads `encrypted_password` into the `users` table. No separate migration script is needed — `auth-users.csv` carries the bcrypt hashes in the `encrypted_password` column, and the `\copy` loads them directly.
 
 Verify that every email/password user has a bcrypt hash and every Google user has NULL:
 
 ```bash
 docker exec -i toc-portal-db psql -U toc_user -d toc_db -c \
   "SELECT
-     count(*) FILTER (WHERE password_hash IS NOT NULL AND password_hash LIKE '\$2%') AS email_users,
-     count(*) FILTER (WHERE password_hash IS NULL) AS google_users,
-     count(*) FILTER (WHERE password_hash IS NOT NULL AND password_hash NOT LIKE '\$2%') AS needs_review
+     count(*) FILTER (WHERE encrypted_password IS NOT NULL AND encrypted_password LIKE '\$2%') AS email_users,
+     count(*) FILTER (WHERE encrypted_password IS NULL) AS google_users,
+     count(*) FILTER (WHERE encrypted_password IS NOT NULL AND encrypted_password NOT LIKE '\$2%') AS needs_review
    FROM users;"
 -- needs_review must be 0.
 
 ---
 
-## 5. Column notes for the optional tables
+## 5. Column note for `program_assignments`
 
-Import these only if the §3.1 counts were non-zero.
+The app does not use this table yet, so it is not in the target schema. If it has rows and you want to preserve them, create it in the target before importing:
 
-- **`programs`** — target `team` is `text[]`, source is `jsonb`. The SELECT query in §3.3 already handles the `jsonb_array_elements_text` transform. Source has no `created_at`; the target defaults it to `now()`.
-- **`program_tasks` / `program_financials` / `program_indicators`** — source ids are uuid, dates are `date`/`timestamptz`; target ids are `text`. The CSV import casts values to text automatically, so plain `select *` exports work.
-- **`evidence`** — source has extra `file_path`/`file_url` columns the target lacks. The SELECT query in §3.3 already excludes them.
-- **`program_assignments`** — the app does not use this table yet, so it is not in the target schema. If it has rows and you want to preserve them, create it in the target before importing:
-  ```sql
-  create table if not exists program_assignments (
-    id          text primary key default gen_random_uuid()::text,
-    program_id  text not null,
-    email       text not null,
-    assigned_by text not null default '',
-    created_at  timestamptz not null default now(),
-    unique (program_id, email)
-  );
-  ```
+```sql
+create table if not exists program_assignments (
+  id          uuid primary key default gen_random_uuid(),
+  program_id  text not null,
+  email       text not null,
+  assigned_by text not null default '',
+  created_at  timestamptz not null default now(),
+  unique (program_id, email)
+);
+```
 
 ---
 
