@@ -44,16 +44,14 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
     ports:
-      - "3000:80"
-      # Uncomment to expose HTTPS (requires ssl/ volume below):
-      # - "3443:443"
+      - "80:80"
+      - "443:443"
     volumes:
       # Uploaded course files survive container rebuilds.
       - uploads-data:/app/public/uploads
-    # SSL certificates for HTTPS (optional).
-    # Place fullchain.pem and privkey.pem in ./ssl/ and uncomment the line below:
-    # volumes:
-    #   - ./ssl:/etc/nginx/ssl:ro
+      # SSL certificates for HTTPS.
+      # Place fullchain.pem and privkey.pem in ./ssl/ and rebuild:
+      - ./ssl:/etc/nginx/ssl:ro
 
 volumes:
   db-data:
