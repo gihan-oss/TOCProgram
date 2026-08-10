@@ -5,6 +5,7 @@ import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, SectionTitle, Button } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { useAuth } from "@/components/auth";
 import { ADMIN_EMAILS, LEARNER_EMAILS } from "@/lib/access";
 import { addNotification, sendEmail, listMembers, listProfiles, saveMember, removeMember, type Member, type MemberProfile } from "@/lib/store";
 import { inviteEmail, genTempPassword } from "@/lib/email-templates";
@@ -46,6 +47,7 @@ export default function AccessPage() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const toast = useToast();
+  const { isDemo } = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -172,6 +174,29 @@ export default function AccessPage() {
     }
     setBusy(false);
     toast(`${sent}/${invited.length} credential email${invited.length !== 1 ? "s" : ""} ${demo ? "simulated" : "sent"}.`, "success");
+  }
+
+  // Reset the password for a member who's already signed in (their invite
+  // temp password is long gone). The server sets a fresh temp password we
+  // can hand straight to the person.
+  async function resetPw(m: Member) {
+    if (!window.confirm(`Reset the password for ${m.email}?`)) return;
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: m.email }),
+      });
+      const data = (await res.json()) as { ok?: boolean; password?: string; code?: string; error?: string };
+      if (res.ok && data.ok && data.password) {
+        window.prompt(`New temporary password for ${m.email} — copy it and share it. They can change it after signing in.`, data.password);
+        toast(`Password reset for ${m.email}`, "success");
+        return;
+      }
+      toast(data.error ?? "Couldn't reset password", "error");
+    } catch {
+      toast("Couldn't reach the server. Check your connection.", "error");
+    }
   }
 
   async function remove(target: string) {
@@ -322,9 +347,13 @@ export default function AccessPage() {
                       <button onClick={() => setEditing(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-foreground/70 hover:bg-secondary" title="Edit person">
                         <Icons.Pencil className="h-3.5 w-3.5" /> Edit
                       </button>
-                      {r.status === "Invited" && (
+                      {r.status === "Invited" ? (
                         <button onClick={() => resend(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10" title="Resend credentials email">
                           <Icons.Send className="h-3.5 w-3.5" /> Resend
+                        </button>
+                      ) : (
+                        <button onClick={() => resetPw(r)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-accent hover:bg-accent/10" title="Generate a new temporary password for this person">
+                          <Icons.KeyRound className="h-3.5 w-3.5" /> Reset password
                         </button>
                       )}
                       <button onClick={() => remove(r.email)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger)/0.1)]">

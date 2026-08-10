@@ -55,42 +55,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
 
+  // Resolve the portal role, but never let a slow or unreachable members
+  // check trap the user on the loading screen — fall back to the static-
+  // allowlist role after a few seconds.
+  const roleFor = async (email: string): Promise<Role> => {
+    const fallback = resolveAccess(email).role;
+    try {
+      return await Promise.race([
+        resolveWithMembers(email).then((a) => a.role),
+        new Promise<Role>((resolve) => setTimeout(() => resolve(fallback), 6000)),
+      ]);
+    } catch {
+      return fallback;
+    }
+  };
+
   const buildUser = async (email: string, name?: string): Promise<AuthUser> => ({
     email,
     name: name || nameFromEmail(email),
-    role: (await resolveWithMembers(email)).role,
+    role: await roleFor(email),
   });
 
   // Check for an existing session on mount.
   useEffect(() => {
+    let active = true;
+    // Hard failsafe: whatever happens, stop showing the loading spinner so
+    // users are never stuck staring at it.
+    const failsafe = setTimeout(() => { if (active) setLoading(false); }, 8000);
+
     (async () => {
       let serverReached = false;
       try {
         const res = await apiFetch("/api/auth/session");
         serverReached = true;
-        if (res.ok) {
+        if (active && res.ok) {
           const data = await res.json();
           if (data.user) {
-            setUser(await buildUser(data.user.email, data.user.name));
-            setIsDemo(false);
-            setLoading(false);
+            if (active) setUser(await buildUser(data.user.email, data.user.name));
+            if (active) setIsDemo(false);
+            clearTimeout(failsafe);
+            if (active) setLoading(false);
             return;
           }
         }
       } catch {}
       // Demo mode only when the API was unreachable (offline / no DB). A
       // reachable API that reports "no session" is NOT demo mode.
-      if (!serverReached) {
+      if (active && !serverReached) {
         try {
           const raw = localStorage.getItem(DEMO_KEY);
           if (raw) {
-            setUser(JSON.parse(raw));
-            setIsDemo(true);
+            if (active) setUser(JSON.parse(raw));
+            if (active) setIsDemo(true);
           }
         } catch {}
       }
-      setLoading(false);
+      clearTimeout(failsafe);
+      if (active) setLoading(false);
     })();
+
+    return () => { active = false; clearTimeout(failsafe); };
   }, []);
 
   const signIn: AuthState["signIn"] = async (email, password) => {

@@ -148,6 +148,30 @@ export function inviteEmail(opts: {
   return { subject, html: shell("Your Impact Portal account is ready — sign in and get started.", inner, { clientLogoUrl, clientName: client }) };
 }
 
+// ---- Password reset (branded, sent via Brevo instead of plain text) --------
+export function resetEmail(opts: { name?: string; email: string; resetUrl: string }): { subject: string; html: string } {
+  const { name, resetUrl } = opts;
+  const greetName = name && name.trim() ? name.trim().split(" ")[0] : "there";
+  const subject = `Reset your ${MAS.partner} Impact Portal password`;
+  const inner = `
+    ${hero("Password reset", `Reset your<br>portal password`, `Set a new password for your ${MAS.partner} Impact Portal account.`)}
+
+    <tr><td class="px" style="padding:18px 36px 4px 36px;font-family:Arial,Helvetica,sans-serif;color:${BRAND.ink};font-size:15px;line-height:1.6;">
+      <p style="margin:0 0 6px;">Assalamu Alaikum ${greetName},</p>
+      <p style="margin:0;color:${BRAND.soft};">We received a request to reset your password. Click below to choose a new one.</p>
+    </td></tr>
+
+    <tr><td class="px" style="padding:18px 36px 6px 36px;font-family:Arial,Helvetica,sans-serif;">
+      ${button(resetUrl, "Reset your password →")}
+      <div style="margin-top:10px;font-size:13px;color:${BRAND.soft};">If the button doesn't work, copy and paste this link into your browser:<br><span style="color:${BRAND.blue};word-break:break-all;">${resetUrl}</span></div>
+    </td></tr>
+
+    <tr><td class="px" style="padding:14px 36px 4px 36px;font-family:Arial,Helvetica,sans-serif;">
+      <div style="font-size:13px;color:${BRAND.soft};">Didn't request this? You can safely ignore this email — your password won't change.</div>
+    </td></tr>`;
+  return { subject, html: shell("Reset your Impact Portal password", inner) };
+}
+
 // ---- Welcome (once onboarding is done) ------------------------------------
 export function welcomeEmail(opts: {
   name?: string;

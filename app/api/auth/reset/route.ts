@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth-server";
 import { queryOne, execute } from "@/lib/db";
 import { sendEmailServer } from "@/lib/email-server";
+import { resetEmail } from "@/lib/email-templates";
 import { resolveAccess } from "@/lib/access";
 
 // POST /api/auth/reset
@@ -79,15 +80,8 @@ export async function POST(req: Request) {
       const token = createResetToken(user?.email ?? body.email);
       const origin = new URL(req.url).origin;
       const link = `${origin}/reset?token=${encodeURIComponent(token)}`;
-      const html = `<p>Hi${user?.name ? ` ${user.name}` : ""},</p>
-        <p>You asked to reset your password for the Impact Portal.</p>
-        <p><a href="${link}">Choose a new password</a></p>
-        <p>This link expires in 1 hour. If you didn't ask for it, you can safely ignore this email.</p>`;
-      await sendEmailServer({
-        to: user?.email ?? body.email,
-        subject: "Reset your Impact Portal password",
-        html,
-      }).catch(() => {});
+      const { subject, html } = resetEmail({ name: user?.name, email: user?.email ?? body.email, resetUrl: link });
+      await sendEmailServer({ to: user?.email ?? body.email, subject, html }).catch(() => {});
     }
     return NextResponse.json({ ok: true });
   }

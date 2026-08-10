@@ -68,16 +68,6 @@ export default function ResetPasswordPage() {
     }
   }
 
-  const Frame = ({ children }: { children: React.ReactNode }) => (
-    <div className="relative flex min-h-screen items-center justify-center bg-background p-6">
-      <div className="fixed inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-primary via-accent to-primary" />
-      <div className="w-full max-w-sm animate-fade-up">
-        <div className="mb-8"><Logo subtitle="Impact Portal" size="md" /></div>
-        {children}
-      </div>
-    </div>
-  );
-
   if (checking) {
     return (
       <Frame>
@@ -132,5 +122,20 @@ export default function ResetPasswordPage() {
         </Button>
       </form>
     </Frame>
+  );
+}
+
+// Defined at module scope (NOT inside the component) so it keeps a stable
+// component identity across renders — otherwise React would remount the whole
+// subtree on every keystroke, and the password inputs would lose focus.
+function Frame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="fixed inset-x-0 top-0 z-20 h-1 bg-gradient-to-r from-primary via-accent to-primary" />
+      <div className="w-full max-w-sm animate-fade-up">
+        <div className="mb-8"><Logo subtitle="Impact Portal" size="md" /></div>
+        {children}
+      </div>
+    </div>
   );
 }
