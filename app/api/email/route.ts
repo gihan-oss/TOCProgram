@@ -40,18 +40,23 @@ export async function GET() {
   const acct = await fetch("https://api.brevo.com/v3/account", { headers: { "api-key": key, accept: "application/json" } });
   const keyWorks = acct.ok;
   const senders = keyWorks ? await brevoVerifiedSenders(key) : [];
+  const fromEmail = parseFrom(from).email.toLowerCase();
+  const fromAuthorized = senders.some((s) => s.email.toLowerCase() === fromEmail);
   return NextResponse.json({
     provider: "brevo",
     brevoKeyPresent: true,
     keyWorks,
     keyError: keyWorks ? undefined : (await acct.text()).slice(0, 200),
     emailFrom: from,
+    fromAuthorized,
     verifiedSenders: senders.map((s) => s.email),
-    note: keyWorks
-      ? senders.length === 0
-        ? "Key works but NO verified senders — add & verify a sender in Brevo."
-        : "Ready. Sends will use a verified sender automatically."
-      : "Key rejected by Brevo — check the key / account activation.",
+    note: !keyWorks
+      ? "Key rejected by Brevo — check the key / account activation."
+      : senders.length === 0
+        ? "Key works but NO authorized senders — add & verify a sender in Brevo."
+        : fromAuthorized
+          ? "Ready. EMAIL_FROM is an authorized sender."
+          : `EMAIL_FROM (${parseFrom(from).email}) is NOT an authorized sender — Brevo would BLOCK it ("unauthorized"). Sends now auto-use an authorized sender (${senders[0].email}); to send from EMAIL_FROM, verify it or authenticate the domain in Brevo.`,
   });
 }
 

@@ -63,21 +63,30 @@ export async function sendEmailServer({ to, subject, html, replyTo, replyToName,
 
   // ---- Brevo (preferred, self-healing sender) ----
   if (brevoKey) {
-    let res = await brevoSend(brevoKey, from, to, subject, html, replyToObj);
-    if (res.ok) return { ok: true, provider: "brevo" };
-
-    const firstErr = (await res.text()).slice(0, 200);
-
-    // Likely an unverified sender — fall back to a verified one and retry once.
+    // Resolve to an AUTHORIZED sender BEFORE sending. Brevo will accept a send
+    // over the API (HTTP 201 → res.ok) from an address that is not an authorized
+    // sender, then block delivery downstream with status "Blocked – unauthorized".
+    // So res.ok alone is not proof of delivery. If EMAIL_FROM isn't an authorized
+    // sender, send from the first authorized one instead (keeping the display
+    // name), which prevents the unauthorized-sender block entirely.
     const verified = await brevoVerifiedSenders(brevoKey);
-    if (verified.length > 0 && verified[0].email.toLowerCase() !== from.email.toLowerCase()) {
-      res = await brevoSend(brevoKey, { name: from.name, email: verified[0].email }, to, subject, html, replyToObj);
-      if (res.ok) return { ok: true, provider: "brevo", usedSender: verified[0].email, healed: true };
+    if (verified.length === 0) {
+      console.error("[email] Brevo error: no authorized senders — add & verify one");
+      return { ok: false, error: "Brevo: no authorized senders in Brevo — add & verify one" };
     }
+    const fromAuthorized = verified.some((v) => v.email.toLowerCase() === from.email.toLowerCase());
+    const sender = fromAuthorized ? from : { name: from.name, email: verified[0].email };
 
-    const detail = verified.length === 0
-      ? "no verified senders in Brevo — add & verify one"
-      : firstErr;
+    const res = await brevoSend(brevoKey, sender, to, subject, html, replyToObj);
+    if (res.ok) {
+      return {
+        ok: true,
+        provider: "brevo",
+        usedSender: sender.email,
+        healed: sender.email.toLowerCase() !== from.email.toLowerCase(),
+      };
+    }
+    const detail = (await res.text()).slice(0, 200);
     console.error("[email] Brevo error:", detail);
     return { ok: false, error: `Brevo: ${detail}`.slice(0, 280) };
   }
