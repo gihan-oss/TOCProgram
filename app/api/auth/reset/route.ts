@@ -89,6 +89,8 @@ export async function POST(req: Request) {
       const result = await sendEmailServer({ to: user?.email ?? body.email, subject, html });
       if (!result.ok) {
         console.error("[auth/reset] Failed to send reset email:", result.error);
+      } else {
+        console.log(`[auth/reset] Reset email sent to ${user?.email ?? body.email} via ${result.provider}${result.usedSender ? ` (fallback sender ${result.usedSender})` : ""}${result.demo ? " [simulated]" : ""}`);
       }
     } else {
       // Response is always {ok:true} to avoid leaking which emails exist —
