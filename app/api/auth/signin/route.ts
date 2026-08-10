@@ -35,8 +35,8 @@ export async function POST(req: Request) {
     if (!member) {
       const role = access.role;
       await execute(
-        `INSERT INTO users (email, name) VALUES (LOWER($1), $2)
-         ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name`,
+        `INSERT INTO users (email, name, last_sign_in_at, updated_at) VALUES (LOWER($1), $2, NOW(), NOW())
+         ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, last_sign_in_at = NOW(), updated_at = NOW()`,
         [googleUser.email, googleUser.name],
       );
       await execute(
@@ -47,8 +47,8 @@ export async function POST(req: Request) {
     } else {
       // Update name in users for existing members
       await execute(
-        `INSERT INTO users (email, name) VALUES (LOWER($1), $2)
-         ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name`,
+        `INSERT INTO users (email, name, last_sign_in_at, updated_at) VALUES (LOWER($1), $2, NOW(), NOW())
+         ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, last_sign_in_at = NOW(), updated_at = NOW()`,
         [googleUser.email, googleUser.name],
       );
     }
@@ -106,8 +106,8 @@ export async function POST(req: Request) {
     const hashed = await hashPassword(password);
     const name = email.split("@")[0];
     await execute(
-      `INSERT INTO users (email, name, encrypted_password) VALUES (LOWER($1), $2, $3)
-       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password`,
+      `INSERT INTO users (email, name, encrypted_password, last_sign_in_at, updated_at) VALUES (LOWER($1), $2, $3, NOW(), NOW())
+       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password, last_sign_in_at = NOW(), updated_at = NOW()`,
       [email, name, hashed],
     );
     await execute(
@@ -160,9 +160,15 @@ export async function POST(req: Request) {
   if (!user?.encrypted_password || !user.encrypted_password.startsWith("$2")) {
     const hashed = await hashPassword(password);
     await execute(
-      `INSERT INTO users (email, name, encrypted_password) VALUES (LOWER($1), $2, $3)
-       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password`,
+      `INSERT INTO users (email, name, encrypted_password, last_sign_in_at, updated_at) VALUES (LOWER($1), $2, $3, NOW(), NOW())
+       ON CONFLICT (email) DO UPDATE SET encrypted_password = EXCLUDED.encrypted_password, last_sign_in_at = NOW(), updated_at = NOW()`,
       [email, displayName, hashed],
+    );
+  } else {
+    // Password is already bcrypt — still bump the sign-in timestamps.
+    await execute(
+      `UPDATE users SET last_sign_in_at = NOW(), updated_at = NOW() WHERE LOWER(email) = LOWER($1)`,
+      [email],
     );
   }
   // Clear the one-time invite password once the permanent one is set.
