@@ -21,7 +21,7 @@ export async function GET() {
     return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
   const rows = await query(
-    `SELECT m.email, u.name, m.role, m.status, m.temp_password, m.client, m.created_at
+    `SELECT m.email, u.name, m.role, m.status, m.temp_password, m.client, m.created_at, u.last_sign_in_at
      FROM members m
      LEFT JOIN users u ON LOWER(u.email) = LOWER(m.email)
      ORDER BY m.created_at DESC`,

@@ -67,8 +67,11 @@ export default function AccessPage() {
   const profByEmail = new Map(profiles.map((p) => [p.email.toLowerCase(), p]));
   function statusOf(m: Member): { label: string; tone: "success" | "accent" | "warning" | "muted"; icon: string; since?: string } {
     const p = profByEmail.get(m.email.toLowerCase());
-    if (p?.onboarded) return { label: "Onboarded", tone: "success", icon: "CheckCircle2", since: p.updated_at };
-    if (p) return { label: "Opened portal", tone: "accent", icon: "LogIn", since: p.updated_at };
+    // last_sign_in_at reflects every visit; profile updated_at only reflects a
+    // profile save, so prefer the former and fall back for older accounts.
+    const since = m.last_sign_in_at ?? p?.updated_at;
+    if (p?.onboarded) return { label: "Onboarded", tone: "success", icon: "CheckCircle2", since };
+    if (p) return { label: "Opened portal", tone: "accent", icon: "LogIn", since };
     if (m.status === "Active") return { label: "Active", tone: "success", icon: "CheckCircle2" };
     return { label: "Invited · pending", tone: "warning", icon: "Clock" };
   }

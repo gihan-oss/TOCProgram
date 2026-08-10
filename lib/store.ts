@@ -149,6 +149,7 @@ export interface Member {
   temp_password: string; // admin-set invite password, cleared after first sign-in
   client?: string;       // which client (organization) they belong to
   created_at?: string;
+  last_sign_in_at?: string; // joined from users table — the real last-seen signal
 }
 
 const MKEY = "toc-members";
