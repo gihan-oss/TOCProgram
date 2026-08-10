@@ -176,7 +176,7 @@ export default function AccessPage() {
       if (res.ok) { sent++; if (res.demo) demo = true; }
     }
     setBusy(false);
-    toast(`${sent}/${invited.length} credential email${invited.length !== 1 ? "s" : ""} ${demo ? "simulated" : "sent"}.`, "success");
+    toast(`${sent}/${invited.length} credential email${invited.length !== 1 ? "s" : ""} ${demo ? "simulated" : "sent"}.`, sent > 0 ? "success" : "error");
   }
 
   // Reset the password for a member who's already signed in (their invite

@@ -90,6 +90,10 @@ export async function POST(req: Request) {
       if (!result.ok) {
         console.error("[auth/reset] Failed to send reset email:", result.error);
       }
+    } else {
+      // Response is always {ok:true} to avoid leaking which emails exist —
+      // log server-side so a "nothing arrived" report is still debuggable.
+      console.log(`[auth/reset] No account found for ${body.email} — reset email skipped.`);
     }
     return NextResponse.json({ ok: true });
   }
