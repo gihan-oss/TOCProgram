@@ -74,14 +74,22 @@ export async function POST(req: Request) {
       `SELECT email, name FROM users WHERE LOWER(email) = LOWER($1)`,
       [body.email],
     );
-    // Also send for static-allowlist users (admin domain) with no row yet.
+    // Also send for invited members (members table, e.g. still on their invite
+    // password with no users row yet) and static-allowlist users (admin domain).
+    const member = await queryOne<{ email: string }>(
+      `SELECT email FROM members WHERE LOWER(email) = LOWER($1)`,
+      [body.email],
+    );
     const staticAccess = resolveAccess(body.email);
-    if (user || staticAccess.allowed) {
+    if (user || member || staticAccess.allowed) {
       const token = createResetToken(user?.email ?? body.email);
       const origin = new URL(req.url).origin;
       const link = `${origin}/reset?token=${encodeURIComponent(token)}`;
       const { subject, html } = resetEmail({ name: user?.name, email: user?.email ?? body.email, resetUrl: link });
-      await sendEmailServer({ to: user?.email ?? body.email, subject, html }).catch(() => {});
+      const result = await sendEmailServer({ to: user?.email ?? body.email, subject, html });
+      if (!result.ok) {
+        console.error("[auth/reset] Failed to send reset email:", result.error);
+      }
     }
     return NextResponse.json({ ok: true });
   }
