@@ -46,6 +46,12 @@ class ProgramStore extends BaseStore<Program> {
   toRow = p2r;
   sortFn = (a: Program, b: Program) => a.name.localeCompare(b.name);
   idPrefix = "prog";
+
+  // Programs use the dedicated /api/programs route (not the generic
+  // /api/pm/[type] PM route, which doesn't allow "programs" as a type).
+  protected apiUrl(path: string = ""): string {
+    return `/api/programs${path}`;
+  }
 }
 const store = new ProgramStore();
 
