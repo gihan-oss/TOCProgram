@@ -15,5 +15,5 @@ jobs:
         run: |
           sshpass -p "${{ secrets.TOC_DEPLOY_PASSWORD }}" \
             ssh -o StrictHostKeyChecking=no \
-              toc-deploy@${{ secrets.LANDING_HOST }} \
+              toc-deploy@${{ secrets.TOC_HOST }} \
               "git stash && git checkout ${{ github.ref_name }} && git pull && docker compose down && docker compose up -d --build"
