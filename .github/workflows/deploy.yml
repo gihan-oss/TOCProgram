@@ -1,0 +1,19 @@
+name: Deploy to server
+
+on:
+  push:
+    branches: [migrate_to_server]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
+
+      - name: Deploy
+        run: |
+          sshpass -p "${{ secrets.TOC_DEPLOY_PASSWORD }}" \
+            ssh -o StrictHostKeyChecking=no \
+              toc-deploy@${{ secrets.LANDING_HOST }} \
+              "git stash && git checkout ${{ github.ref_name }} && git pull && docker compose down && docker compose up -d --build"
