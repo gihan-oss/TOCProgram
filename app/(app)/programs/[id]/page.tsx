@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import * as Icons from "lucide-react";
 import { Card, Badge, Stat, Progress, Button, EmptyHint } from "@/components/ui";
+import { ComboBox } from "@/components/combo-box";
 import { useToast } from "@/components/toast";
 import { useAuth } from "@/components/auth";
 import { useApp } from "@/components/providers";
@@ -13,7 +14,7 @@ import { loadPrograms } from "@/lib/programs-store";
 import {
   TASK_STATUS, TASK_STATUS_LABEL, TASK_PRIORITIES, TASK_PRIORITY_LABEL, countTasks,
   FINANCIAL_TYPE_LABEL, INDICATOR_LEVELS, INDICATOR_LEVEL_LABEL,
-  currentValue, progressPct, budgetTotal,
+  currentValue, progressPct, budgetTotal, INDICATOR_UNITS,
   type Task, type TaskStatus, type TaskPriority, type FinancialEntry, type FinancialType,
   type ProgramIndicator, type IndicatorLevel, type BudgetLine,
 } from "@/lib/pm-types";
@@ -21,7 +22,7 @@ import {
   listTasks, createTask, updateTask, deleteTask,
   listFinancials, createFinancial, updateFinancial, deleteFinancial,
   listIndicators, createIndicator, updateIndicator, deleteIndicator, addMeasurement,
-  listBudgetLines, saveBudgetLine, deleteBudgetLine,
+  listBudgetLines, saveBudgetLine, deleteBudgetLine, fetchSuggestions,
 } from "@/lib/pm-store";
 
 type Tab = "overview" | "financial" | "tasks" | "me";
@@ -104,6 +105,16 @@ function ProgramDetail() {
     })();
     return () => { alive = false; };
   }, [id]);
+
+  const [suggestions, setSuggestions] = useState<{ categories: string[]; assignees: string[] }>(
+    { categories: [], assignees: [] },
+  );
+  useEffect(() => {
+    fetchSuggestions().then(setSuggestions);
+  }, []);
+  function refreshSuggestions() {
+    fetchSuggestions().then(setSuggestions);
+  }
 
   const mine = (t: Task) => {
     const who = (t.assignee ?? "").trim().toLowerCase();
@@ -189,17 +200,19 @@ function ProgramDetail() {
             <FinancialTab programId={id} entries={financials} budget={budget} canManage={canManage}
               programBudget={programBudget} budgetSum={budgetSum} unassigned={unassigned}
               income={incomeTotal} expense={expenseTotal} cashflow={cashflow}
-              onAddEntry={async (i) => { const e = await createFinancial(i); setFinancials((p) => [e, ...p]); toast("Entry added"); }}
-              onEditEntry={async (e, patch) => { const n = await updateFinancial(e, patch); setFinancials((p) => p.map((x) => x.id === n.id ? n : x)); toast("Entry updated"); }}
+              categories={suggestions.categories}
+              onAddEntry={async (i) => { const e = await createFinancial(i); setFinancials((p) => [e, ...p]); refreshSuggestions(); toast("Entry added"); }}
+              onEditEntry={async (e, patch) => { const n = await updateFinancial(e, patch); setFinancials((p) => p.map((x) => x.id === n.id ? n : x)); refreshSuggestions(); toast("Entry updated"); }}
               onDeleteEntry={async (e) => { if (!window.confirm("Delete this entry?")) return; await deleteFinancial(e); setFinancials((p) => p.filter((x) => x.id !== e.id)); toast("Entry deleted"); }}
-              onSaveLine={async (l) => { const n = await saveBudgetLine(l); setBudget((p) => p.some((x) => x.id === n.id) ? p.map((x) => x.id === n.id ? n : x) : [...p, n]); toast("Budget saved"); }}
+              onSaveLine={async (l) => { const n = await saveBudgetLine(l); setBudget((p) => p.some((x) => x.id === n.id) ? p.map((x) => x.id === n.id ? n : x) : [...p, n]); refreshSuggestions(); toast("Budget saved"); }}
               onDeleteLine={async (l) => { if (!window.confirm("Delete this budget line?")) return; await deleteBudgetLine(l); setBudget((p) => p.filter((x) => x.id !== l.id)); toast("Budget line removed"); }}
             />
           )}
           {tab === "tasks" && (
             <TasksTab programId={id} tasks={tasks} counts={counts} canManage={canManage} isParticipant={isParticipant} mine={mine}
-              onCreate={async (i) => { const t = await createTask(i); setTasks((p) => [t, ...p]); toast("Task added"); }}
-              onUpdate={async (t, patch) => { const n = await updateTask(t, patch); setTasks((p) => p.map((x) => x.id === n.id ? n : x)); }}
+              assignees={suggestions.assignees}
+              onCreate={async (i) => { const t = await createTask(i); setTasks((p) => [t, ...p]); refreshSuggestions(); toast("Task added"); }}
+              onUpdate={async (t, patch) => { const n = await updateTask(t, patch); setTasks((p) => p.map((x) => x.id === n.id ? n : x)); refreshSuggestions(); }}
               onDelete={async (t) => { if (!window.confirm("Delete this task?")) return; await deleteTask(t); setTasks((p) => p.filter((x) => x.id !== t.id)); toast("Task deleted"); }}
             />
           )}
@@ -266,10 +279,11 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
 // ===========================================================================
 // FINANCIAL — Budget model B (lines by category) + ledger
 // ===========================================================================
-function FinancialTab({ programId, entries, budget, canManage, programBudget, budgetSum, unassigned, income, expense, cashflow, onAddEntry, onEditEntry, onDeleteEntry, onSaveLine, onDeleteLine }: {
+function FinancialTab({ programId, entries, budget, canManage, programBudget, budgetSum, unassigned, income, expense, cashflow, categories, onAddEntry, onEditEntry, onDeleteEntry, onSaveLine, onDeleteLine }: {
   programId: string; entries: FinancialEntry[]; budget: BudgetLine[]; canManage: boolean;
   programBudget: number; budgetSum: number; unassigned: number;
   income: number; expense: number; cashflow: number;
+  categories: string[];
   onAddEntry: (i: Omit<FinancialEntry, "id" | "createdAt">) => Promise<void>;
   onEditEntry: (e: FinancialEntry, patch: Partial<FinancialEntry>) => Promise<void>;
   onDeleteEntry: (e: FinancialEntry) => Promise<void>;
@@ -398,7 +412,7 @@ function FinancialTab({ programId, entries, budget, canManage, programBudget, bu
         ) : <EmptyHint>No budget lines yet.{canManage ? " Add categories below." : ""}</EmptyHint>}
         {canManage && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <input className={inputCls} placeholder="Category (e.g. Travel)" value={bCat} onChange={(e) => setBCat(e.target.value)} />
+            <ComboBox options={categories} value={bCat} onChange={setBCat} placeholder="Pick or type a category…" />
             <input className={inputCls} placeholder="Description" value={bDesc} onChange={(e) => setBDesc(e.target.value)} />
             <input className={inputCls} type="number" step="any" placeholder="Amount" value={bAmt} onChange={(e) => setBAmt(e.target.value)} />
             <div className="flex gap-2">
@@ -441,7 +455,7 @@ function FinancialTab({ programId, entries, budget, canManage, programBudget, bu
               <thead><tr className="text-left text-xs uppercase text-muted-foreground"><th className="py-2">Type</th><th className="py-2 text-right">Amount</th><th className="py-2">Description</th><th className="py-2">Category</th><th className="py-2">Date</th><th /></tr></thead>
               <tbody className="divide-y">
                 {entries.map((e) => editEntry?.id === e.id ? (
-                  <EntryEditRow key={e.id} entry={e} onCancel={() => setEditEntry(null)} onSave={async (patch) => { await onEditEntry(e, patch); setEditEntry(null); }} />
+                  <EntryEditRow key={e.id} entry={e} categories={categories} onCancel={() => setEditEntry(null)} onSave={async (patch) => { await onEditEntry(e, patch); setEditEntry(null); }} />
                 ) : (
                   <tr key={e.id}>
                     <td className="py-2"><Badge tone={e.type === "expense" ? "warning" : e.type === "income" ? "success" : "muted"}>{FINANCIAL_TYPE_LABEL[e.type]}</Badge></td>
@@ -465,23 +479,24 @@ function FinancialTab({ programId, entries, budget, canManage, programBudget, bu
         )}
         {canManage && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <select className={inputCls} value={type} onChange={(e) => setType(e.target.value as FinancialType)}>
+            <select className={`${inputCls} combo-input`} value={type} onChange={(e) => setType(e.target.value as FinancialType)}>
               <option value="expense">Expense</option>
               <option value="income">Income</option>
             </select>
             <input className={inputCls} type="number" step="any" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
             <input className={`${inputCls} lg:col-span-2`} placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
-            <input className={inputCls} placeholder="Category" value={cat} onChange={(e) => setCat(e.target.value)} />
+            <ComboBox options={categories} value={cat} onChange={setCat} placeholder="Pick or type a category…" />
             <input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="lg:col-span-6"><Button size="sm" onClick={submitEntry} disabled={!amount}><Icons.Plus className="h-4 w-4" /> Add transaction</Button></div>
           </div>
         )}
       </Card>
+
     </div>
   );
 }
 
-function EntryEditRow({ entry, onCancel, onSave }: { entry: FinancialEntry; onCancel: () => void; onSave: (patch: Partial<FinancialEntry>) => Promise<void> }) {
+function EntryEditRow({ entry, categories, onCancel, onSave }: { entry: FinancialEntry; categories: string[]; onCancel: () => void; onSave: (patch: Partial<FinancialEntry>) => Promise<void> }) {
   const [type, setType] = useState<FinancialType>(entry.type);
   const [amount, setAmount] = useState(String(entry.amount));
   const [desc, setDesc] = useState(entry.description ?? "");
@@ -489,10 +504,10 @@ function EntryEditRow({ entry, onCancel, onSave }: { entry: FinancialEntry; onCa
   const [date, setDate] = useState(entry.date ?? "");
   return (
     <tr className="bg-secondary/40">
-      <td className="py-1"><select className={inputCls} value={type} onChange={(e) => setType(e.target.value as FinancialType)}><option value="expense">Expense</option><option value="income">Income</option><option value="budget">Budget</option></select></td>
+      <td className="py-1"><select className={`${inputCls} combo-input`} value={type} onChange={(e) => setType(e.target.value as FinancialType)}><option value="expense">Expense</option><option value="income">Income</option><option value="budget">Budget</option></select></td>
       <td className="py-1"><input className={inputCls} type="number" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} /></td>
       <td className="py-1"><input className={inputCls} value={desc} onChange={(e) => setDesc(e.target.value)} /></td>
-      <td className="py-1"><input className={inputCls} value={cat} onChange={(e) => setCat(e.target.value)} /></td>
+      <td className="py-1"><ComboBox options={categories} value={cat} onChange={setCat} placeholder="Category" /></td>
       <td className="py-1"><input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} /></td>
       <td className="py-1 text-right"><span className="inline-flex gap-1">
         <button onClick={() => onSave({ type, amount: Number(amount), description: desc || undefined, category: cat || undefined, date })} className="rounded-md p-1 text-[hsl(var(--success))] hover:bg-secondary" aria-label="Save"><Icons.Check className="h-4 w-4" /></button>
@@ -505,9 +520,10 @@ function EntryEditRow({ entry, onCancel, onSave }: { entry: FinancialEntry; onCa
 // ===========================================================================
 // TASKS — with priority + full edit
 // ===========================================================================
-function TasksTab({ programId, tasks, counts, canManage, isParticipant, mine, onCreate, onUpdate, onDelete }: {
+function TasksTab({ programId, tasks, counts, canManage, isParticipant, mine, assignees, onCreate, onUpdate, onDelete }: {
   programId: string; tasks: Task[]; counts: ReturnType<typeof countTasks>; canManage: boolean; isParticipant: boolean;
   mine: (t: Task) => boolean;
+  assignees: string[];
   onCreate: (i: Omit<Task, "id" | "createdAt" | "completedAt">) => Promise<void>;
   onUpdate: (t: Task, patch: Partial<Task>) => Promise<void>;
   onDelete: (t: Task) => Promise<void>;
@@ -557,8 +573,8 @@ function TasksTab({ programId, tasks, counts, canManage, isParticipant, mine, on
           <h3 className="mb-3 font-semibold">Add a task</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <input className={`${inputCls} lg:col-span-2`} placeholder="Task title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <input className={inputCls} placeholder="Assignee (name or email)" value={assignee} onChange={(e) => setAssignee(e.target.value)} />
-            <select className={inputCls} value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>
+            <ComboBox options={assignees} value={assignee} onChange={setAssignee} placeholder="Pick or type a name or email…" />
+            <select className={`${inputCls} combo-input`} value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>
               {TASK_PRIORITIES.map((p) => <option key={p} value={p}>{TASK_PRIORITY_LABEL[p]}</option>)}
             </select>
             <input className={inputCls} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -572,7 +588,7 @@ function TasksTab({ programId, tasks, counts, canManage, isParticipant, mine, on
         {shown.length === 0 ? <EmptyHint>{isParticipant ? "No tasks assigned to you on this program." : "No tasks yet."}</EmptyHint> : (
           <div className="space-y-2">
             {shown.map((t) => editId === t.id && canManage ? (
-              <TaskEditRow key={t.id} task={t} onCancel={() => setEditId(null)} onSave={async (patch) => { await onUpdate(t, patch); setEditId(null); }} />
+              <TaskEditRow key={t.id} task={t} assignees={assignees} onCancel={() => setEditId(null)} onSave={async (patch) => { await onUpdate(t, patch); setEditId(null); }} />
             ) : (
               <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3">
                 <div className="min-w-0">
@@ -597,11 +613,12 @@ function TasksTab({ programId, tasks, counts, canManage, isParticipant, mine, on
           </div>
         )}
       </Card>
+
     </div>
   );
 }
 
-function TaskEditRow({ task, onCancel, onSave }: { task: Task; onCancel: () => void; onSave: (patch: Partial<Task>) => Promise<void> }) {
+function TaskEditRow({ task, assignees, onCancel, onSave }: { task: Task; assignees: string[]; onCancel: () => void; onSave: (patch: Partial<Task>) => Promise<void> }) {
   const [title, setTitle] = useState(task.title);
   const [assignee, setAssignee] = useState(task.assignee ?? "");
   const [dueDate, setDueDate] = useState(task.dueDate ?? "");
@@ -612,10 +629,10 @@ function TaskEditRow({ task, onCancel, onSave }: { task: Task; onCancel: () => v
     <div className="rounded-lg border bg-secondary/40 p-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <input className={`${inputCls} lg:col-span-2`} placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input className={inputCls} placeholder="Assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} />
-        <select className={inputCls} value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>{TASK_PRIORITIES.map((p) => <option key={p} value={p}>{TASK_PRIORITY_LABEL[p]}</option>)}</select>
+        <ComboBox options={assignees} value={assignee} onChange={setAssignee} placeholder="Pick or type a name…" />
+        <select className={`${inputCls} combo-input`} value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>{TASK_PRIORITIES.map((p) => <option key={p} value={p}>{TASK_PRIORITY_LABEL[p]}</option>)}</select>
         <input className={inputCls} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-        <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>{TASK_STATUS.map((s) => <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>)}</select>
+        <select className={`${inputCls} combo-input`} value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>{TASK_STATUS.map((s) => <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>)}</select>
         <input className={`${inputCls} lg:col-span-4`} placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="mt-3 flex gap-2">
@@ -657,8 +674,8 @@ function MeTab({ programId, indicators, canManage, onCreate, onUpdate, onDelete,
         <Card className="p-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <input className={`${inputCls} lg:col-span-2`} placeholder="Indicator name" value={name} onChange={(e) => setName(e.target.value)} />
-            <select className={inputCls} value={level} onChange={(e) => setLevel(e.target.value as IndicatorLevel)}>{INDICATOR_LEVELS.map((l) => <option key={l} value={l}>{INDICATOR_LEVEL_LABEL[l]}</option>)}</select>
-            <input className={inputCls} placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+            <select className={`${inputCls} combo-input`} value={level} onChange={(e) => setLevel(e.target.value as IndicatorLevel)}>{INDICATOR_LEVELS.map((l) => <option key={l} value={l}>{INDICATOR_LEVEL_LABEL[l]}</option>)}</select>
+            <ComboBox options={INDICATOR_UNITS as unknown as string[]} value={unit} onChange={setUnit} placeholder="Pick or type a unit…" />
             <div className="flex gap-2">
               <input className={inputCls} type="number" step="any" placeholder="Baseline" value={baseline} onChange={(e) => setBaseline(e.target.value)} />
               <input className={inputCls} type="number" step="any" placeholder="Target" value={target} onChange={(e) => setTarget(e.target.value)} />
@@ -680,6 +697,7 @@ function MeTab({ programId, indicators, canManage, onCreate, onUpdate, onDelete,
           );
         })
       )}
+
     </div>
   );
 }
@@ -716,8 +734,8 @@ function IndicatorRow({ ind, canManage, onUpdate, onDelete, onMeasure }: {
       <Card className="p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <input className={`${inputCls} lg:col-span-2`} value={name} onChange={(e) => setName(e.target.value)} />
-          <select className={inputCls} value={level} onChange={(e) => setLevel(e.target.value as IndicatorLevel)}>{INDICATOR_LEVELS.map((l) => <option key={l} value={l}>{INDICATOR_LEVEL_LABEL[l]}</option>)}</select>
-          <input className={inputCls} placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+          <select className={`${inputCls} combo-input`} value={level} onChange={(e) => setLevel(e.target.value as IndicatorLevel)}>{INDICATOR_LEVELS.map((l) => <option key={l} value={l}>{INDICATOR_LEVEL_LABEL[l]}</option>)}</select>
+          <ComboBox options={INDICATOR_UNITS as unknown as string[]} value={unit} onChange={setUnit} placeholder="Pick or type a unit…" />
           <div className="flex gap-2"><input className={inputCls} type="number" step="any" value={baseline} onChange={(e) => setBaseline(e.target.value)} /><input className={inputCls} type="number" step="any" value={target} onChange={(e) => setTarget(e.target.value)} /></div>
         </div>
         <div className="mt-3 flex gap-2"><Button size="sm" onClick={saveEdit} disabled={!name.trim()}>Save</Button><Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button></div>

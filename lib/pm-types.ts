@@ -128,3 +128,11 @@ export function varianceByCategory(lines: BudgetLine[]): { category: string; amo
   for (const l of lines) map.set(l.category, (map.get(l.category) ?? 0) + l.amount);
   return Array.from(map.entries()).map(([category, amount]) => ({ category, amount }));
 }
+
+// ---- Combo-box suggestion pools ---------------------------------------------
+// Shared across all programs — used by <datalist> elements in the detail page.
+
+export const INDICATOR_UNITS = [
+  "%", "Count", "USD", "Hours", "Participants", "Score",
+  "Ratio", "Days", "Sessions", "People", "Dollars",
+] as const;

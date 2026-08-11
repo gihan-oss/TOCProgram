@@ -204,3 +204,16 @@ export const deleteIndicator = indStore.delete.bind(indStore);
 // Budget lines
 export const listBudgetLines = budgetStore.list.bind(budgetStore);
 export const deleteBudgetLine = budgetStore.delete.bind(budgetStore);
+
+// ---- Combo-box suggestions (cross-program) ---------------------------------
+import { apiFetch } from "./api-fetch";
+
+export async function fetchSuggestions(): Promise<{
+  categories: string[]; assignees: string[];
+}> {
+  try {
+    const res = await apiFetch("/api/pm/suggestions");
+    if (res.ok) return await res.json();
+  } catch {}
+  return { categories: [], assignees: [] };
+}

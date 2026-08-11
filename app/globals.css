@@ -119,6 +119,25 @@ body {
   0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; }
   100% { transform: translateY(108vh) rotate(720deg); opacity: 0.85; }
 }
+
+/* Combo-box / select — unified dropdown look with custom SVG chevron.
+   Strips the browser's native arrow (black triangle) and replaces it
+   with the same muted-purple chevron everywhere. */
+.combo-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237373a0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  padding-right: 2rem;
+}
+.combo-input::-ms-expand {
+  display: none;
+}
+.dark .combo-input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239494b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
 @keyframes pop-in {
   0% { transform: scale(0.4); opacity: 0; }
   60% { transform: scale(1.12); opacity: 1; }
