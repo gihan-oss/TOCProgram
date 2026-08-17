@@ -28,7 +28,9 @@ async function brevoVerifiedSenders(key: string): Promise<{ name: string; email:
   }
 }
 
-async function brevoSend(key: string, sender: { name: string; email: string }, to: string, subject: string, html: string, replyTo?: { email: string; name?: string }) {
+type Attachment = { name: string; content: string }; // content = base64 (no data: prefix)
+
+async function brevoSend(key: string, sender: { name: string; email: string }, to: string, subject: string, html: string, replyTo?: { email: string; name?: string }, attachments?: Attachment[]) {
   return fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": key, "Content-Type": "application/json", accept: "application/json" },
@@ -38,6 +40,7 @@ async function brevoSend(key: string, sender: { name: string; email: string }, t
       subject,
       htmlContent: html,
       ...(replyTo ? { replyTo } : {}),
+      ...(attachments && attachments.length ? { attachment: attachments } : {}),
     }),
   });
 }
@@ -69,14 +72,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  let payload: { to?: string; subject?: string; html?: string; replyTo?: string; replyToName?: string; fromName?: string };
+  let payload: { to?: string; subject?: string; html?: string; replyTo?: string; replyToName?: string; fromName?: string; attachments?: Attachment[] };
   try {
     payload = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { to, subject, html, replyTo, replyToName, fromName } = payload;
+  const { to, subject, html, replyTo, replyToName, fromName, attachments } = payload;
   if (!to || !subject || !html) {
     return NextResponse.json({ ok: false, error: "Missing to/subject/html" }, { status: 400 });
   }
@@ -90,23 +93,25 @@ export async function POST(req: Request) {
   const from = { name: fromName || envFrom.name, email: envFrom.email };
   const replyToObj = replyTo ? { email: replyTo, ...(replyToName ? { name: replyToName } : {}) } : undefined;
 
-  // ---- Brevo (preferred, self-healing sender) ----
+  // ---- Brevo (preferred) ----
   if (brevoKey) {
-    let res = await brevoSend(brevoKey, from, to, subject, html, replyToObj);
-    if (res.ok) return NextResponse.json({ ok: true, provider: "brevo" });
-
-    const firstErr = (await res.text()).slice(0, 200);
-
-    // Likely an unverified sender — fall back to a verified one and retry once.
+    // Resolve to an AUTHORIZED sender BEFORE sending. Brevo accepts a send over
+    // the API (HTTP 201 -> res.ok) from an address that isn't an authorized
+    // sender, then blocks delivery downstream ("Blocked – unauthorized"). So we
+    // check the account's authorized senders first and, if EMAIL_FROM isn't one,
+    // send from the first authorized sender (keeping the display name).
     const verified = await brevoVerifiedSenders(brevoKey);
-    if (verified.length > 0 && verified[0].email.toLowerCase() !== from.email.toLowerCase()) {
-      res = await brevoSend(brevoKey, { name: from.name, email: verified[0].email }, to, subject, html, replyToObj);
-      if (res.ok) return NextResponse.json({ ok: true, provider: "brevo", usedSender: verified[0].email, healed: true });
+    if (verified.length === 0) {
+      console.error("[email] Brevo error: no authorized senders");
+      return NextResponse.json({ ok: false, error: "Brevo: no authorized senders — add & verify one" }, { status: 502 });
     }
-
-    const detail = verified.length === 0
-      ? "no verified senders in Brevo — add & verify one"
-      : firstErr;
+    const fromAuthorized = verified.some((v) => v.email.toLowerCase() === from.email.toLowerCase());
+    const sender = fromAuthorized ? from : { name: from.name, email: verified[0].email };
+    const res = await brevoSend(brevoKey, sender, to, subject, html, replyToObj, attachments);
+    if (res.ok) {
+      return NextResponse.json({ ok: true, provider: "brevo", usedSender: sender.email, healed: sender.email.toLowerCase() !== from.email.toLowerCase() });
+    }
+    const detail = (await res.text()).slice(0, 200);
     console.error("[email] Brevo error:", detail);
     return NextResponse.json({ ok: false, error: `Brevo: ${detail}`.slice(0, 280) }, { status: 502 });
   }
