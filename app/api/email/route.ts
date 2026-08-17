@@ -28,7 +28,9 @@ async function brevoVerifiedSenders(key: string): Promise<{ name: string; email:
   }
 }
 
-async function brevoSend(key: string, sender: { name: string; email: string }, to: string, subject: string, html: string, replyTo?: { email: string; name?: string }) {
+export type Attachment = { name: string; content: string }; // content = base64 (no data: prefix)
+
+async function brevoSend(key: string, sender: { name: string; email: string }, to: string, subject: string, html: string, replyTo?: { email: string; name?: string }, attachments?: Attachment[]) {
   return fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": key, "Content-Type": "application/json", accept: "application/json" },
@@ -38,6 +40,7 @@ async function brevoSend(key: string, sender: { name: string; email: string }, t
       subject,
       htmlContent: html,
       ...(replyTo ? { replyTo } : {}),
+      ...(attachments && attachments.length ? { attachment: attachments } : {}),
     }),
   });
 }
@@ -69,14 +72,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  let payload: { to?: string; subject?: string; html?: string; replyTo?: string; replyToName?: string; fromName?: string };
+  let payload: { to?: string; subject?: string; html?: string; replyTo?: string; replyToName?: string; fromName?: string; attachments?: Attachment[] };
   try {
     payload = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { to, subject, html, replyTo, replyToName, fromName } = payload;
+  const { to, subject, html, replyTo, replyToName, fromName, attachments } = payload;
   if (!to || !subject || !html) {
     return NextResponse.json({ ok: false, error: "Missing to/subject/html" }, { status: 400 });
   }
@@ -92,7 +95,7 @@ export async function POST(req: Request) {
 
   // ---- Brevo (preferred, self-healing sender) ----
   if (brevoKey) {
-    let res = await brevoSend(brevoKey, from, to, subject, html, replyToObj);
+    let res = await brevoSend(brevoKey, from, to, subject, html, replyToObj, attachments);
     if (res.ok) return NextResponse.json({ ok: true, provider: "brevo" });
 
     const firstErr = (await res.text()).slice(0, 200);
@@ -100,7 +103,7 @@ export async function POST(req: Request) {
     // Likely an unverified sender — fall back to a verified one and retry once.
     const verified = await brevoVerifiedSenders(brevoKey);
     if (verified.length > 0 && verified[0].email.toLowerCase() !== from.email.toLowerCase()) {
-      res = await brevoSend(brevoKey, { name: from.name, email: verified[0].email }, to, subject, html, replyToObj);
+      res = await brevoSend(brevoKey, { name: from.name, email: verified[0].email }, to, subject, html, replyToObj, attachments);
       if (res.ok) return NextResponse.json({ ok: true, provider: "brevo", usedSender: verified[0].email, healed: true });
     }
 
