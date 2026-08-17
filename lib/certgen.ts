@@ -86,8 +86,10 @@ export async function renderCertificateImages({ name, date, cohort }: CertInput)
     try { (ctx as unknown as { letterSpacing: string }).letterSpacing = "0px"; } catch { /* noop */ }
   };
 
-  line("MAS  GREATER LOS ANGELES", 118, "800 15px Montserrat, Arial", BLUE, 6);
-  line("THEORY OF CHANGE PROGRAM  ·  IN PARTNERSHIP WITH AMAL & COMPANY", 146, "600 11px Montserrat, Arial", "#8a97a6", 3);
+  const logo = await loadImage("/mas-gla-logo.png");
+  if (logo) { const lh = 56, lw = (logo.width / logo.height) * lh; ctx.drawImage(logo, W / 2 - lw / 2, 66, lw, lh); }
+  else line("MAS  GREATER LOS ANGELES", 118, "800 15px Montserrat, Arial", BLUE, 6);
+  line("THEORY OF CHANGE PROGRAM  ·  IN PARTNERSHIP WITH AMAL & COMPANY", 150, "600 11px Montserrat, Arial", "#8a97a6", 3);
   line("CERTIFICATE OF COMPLETION", 226, "700 15px Montserrat, Arial", NAVY, 9);
   ctx.strokeStyle = GOLD; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(W / 2 - 35, 250); ctx.lineTo(W / 2 + 35, 250); ctx.stroke();
   line("This certificate is proudly presented to", 320, "400 15px Montserrat, Arial", GREY, 1);
