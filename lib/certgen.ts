@@ -23,14 +23,15 @@ function ensureFonts(): Promise<void> {
       ["Montserrat", "/fonts/Montserrat-Bold.ttf", "700"],
       ["Montserrat", "/fonts/Montserrat-ExtraBold.ttf", "800"],
     ];
+    const FF = (globalThis as unknown as { FontFace?: new (f: string, s: string, d?: { weight?: string }) => { load: () => Promise<unknown> } }).FontFace;
+    const fontset = (document as unknown as { fonts?: { add: (f: unknown) => void } }).fonts;
+    if (!FF || !fontset) return;
     await Promise.all(
       defs.map(async ([fam, url, weight]) => {
         try {
-          // @ts-expect-error FontFace is a browser global
-          const f = new FontFace(fam, `url(${url})`, { weight });
+          const f = new FF(fam, `url(${url})`, { weight });
           await f.load();
-          // @ts-expect-error document.fonts
-          document.fonts.add(f);
+          fontset.add(f);
         } catch {
           /* fall back to system font */
         }

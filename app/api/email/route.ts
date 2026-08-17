@@ -28,7 +28,7 @@ async function brevoVerifiedSenders(key: string): Promise<{ name: string; email:
   }
 }
 
-export type Attachment = { name: string; content: string }; // content = base64 (no data: prefix)
+type Attachment = { name: string; content: string }; // content = base64 (no data: prefix)
 
 async function brevoSend(key: string, sender: { name: string; email: string }, to: string, subject: string, html: string, replyTo?: { email: string; name?: string }, attachments?: Attachment[]) {
   return fetch("https://api.brevo.com/v3/smtp/email", {
